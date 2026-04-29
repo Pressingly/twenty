@@ -1720,15 +1720,6 @@ export class ConfigVariables {
   })
   @IsOptional()
   ASKII_WORKSPACE_SUBDOMAIN = 'askii';
-
-  @ConfigVariablesMetadata({
-    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
-    description:
-      'Top-level oauth2-proxy sign-out URL the SPA navigates to on logout when SSO is enabled.',
-    type: ConfigVariableType.STRING,
-  })
-  @IsOptional()
-  MPASS_SIGNOUT_URL = '';
 }
 
 export const validate = (config: Record<string, unknown>): ConfigVariables => {

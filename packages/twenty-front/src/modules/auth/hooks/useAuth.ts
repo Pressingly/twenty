@@ -483,9 +483,17 @@ export const useAuth = () => {
     if (isCaptchaScriptLoaded) await requestFreshCaptchaToken();
 
     if (isSsoEnabled) {
+      // 1-layer logout: clear local session (above) and navigate to the
+      // portal host. The other apps in the foss-server-bundle-devstack
+      // (Plane / Outline / Penpot / SurfSense) all settled on this shape
+      // — the oauth2-proxy /sign_out hop was dropped on 2026-04-17 because
+      // Cognito hosted /logout isn't available on this app client and the
+      // intermediate hop without it produced a visibly broken redirect
+      // flow. Same hostname regex everyone else uses: rewrite the first
+      // DNS label (foss-twenty.X -> foss.X).
       const portalHost = window.location.hostname.replace(/^[^.]*\./, 'foss.');
 
-      window.location.href = `${window.location.protocol}//${portalHost}/oauth2/sign_out`;
+      window.location.href = `${window.location.protocol}//${portalHost}/`;
     }
   }, [
     clearSession,

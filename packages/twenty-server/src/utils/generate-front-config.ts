@@ -13,7 +13,6 @@ export function generateFrontConfig(): void {
       _env_: {
         REACT_APP_SERVER_BASE_URL: process.env.SERVER_URL,
         AUTH_TYPE: process.env.AUTH_TYPE ?? '',
-        MPASS_SIGNOUT_URL: process.env.MPASS_SIGNOUT_URL ?? '',
       },
     },
   };
