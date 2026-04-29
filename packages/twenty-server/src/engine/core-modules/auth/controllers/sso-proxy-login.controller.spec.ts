@@ -3,7 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { SsoProxyLoginController } from 'src/engine/core-modules/auth/controllers/sso-proxy-login.controller';
 
 type ConfigKey =
-  | 'IS_SSO_ENABLED'
+  | 'AUTH_TYPE'
   | 'DEFAULT_EMAIL_DOMAIN'
   | 'ACCESS_TOKEN_EXPIRES_IN';
 
@@ -11,7 +11,7 @@ const buildController = (
   configOverrides?: Partial<Record<ConfigKey, unknown>>,
 ) => {
   const config: Record<ConfigKey, unknown> = {
-    IS_SSO_ENABLED: true,
+    AUTH_TYPE: 'SSO',
     DEFAULT_EMAIL_DOMAIN: 'askii.ai',
     ACCESS_TOKEN_EXPIRES_IN: '30m',
     ...configOverrides,
@@ -64,8 +64,16 @@ const buildController = (
 };
 
 describe('SsoProxyLoginController', () => {
-  it('should 404 when IS_SSO_ENABLED is false', async () => {
-    const { controller, res } = buildController({ IS_SSO_ENABLED: false });
+  it('should 404 when AUTH_TYPE is not "SSO"', async () => {
+    const { controller, res } = buildController({ AUTH_TYPE: '' });
+
+    await expect(
+      controller.proxyLogin({ headers: {} } as any, res),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should 404 when AUTH_TYPE is some other non-SSO value', async () => {
+    const { controller, res } = buildController({ AUTH_TYPE: 'PASSWORD' });
 
     await expect(
       controller.proxyLogin({ headers: {} } as any, res),

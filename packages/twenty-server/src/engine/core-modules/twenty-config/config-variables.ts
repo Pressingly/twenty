@@ -1697,11 +1697,11 @@ export class ConfigVariables {
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
-      'When true, the SSO ForwardAuth proxy-login endpoint is active and the SPA hides local auth UI.',
-    type: ConfigVariableType.BOOLEAN,
+      'Set to "SSO" to enable the ForwardAuth proxy-login endpoint and hide local auth UI in the SPA. Matches the AUTH_TYPE convention used by the other apps in foss-server-bundle-devstack (Plane / Outline / Penpot / SurfSense).',
+    type: ConfigVariableType.STRING,
   })
   @IsOptional()
-  IS_SSO_ENABLED = false;
+  AUTH_TYPE = '';
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,

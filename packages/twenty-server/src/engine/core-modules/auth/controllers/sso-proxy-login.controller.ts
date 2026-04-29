@@ -40,7 +40,7 @@ export class SsoProxyLoginController {
   @Get('proxy-login')
   @UseGuards(PublicEndpointGuard, NoPermissionGuard)
   async proxyLogin(@Req() req: Request, @Res() res: Response) {
-    if (!this.twentyConfigService.get('IS_SSO_ENABLED')) {
+    if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
       throw new NotFoundException();
     }
 
