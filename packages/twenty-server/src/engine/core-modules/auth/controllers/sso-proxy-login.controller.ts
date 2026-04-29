@@ -37,6 +37,20 @@ export class SsoProxyLoginController {
     private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
+  // SECURITY — the trust chain for X-Auth-Request-Email / X-Auth-Request-User:
+  //   1. The Twenty container exposes :3000 only on the docker network — it
+  //      is not published to the host. Only Traefik can reach it from
+  //      outside the cluster.
+  //   2. Traefik's `twenty-secure` router applies the `strip-auth-headers`
+  //      middleware BEFORE `mpass-auth`. Inbound `X-Auth-Request-*` headers
+  //      from a browser are deleted at the edge.
+  //   3. `mpass-auth` (oauth2-proxy ForwardAuth) re-injects the headers
+  //      from the validated SSO session.
+  // Removing any link of this chain — exposing :3000, dropping
+  // `strip-auth-headers`, or reordering the middleware — makes this endpoint
+  // an authentication-bypass primitive. Every change to the Traefik labels
+  // for `twenty-secure` MUST preserve this ordering. See
+  // foss-server-bundle-devstack/docs/app-rules.md.
   @Get('proxy-login')
   @UseGuards(PublicEndpointGuard, NoPermissionGuard)
   async proxyLogin(@Req() req: Request, @Res() res: Response) {
@@ -105,6 +119,14 @@ export class SsoProxyLoginController {
 
     const domain = this.twentyConfigService.get('DEFAULT_EMAIL_DOMAIN');
 
+    if (!domain) {
+      this.logger.warn(
+        'X-Auth-Request-User contains a bare username but DEFAULT_EMAIL_DOMAIN is not configured.',
+      );
+
+      return null;
+    }
+
     return `${candidate.toLowerCase()}@${domain}`;
   }
 
@@ -123,15 +145,25 @@ export class SsoProxyLoginController {
       refreshToken: { token: string; expiresAt: string };
     },
   ) {
-    const accessExpiry = this.twentyConfigService.get(
-      'ACCESS_TOKEN_EXPIRES_IN',
+    // Cookie lifetime tracks the refresh token, not the access token.
+    // The cookie carries both: if it expired with the access token, the
+    // browser would drop the refresh token alongside and force a full
+    // re-auth instead of a silent refresh.
+    const refreshExpiry = this.twentyConfigService.get(
+      'REFRESH_TOKEN_EXPIRES_IN',
     );
-    const maxAgeMs = ms(accessExpiry);
+    const maxAgeMs = ms(refreshExpiry);
+
+    // Match the rest of Twenty's cookie config (e.g. session): only set
+    // the Secure flag when SERVER_URL itself is https. Hardcoding `true`
+    // would block local http:// dev setups from storing the cookie.
+    const serverUrl = this.twentyConfigService.get('SERVER_URL') ?? '';
+    const isSecure = serverUrl.startsWith('https');
 
     res.cookie(TOKEN_PAIR_COOKIE_NAME, JSON.stringify(payload), {
       path: '/',
       sameSite: 'lax',
-      secure: true,
+      secure: isSecure,
       httpOnly: false,
       maxAge: maxAgeMs,
     });

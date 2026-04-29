@@ -1706,20 +1706,20 @@ export class ConfigVariables {
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
-      'Domain appended to bare-username SSO identities (e.g. "user" -> "user@askii.ai") when X-Auth-Request-Email lacks an @-sign.',
+      'Domain appended to bare-username SSO identities (e.g. "user" -> "user@<domain>") when X-Auth-Request-Email lacks an @-sign. Required when AUTH_TYPE=SSO; no default to avoid binding to a single deployment.',
     type: ConfigVariableType.STRING,
   })
   @IsOptional()
-  DEFAULT_EMAIL_DOMAIN = 'askii.ai';
+  DEFAULT_EMAIL_DOMAIN = '';
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
-      'Subdomain of the shared workspace SSO users join on first login.',
+      'Subdomain of the shared workspace SSO users join on first login. Required when AUTH_TYPE=SSO; no default to avoid binding to a single deployment.',
     type: ConfigVariableType.STRING,
   })
   @IsOptional()
-  ASKII_WORKSPACE_SUBDOMAIN = 'askii';
+  ASKII_WORKSPACE_SUBDOMAIN = '';
 }
 
 export const validate = (config: Record<string, unknown>): ConfigVariables => {

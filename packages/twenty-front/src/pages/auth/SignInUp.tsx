@@ -30,6 +30,7 @@ import { SignInUpTwoFactorAuthenticationProvision } from '@/auth/sign-in-up/comp
 import { SignInUpTOTPVerification } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationVerification';
 import { useWorkspaceFromInviteHash } from '@/auth/sign-in-up/hooks/useWorkspaceFromInviteHash';
 import { clientConfigApiStatusState } from '@/client-config/states/clientConfigApiStatusState';
+import { REACT_APP_SERVER_BASE_URL } from '~/config';
 import { ModalContent } from 'twenty-ui/layout';
 import { useLingui } from '@lingui/react/macro';
 import { useSearchParams } from 'react-router-dom';
@@ -90,7 +91,13 @@ export const SignInUp = () => {
 
   useEffect(() => {
     if (isSsoEnabled) {
-      window.location.replace('/auth/sso/proxy-login');
+      // Use the API origin so the redirect still works when the SPA is
+      // served separately from the backend. In the unified-image setup
+      // both share an origin and the absolute URL collapses to the same
+      // path; in split-deploy mode it correctly hits the API.
+      window.location.replace(
+        `${REACT_APP_SERVER_BASE_URL}/auth/sso/proxy-login`,
+      );
     }
   }, [isSsoEnabled]);
 

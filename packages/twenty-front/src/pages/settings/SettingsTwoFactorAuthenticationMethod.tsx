@@ -3,6 +3,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 import { FormProvider } from 'react-hook-form';
 import QRCode from 'react-qr-code';
 
+import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { qrCodeState } from '@/auth/states/qrCode';
 import { SaveAndCancelButtons } from '@/settings/components/SaveAndCancelButtons/SaveAndCancelButtons';
 import { SettingsPageContainer } from '@/settings/components/SettingsPageContainer';
@@ -84,11 +85,45 @@ const StyledDivider = styled.div`
 
 export const SettingsTwoFactorAuthenticationMethod = () => {
   const { t } = useLingui();
+  const isSsoEnabled = useIsSsoEnabled();
   const { copyToClipboard } = useCopyToClipboard();
   const qrCode = useAtomStateValue(qrCodeState);
 
   const { currentUserWorkspaceTwoFactorAuthenticationMethods } =
     useCurrentUserWorkspaceTwoFactorAuthentication();
+
+  // Under SSO the IdP owns MFA — Twenty's local TOTP setup page would
+  // mint authenticator entries that never participate in the actual
+  // login flow. Hide the page entirely.
+  if (isSsoEnabled) {
+    return (
+      <SubMenuTopBarContainer
+        title={t`Two Factor Authentication`}
+        links={[
+          {
+            children: <Trans>User</Trans>,
+            href: getSettingsPath(SettingsPath.ProfilePage),
+          },
+          {
+            children: <Trans>Profile</Trans>,
+            href: getSettingsPath(SettingsPath.ProfilePage),
+          },
+          {
+            children: <Trans>Two-Factor Authentication</Trans>,
+          },
+        ]}
+      >
+        <SettingsPageContainer>
+          <Section>
+            <H2Title
+              title={t`Managed by SSO`}
+              description={t`Two-factor authentication is enforced by your identity provider. Contact your administrator to manage it.`}
+            />
+          </Section>
+        </SettingsPageContainer>
+      </SubMenuTopBarContainer>
+    );
+  }
 
   const has2FAMethod =
     currentUserWorkspaceTwoFactorAuthenticationMethods['TOTP']?.status ===

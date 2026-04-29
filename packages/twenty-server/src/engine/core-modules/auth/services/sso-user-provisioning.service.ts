@@ -45,6 +45,14 @@ export class SsoUserProvisioningService {
     }
 
     const subdomain = this.twentyConfigService.get('ASKII_WORKSPACE_SUBDOMAIN');
+
+    if (!subdomain) {
+      throw new AuthException(
+        'ASKII_WORKSPACE_SUBDOMAIN not configured',
+        AuthExceptionCode.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     const workspace = await this.workspaceRepository.findOne({
       where: { subdomain },
     });
@@ -79,11 +87,16 @@ export class SsoUserProvisioningService {
     const unguessablePassword = randomBytes(32).toString('hex');
     const passwordHash = await hashPassword(unguessablePassword);
 
+    // The SSO IdP already vouched for this email (the only path to the
+    // proxy-login route is through oauth2-proxy, which validates the
+    // session). Mark the user verified at creation so SSO accounts don't
+    // appear semi-verified to gates that read isEmailVerified.
     const created = this.userRepository.create({
       email,
       firstName: '',
       lastName: '',
       passwordHash,
+      isEmailVerified: true,
     });
 
     return await this.userRepository.save(created);

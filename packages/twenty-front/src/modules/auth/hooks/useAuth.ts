@@ -489,11 +489,22 @@ export const useAuth = () => {
       // — the oauth2-proxy /sign_out hop was dropped on 2026-04-17 because
       // Cognito hosted /logout isn't available on this app client and the
       // intermediate hop without it produced a visibly broken redirect
-      // flow. Same hostname regex everyone else uses: rewrite the first
-      // DNS label (foss-twenty.X -> foss.X).
-      const portalHost = window.location.hostname.replace(/^[^.]*\./, 'foss.');
+      // flow.
+      //
+      // Narrow rewrite: only collapse `foss-<app>.<domain>` -> `foss.<domain>`.
+      // The looser `^[^.]*\.` form rewrites *any* first label, which would
+      // misfire on `localhost`, single-label hosts, or non-foss deployments.
+      // Fall back to the current origin if the host doesn't match the
+      // expected shape so we never navigate to a fabricated URL.
+      const hostname = window.location.hostname;
+      const portalHost = /^foss-[^.]+\./.test(hostname)
+        ? hostname.replace(/^foss-[^.]+\./, 'foss.')
+        : null;
+      const target = portalHost
+        ? `${window.location.protocol}//${portalHost}/`
+        : `${window.location.origin}/`;
 
-      window.location.href = `${window.location.protocol}//${portalHost}/`;
+      window.location.href = target;
     }
   }, [
     clearSession,

@@ -6,6 +6,7 @@ type ConfigKey = 'ASKII_WORKSPACE_SUBDOMAIN';
 const buildService = (overrides?: {
   existingUser?: unknown;
   workspace?: unknown;
+  configuredSubdomain?: string;
 }) => {
   const userRepository = {
     findOne: jest.fn().mockResolvedValue(overrides?.existingUser ?? null),
@@ -25,7 +26,9 @@ const buildService = (overrides?: {
   };
   const twentyConfigService = {
     get: jest.fn((key: ConfigKey) =>
-      key === 'ASKII_WORKSPACE_SUBDOMAIN' ? 'askii' : undefined,
+      key === 'ASKII_WORKSPACE_SUBDOMAIN'
+        ? overrides?.configuredSubdomain ?? 'askii'
+        : undefined,
     ),
   };
 
@@ -60,7 +63,15 @@ describe('SsoUserProvisioningService', () => {
     await expect(service.findOrProvision('   ')).rejects.toThrow(AuthException);
   });
 
-  it('should throw when Askii workspace is missing', async () => {
+  it('should throw when ASKII_WORKSPACE_SUBDOMAIN is not configured', async () => {
+    const { service } = buildService({ configuredSubdomain: '' });
+
+    await expect(service.findOrProvision('user@askii.ai')).rejects.toThrow(
+      'ASKII_WORKSPACE_SUBDOMAIN not configured',
+    );
+  });
+
+  it('should throw when configured workspace is missing', async () => {
     const { service, workspaceRepository } = buildService();
 
     workspaceRepository.findOne.mockResolvedValueOnce(null);
@@ -84,6 +95,7 @@ describe('SsoUserProvisioningService', () => {
         firstName: '',
         lastName: '',
         passwordHash: expect.any(String),
+        isEmailVerified: true,
       }),
     );
     expect(userRepository.save).toHaveBeenCalled();

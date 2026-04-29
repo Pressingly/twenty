@@ -1,3 +1,4 @@
+import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
 import { useAtomState } from '@/ui/utilities/state/jotai/hooks/useAtomState';
 import { SettingsOptionCardContentToggle } from '@/settings/components/SettingsOptions/SettingsOptionCardContentToggle';
@@ -9,10 +10,17 @@ import { useMutation } from '@apollo/client/react';
 import { UpdateWorkspaceDocument } from '~/generated-metadata/graphql';
 
 export const Toggle2FA = () => {
+  const isSsoEnabled = useIsSsoEnabled();
   const { enqueueErrorSnackBar } = useSnackBar();
   const [currentWorkspace, setCurrentWorkspace] = useAtomState(
     currentWorkspaceState,
   );
+
+  // Under SSO the IdP owns MFA — Twenty's local 2FA enforcement is a
+  // dead toggle and would only confuse admins. Hide it.
+  if (isSsoEnabled) {
+    return null;
+  }
 
   const [updateWorkspace] = useMutation(UpdateWorkspaceDocument);
 
