@@ -1,0 +1,139 @@
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Logger,
+  NotFoundException,
+  Req,
+  Res,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
+
+import { Request, Response } from 'express';
+import ms from 'ms';
+
+import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
+import { JwtTokenTypeEnum } from 'src/engine/core-modules/auth/types/auth-context.type';
+import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
+import { RefreshTokenService } from 'src/engine/core-modules/auth/token/services/refresh-token.service';
+import { SsoUserProvisioningService } from 'src/engine/core-modules/auth/services/sso-user-provisioning.service';
+import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
+import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
+import { PublicEndpointGuard } from 'src/engine/guards/public-endpoint.guard';
+
+const TOKEN_PAIR_COOKIE_NAME = 'tokenPair';
+
+@Controller('auth/sso')
+@UseFilters(AuthRestApiExceptionFilter)
+export class SsoProxyLoginController {
+  private readonly logger = new Logger(SsoProxyLoginController.name);
+
+  constructor(
+    private readonly twentyConfigService: TwentyConfigService,
+    private readonly ssoUserProvisioningService: SsoUserProvisioningService,
+    private readonly accessTokenService: AccessTokenService,
+    private readonly refreshTokenService: RefreshTokenService,
+  ) {}
+
+  @Get('proxy-login')
+  @UseGuards(PublicEndpointGuard, NoPermissionGuard)
+  async proxyLogin(@Req() req: Request, @Res() res: Response) {
+    if (!this.twentyConfigService.get('IS_SSO_ENABLED')) {
+      throw new NotFoundException();
+    }
+
+    const email = this.resolveEmail(req);
+
+    if (!email) {
+      this.logger.warn(
+        'SSO proxy-login called without X-Auth-Request-Email or X-Auth-Request-User headers.',
+      );
+
+      return res.status(HttpStatus.UNAUTHORIZED).json({
+        message: 'Missing SSO identity headers',
+      });
+    }
+
+    const { user, workspace } =
+      await this.ssoUserProvisioningService.findOrProvision(email);
+
+    const accessToken = await this.accessTokenService.generateAccessToken({
+      userId: user.id,
+      workspaceId: workspace.id,
+      authProvider: AuthProviderEnum.SSO,
+    });
+
+    const refreshToken = await this.refreshTokenService.generateRefreshToken({
+      userId: user.id,
+      workspaceId: workspace.id,
+      authProvider: AuthProviderEnum.SSO,
+      targetedTokenType: JwtTokenTypeEnum.ACCESS,
+    });
+
+    this.setTokenPairCookie(res, {
+      accessOrWorkspaceAgnosticToken: {
+        token: accessToken.token,
+        expiresAt: accessToken.expiresAt.toISOString(),
+      },
+      refreshToken: {
+        token: refreshToken.token,
+        expiresAt: refreshToken.expiresAt.toISOString(),
+      },
+    });
+
+    return res.redirect(HttpStatus.FOUND, '/');
+  }
+
+  private resolveEmail(req: Request): string | null {
+    const headerEmail = this.firstHeaderValue(
+      req.headers['x-auth-request-email'],
+    );
+    const headerUser = this.firstHeaderValue(
+      req.headers['x-auth-request-user'],
+    );
+    const candidate = (headerEmail || headerUser || '').trim();
+
+    if (!candidate) {
+      return null;
+    }
+
+    if (candidate.includes('@')) {
+      return candidate.toLowerCase();
+    }
+
+    const domain = this.twentyConfigService.get('DEFAULT_EMAIL_DOMAIN');
+
+    return `${candidate.toLowerCase()}@${domain}`;
+  }
+
+  private firstHeaderValue(value: string | string[] | undefined) {
+    if (Array.isArray(value)) {
+      return value[0] ?? '';
+    }
+
+    return value ?? '';
+  }
+
+  private setTokenPairCookie(
+    res: Response,
+    payload: {
+      accessOrWorkspaceAgnosticToken: { token: string; expiresAt: string };
+      refreshToken: { token: string; expiresAt: string };
+    },
+  ) {
+    const accessExpiry = this.twentyConfigService.get(
+      'ACCESS_TOKEN_EXPIRES_IN',
+    );
+    const maxAgeMs = ms(accessExpiry);
+
+    res.cookie(TOKEN_PAIR_COOKIE_NAME, JSON.stringify(payload), {
+      path: '/',
+      sameSite: 'lax',
+      secure: true,
+      httpOnly: false,
+      maxAge: maxAgeMs,
+    });
+  }
+}
