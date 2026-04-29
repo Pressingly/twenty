@@ -1,3 +1,4 @@
+import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { useSignInUp } from '@/auth/sign-in-up/hooks/useSignInUp';
 import { useSignInUpForm } from '@/auth/sign-in-up/hooks/useSignInUpForm';
 import {
@@ -22,7 +23,7 @@ import { isMultiWorkspaceEnabledState } from '@/client-config/states/isMultiWork
 import { useGetPublicWorkspaceDataByDomain } from '@/domain-manager/hooks/useGetPublicWorkspaceDataByDomain';
 import { useIsCurrentLocationOnAWorkspace } from '@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace';
 import { useIsCurrentLocationOnDefaultDomain } from '@/domain-manager/hooks/useIsCurrentLocationOnDefaultDomain';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { SignInUpGlobalScopeFormEffect } from '@/auth/sign-in-up/components/internal/SignInUpGlobalScopeFormEffect';
 import { SignInUpTwoFactorAuthenticationProvision } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationProvision';
@@ -85,6 +86,13 @@ export const SignInUp = () => {
   const { t } = useLingui();
   const setSignInUpStep = useSetAtomState(signInUpStepState);
   const clientConfigApiStatus = useAtomStateValue(clientConfigApiStatusState);
+  const isSsoEnabled = useIsSsoEnabled();
+
+  useEffect(() => {
+    if (isSsoEnabled) {
+      window.location.replace('/auth/sso/proxy-login');
+    }
+  }, [isSsoEnabled]);
 
   const { form } = useSignInUpForm();
   const { signInUpStep } = useSignInUp(form);
@@ -202,6 +210,16 @@ export const SignInUp = () => {
     signInUpStep,
     workspacePublicData,
   ]);
+
+  if (isSsoEnabled) {
+    return (
+      <ModalContent isVerticallyCentered isHorizontallyCentered>
+        <StyledLoaderContainer>
+          <Loader color="gray" />
+        </StyledLoaderContainer>
+      </ModalContent>
+    );
+  }
 
   if (signInUpStep === SignInUpStep.EmailVerification) {
     return (

@@ -21,6 +21,7 @@ import {
   VerifyEmailAndGetWorkspaceAgnosticTokenDocument,
 } from '~/generated-metadata/graphql';
 
+import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { tokenPairState } from '@/auth/states/tokenPairState';
 import { clearSessionLocalStorageKeys } from '@/auth/utils/clearSessionLocalStorageKeys';
 import { broadcastSignOutToOtherTabs } from '@/auth/utils/crossTabSignOut';
@@ -71,6 +72,7 @@ import { useStore } from 'jotai';
 
 export const useAuth = () => {
   const store = useStore();
+  const isSsoEnabled = useIsSsoEnabled();
   const setTokenPair = useSetAtomState(tokenPairState);
   const setLoginToken = useSetAtomState(loginTokenState);
   const setIsAppEffectRedirectEnabled = useSetAtomState(
@@ -479,7 +481,18 @@ export const useAuth = () => {
     broadcastSignOutToOtherTabs();
     await clearSession();
     if (isCaptchaScriptLoaded) await requestFreshCaptchaToken();
-  }, [clearSession, isCaptchaScriptLoaded, requestFreshCaptchaToken]);
+
+    if (isSsoEnabled) {
+      const portalHost = window.location.hostname.replace(/^[^.]*\./, 'foss.');
+
+      window.location.href = `${window.location.protocol}//${portalHost}/oauth2/sign_out`;
+    }
+  }, [
+    clearSession,
+    isCaptchaScriptLoaded,
+    requestFreshCaptchaToken,
+    isSsoEnabled,
+  ]);
 
   const handleCredentialsSignUpInWorkspace = useCallback(
     async ({

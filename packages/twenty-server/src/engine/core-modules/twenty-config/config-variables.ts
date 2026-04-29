@@ -1693,6 +1693,42 @@ export class ConfigVariables {
   })
   @IsOptional()
   APP_REGISTRY_TOKEN: string;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'When true, the SSO ForwardAuth proxy-login endpoint is active and the SPA hides local auth UI.',
+    type: ConfigVariableType.BOOLEAN,
+  })
+  @IsOptional()
+  IS_SSO_ENABLED = false;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Domain appended to bare-username SSO identities (e.g. "user" -> "user@askii.ai") when X-Auth-Request-Email lacks an @-sign.',
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  DEFAULT_EMAIL_DOMAIN = 'askii.ai';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Subdomain of the shared workspace SSO users join on first login.',
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  ASKII_WORKSPACE_SUBDOMAIN = 'askii';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Top-level oauth2-proxy sign-out URL the SPA navigates to on logout when SSO is enabled.',
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  MPASS_SIGNOUT_URL = '';
 }
 
 export const validate = (config: Record<string, unknown>): ConfigVariables => {
