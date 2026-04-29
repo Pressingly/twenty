@@ -2,6 +2,7 @@ import { styled } from '@linaria/react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { FormProvider } from 'react-hook-form';
 import QRCode from 'react-qr-code';
+import { Navigate } from 'react-router-dom';
 
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { qrCodeState } from '@/auth/states/qrCode';
@@ -94,35 +95,9 @@ export const SettingsTwoFactorAuthenticationMethod = () => {
 
   // Under SSO the IdP owns MFA — Twenty's local TOTP setup page would
   // mint authenticator entries that never participate in the actual
-  // login flow. Hide the page entirely.
+  // login flow. Bounce the user back to /settings/profile.
   if (isSsoEnabled) {
-    return (
-      <SubMenuTopBarContainer
-        title={t`Two Factor Authentication`}
-        links={[
-          {
-            children: <Trans>User</Trans>,
-            href: getSettingsPath(SettingsPath.ProfilePage),
-          },
-          {
-            children: <Trans>Profile</Trans>,
-            href: getSettingsPath(SettingsPath.ProfilePage),
-          },
-          {
-            children: <Trans>Two-Factor Authentication</Trans>,
-          },
-        ]}
-      >
-        <SettingsPageContainer>
-          <Section>
-            <H2Title
-              title={t`Managed by SSO`}
-              description={t`Two-factor authentication is enforced by your identity provider. Contact your administrator to manage it.`}
-            />
-          </Section>
-        </SettingsPageContainer>
-      </SubMenuTopBarContainer>
-    );
+    return <Navigate to={getSettingsPath(SettingsPath.ProfilePage)} replace />;
   }
 
   const has2FAMethod =
