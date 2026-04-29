@@ -3,14 +3,20 @@ import { renderHook } from '@testing-library/react';
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 
 describe('useIsSsoEnabled', () => {
-  const originalEnv = window._env_;
-
-  afterEach(() => {
-    window._env_ = originalEnv;
+  // Seed window._env_ so jest.replaceProperty has a property to replace.
+  // The shape doesn't matter — every test overwrites it.
+  beforeAll(() => {
+    if (!Object.prototype.hasOwnProperty.call(window, '_env_')) {
+      Object.defineProperty(window, '_env_', {
+        value: {},
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 
   it('returns true when AUTH_TYPE is "SSO"', () => {
-    window._env_ = { AUTH_TYPE: 'SSO' };
+    jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'SSO' });
 
     const { result } = renderHook(() => useIsSsoEnabled());
 
@@ -18,7 +24,7 @@ describe('useIsSsoEnabled', () => {
   });
 
   it('returns false when AUTH_TYPE is some other value', () => {
-    window._env_ = { AUTH_TYPE: 'PASSWORD' };
+    jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'PASSWORD' });
 
     const { result } = renderHook(() => useIsSsoEnabled());
 
@@ -26,7 +32,7 @@ describe('useIsSsoEnabled', () => {
   });
 
   it('returns false when AUTH_TYPE is missing', () => {
-    window._env_ = {};
+    jest.replaceProperty(window, '_env_', {});
 
     const { result } = renderHook(() => useIsSsoEnabled());
 
@@ -34,7 +40,7 @@ describe('useIsSsoEnabled', () => {
   });
 
   it('returns false when window._env_ is undefined', () => {
-    window._env_ = undefined;
+    jest.replaceProperty(window, '_env_', undefined);
 
     const { result } = renderHook(() => useIsSsoEnabled());
 
