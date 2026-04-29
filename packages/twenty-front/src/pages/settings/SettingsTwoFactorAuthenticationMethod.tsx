@@ -84,21 +84,29 @@ const StyledDivider = styled.div`
   width: 100%;
 `;
 
+// Under SSO the IdP owns MFA — Twenty's local TOTP setup page would mint
+// authenticator entries that never participate in the actual login flow.
+// Outer component bails out with a Navigate before any of the inner hooks
+// (useCopyToClipboard, useAtomStateValue, useCurrentUserWorkspaceTwoFactorAuthentication,
+// useTwoFactorVerificationForSettings) run, so the page can stay
+// uninstantiable for SSO sessions without their contexts being provided.
 export const SettingsTwoFactorAuthenticationMethod = () => {
-  const { t } = useLingui();
   const isSsoEnabled = useIsSsoEnabled();
+
+  if (isSsoEnabled) {
+    return <Navigate to={getSettingsPath(SettingsPath.ProfilePage)} replace />;
+  }
+
+  return <SettingsTwoFactorAuthenticationMethodInner />;
+};
+
+const SettingsTwoFactorAuthenticationMethodInner = () => {
+  const { t } = useLingui();
   const { copyToClipboard } = useCopyToClipboard();
   const qrCode = useAtomStateValue(qrCodeState);
 
   const { currentUserWorkspaceTwoFactorAuthenticationMethods } =
     useCurrentUserWorkspaceTwoFactorAuthentication();
-
-  // Under SSO the IdP owns MFA — Twenty's local TOTP setup page would
-  // mint authenticator entries that never participate in the actual
-  // login flow. Bounce the user back to /settings/profile.
-  if (isSsoEnabled) {
-    return <Navigate to={getSettingsPath(SettingsPath.ProfilePage)} replace />;
-  }
 
   const has2FAMethod =
     currentUserWorkspaceTwoFactorAuthenticationMethods['TOTP']?.status ===
