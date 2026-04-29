@@ -30,7 +30,15 @@ su-exec postgres psql -h localhost -tc \
 # Run Twenty database setup and migrations
 cd /app/packages/twenty-server
 
-has_schema=$(PGPASSWORD=twenty psql -h localhost -U twenty -d default -tAc \
+# When PG_DATABASE_URL is set (external postgres mode) target it directly;
+# otherwise fall back to the embedded postgres + default db.
+if [ -n "$PG_DATABASE_URL" ]; then
+  PSQL_TARGET="psql $PG_DATABASE_URL"
+else
+  PSQL_TARGET="env PGPASSWORD=twenty psql -h localhost -U twenty -d default"
+fi
+
+has_schema=$($PSQL_TARGET -tAc \
   "SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'core')")
 
 if [ "$has_schema" = "f" ]; then
@@ -56,7 +64,7 @@ yarn command:prod cache:flush
 step_done
 
 # Only seed on first boot — check if the dev workspace already exists
-has_workspace=$(PGPASSWORD=twenty psql -h localhost -U twenty -d default -tAc \
+has_workspace=$($PSQL_TARGET -tAc \
   "SELECT EXISTS (SELECT 1 FROM core.workspace WHERE id = '20202020-1c25-4d02-bf25-6aeccf7ea419')")
 
 if [ "$has_workspace" = "f" ]; then
