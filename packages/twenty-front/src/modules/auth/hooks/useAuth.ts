@@ -484,27 +484,19 @@ export const useAuth = () => {
 
     if (isSsoEnabled) {
       // 1-layer logout: clear local session (above) and navigate to the
-      // portal host. The other apps in the foss-server-bundle-devstack
-      // (Plane / Outline / Penpot / SurfSense) all settled on this shape
-      // — the oauth2-proxy /sign_out hop was dropped on 2026-04-17 because
-      // Cognito hosted /logout isn't available on this app client and the
-      // intermediate hop without it produced a visibly broken redirect
-      // flow.
-      //
-      // Narrow rewrite: only collapse `foss-<app>.<domain>` -> `foss.<domain>`.
-      // The looser `^[^.]*\.` form rewrites *any* first label, which would
-      // misfire on `localhost`, single-label hosts, or non-foss deployments.
-      // Fall back to the current origin if the host doesn't match the
-      // expected shape so we never navigate to a fabricated URL.
-      const hostname = window.location.hostname;
-      const portalHost = /^foss-[^.]+\./.test(hostname)
-        ? hostname.replace(/^foss-[^.]+\./, 'foss.')
-        : null;
-      const target = portalHost
-        ? `${window.location.protocol}//${portalHost}/`
-        : `${window.location.origin}/`;
+      // portal host. Matches the shape every other app in the
+      // foss-server-bundle-devstack (Plane / Outline / Penpot / SurfSense)
+      // settled on — rewrite the first DNS label to `foss.` so
+      // `foss-twenty.<domain>` -> `foss.<domain>`. The oauth2-proxy
+      // /sign_out hop was dropped on 2026-04-17 because Cognito hosted
+      // /logout isn't available on this app client and the intermediate
+      // hop without it produced a visibly broken redirect flow.
+      const portalHost = window.location.hostname.replace(
+        /^[^.]*\./,
+        'foss.',
+      );
 
-      window.location.href = target;
+      window.location.href = `${window.location.protocol}//${portalHost}/`;
     }
   }, [
     clearSession,
