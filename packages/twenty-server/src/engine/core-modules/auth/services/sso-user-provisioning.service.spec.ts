@@ -27,7 +27,7 @@ const buildService = (overrides?: {
   const twentyConfigService = {
     get: jest.fn((key: ConfigKey) =>
       key === 'ASKII_WORKSPACE_SUBDOMAIN'
-        ? overrides?.configuredSubdomain ?? 'askii'
+        ? (overrides?.configuredSubdomain ?? 'askii')
         : undefined,
     ),
   };

@@ -491,10 +491,7 @@ export const useAuth = () => {
       // /sign_out hop was dropped on 2026-04-17 because Cognito hosted
       // /logout isn't available on this app client and the intermediate
       // hop without it produced a visibly broken redirect flow.
-      const portalHost = window.location.hostname.replace(
-        /^[^.]*\./,
-        'foss.',
-      );
+      const portalHost = window.location.hostname.replace(/^[^.]*\./, 'foss.');
 
       window.location.href = `${window.location.protocol}//${portalHost}/`;
     }

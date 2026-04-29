@@ -6,8 +6,9 @@ jest.mock('@/auth/hooks/useIsSsoEnabled', () => ({
   useIsSsoEnabled: jest.fn(),
 }));
 
-const useIsSsoEnabledMock: jest.Mock =
-  jest.requireMock('@/auth/hooks/useIsSsoEnabled').useIsSsoEnabled;
+const useIsSsoEnabledMock: jest.Mock = jest.requireMock(
+  '@/auth/hooks/useIsSsoEnabled',
+).useIsSsoEnabled;
 
 describe('Toggle2FA', () => {
   // Under SSO the IdP owns MFA — the outer component returns null before

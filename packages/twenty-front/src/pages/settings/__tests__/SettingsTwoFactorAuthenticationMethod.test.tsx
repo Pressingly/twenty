@@ -7,8 +7,9 @@ jest.mock('@/auth/hooks/useIsSsoEnabled', () => ({
   useIsSsoEnabled: jest.fn(),
 }));
 
-const useIsSsoEnabledMock: jest.Mock =
-  jest.requireMock('@/auth/hooks/useIsSsoEnabled').useIsSsoEnabled;
+const useIsSsoEnabledMock: jest.Mock = jest.requireMock(
+  '@/auth/hooks/useIsSsoEnabled',
+).useIsSsoEnabled;
 
 describe('SettingsTwoFactorAuthenticationMethod', () => {
   // Under SSO the IdP owns MFA — the outer component returns
@@ -34,8 +35,9 @@ describe('SettingsTwoFactorAuthenticationMethod', () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelector('[data-testid="profile-page"]'))
-      .not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="profile-page"]'),
+    ).not.toBeNull();
     expect(useIsSsoEnabledMock).toHaveBeenCalled();
   });
 });
