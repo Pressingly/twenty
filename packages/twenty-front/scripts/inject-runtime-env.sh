@@ -5,12 +5,23 @@ if [ -z "$REACT_APP_SERVER_BASE_URL" ]; then
   exit 1
 fi
 
+if [ "$AUTH_TYPE" = "SSO" ] && [ -z "$SMB_NAME" ]; then
+  # SMB_NAME is required when AUTH_TYPE=SSO. No default — fail loudly so
+  # the SPA never silently rewrites the logout host to the wrong domain.
+  # Same env name across every devstack app — see sso-rules RULES.md.
+  echo "Error: SMB_NAME is required when AUTH_TYPE=SSO." >&2
+  echo "       Set it to the portal hostname prefix (e.g. 'moneta')." >&2
+  exit 1
+fi
+
 echo "Injecting runtime environment variables into index.html..."
 
 CONFIG_BLOCK=$(cat << EOF
     <script id="twenty-env-config">
       window._env_ = {
-        REACT_APP_SERVER_BASE_URL: "$REACT_APP_SERVER_BASE_URL"
+        REACT_APP_SERVER_BASE_URL: "$REACT_APP_SERVER_BASE_URL",
+        AUTH_TYPE: "$AUTH_TYPE",
+        SMB_NAME: "$SMB_NAME"
       };
     </script>
     <!-- END: Twenty Config -->
