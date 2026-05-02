@@ -8,22 +8,11 @@ config({
 });
 
 export function generateFrontConfig(): void {
-  if (process.env.AUTH_TYPE === 'SSO' && !process.env.SMB_NAME) {
-    // SMB_NAME is required when AUTH_TYPE=SSO. No default — fail loudly so
-    // the SPA never silently rewrites the logout host to the wrong domain.
-    // Same env name across every devstack app — see sso-rules RULES.md
-    // §1 Logout.
-    throw new Error(
-      'SMB_NAME env is required when AUTH_TYPE=SSO. Set it to the portal hostname prefix (e.g. "moneta").',
-    );
-  }
-
   const configObject = {
     window: {
       _env_: {
         REACT_APP_SERVER_BASE_URL: process.env.SERVER_URL,
         AUTH_TYPE: process.env.AUTH_TYPE ?? '',
-        SMB_NAME: process.env.SMB_NAME ?? '',
       },
     },
   };
