@@ -486,12 +486,16 @@ export const useAuth = () => {
       // 1-layer logout: clear local session (above) and navigate to the
       // portal host. Matches the shape every other app in the
       // foss-server-bundle-devstack (Plane / Outline / Penpot / SurfSense)
-      // settled on — rewrite the first DNS label to `foss.` so
-      // `foss-twenty.<domain>` -> `foss.<domain>`. The oauth2-proxy
-      // /sign_out hop was dropped on 2026-04-17 because Cognito hosted
-      // /logout isn't available on this app client and the intermediate
-      // hop without it produced a visibly broken redirect flow.
-      const portalHost = window.location.hostname.replace(/^[^.]*\./, 'foss.');
+      // settled on — rewrite "<prefix>-<app>.<domain>" → "<prefix>.<domain>"
+      // by capturing the prefix and dropping the -<app> segment. No env
+      // var: the hostname is the source of truth.
+      // The oauth2-proxy /sign_out hop was dropped on 2026-04-17 because
+      // Cognito hosted /logout isn't available on this app client and the
+      // intermediate hop without it produced a visibly broken redirect.
+      const portalHost = window.location.hostname.replace(
+        /^([^-]+)-[^.]+\.(.+)/,
+        "$1.$2",
+      );
 
       window.location.href = `${window.location.protocol}//${portalHost}/`;
     }
