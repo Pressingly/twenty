@@ -55,7 +55,7 @@ import { WorkspaceMigrationModule } from 'src/engine/workspace-manager/workspace
     SdkClientModule,
     UpgradeModule,
   ],
-  exports: [DevSeederService],
+  exports: [DevSeederService, DevSeederPermissionsService],
   providers: [
     DevSeederService,
     DevSeederMetadataService,

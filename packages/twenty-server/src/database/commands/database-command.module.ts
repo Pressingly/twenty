@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { BootstrapSsoAdminCommand } from 'src/database/commands/bootstrap-sso-admin.command';
+import { CompleteSsoActivationCommand } from 'src/database/commands/complete-sso-activation.command';
 import { CronRegisterAllCommand } from 'src/database/commands/cron-register-all.command';
 import { DataSeedWorkspaceCommand } from 'src/database/commands/data-seed-dev-workspace.command';
 import { GenerateInstanceCommandCommand } from 'src/database/commands/generate-instance-command.command';
@@ -93,6 +94,7 @@ import { AutomatedTriggerModule } from 'src/modules/workflow/workflow-trigger/au
   ],
   providers: [
     BootstrapSsoAdminCommand,
+    CompleteSsoActivationCommand,
     DataSeedWorkspaceCommand,
     ConfirmationQuestion,
     CronRegisterAllCommand,
