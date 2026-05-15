@@ -99,25 +99,44 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   /**
-   * Compare the proxy-asserted email against the JWT user's email with
-   * bidirectional normalisation. Returns true on match OR when the proxy
-   * header is absent (per proxy-auth-middleware spec: header absence is
-   * NOT a logout signal — internal calls, OPTIONS preflight, and direct
-   * backend hits legitimately arrive without it).
+   * Compare the proxy-asserted identity against the JWT user's email with
+   * bidirectional normalisation. Mirrors SSO proxy-login resolution:
+   * prefer `x-auth-request-email`, then fall back to `x-auth-request-user`.
+   *
+   * Returns true on match OR when both proxy headers are absent (per
+   * proxy-auth-middleware spec: header absence is NOT a logout signal —
+   * internal calls, OPTIONS preflight, and direct backend hits legitimately
+   * arrive without it).
    */
   private matchesProxyIdentity(request: Request, jwtEmail: string): boolean {
-    const headerRaw = request.get('x-auth-request-email');
+    const headerRaw = this.resolveProxyIdentity(request);
 
-    if (!headerRaw || headerRaw.trim() === '') {
+    if (!headerRaw) {
       return true;
     }
 
     return this.normalizeProxyEmail(headerRaw) === jwtEmail.toLowerCase();
   }
 
+  private resolveProxyIdentity(request: Request): string | null {
+    const proxyEmail = request.get('x-auth-request-email')?.trim();
+
+    if (proxyEmail) {
+      return proxyEmail;
+    }
+
+    const proxyUser = request.get('x-auth-request-user')?.trim();
+
+    if (proxyUser) {
+      return proxyUser;
+    }
+
+    return null;
+  }
+
   /**
-   * Normalise a raw `x-auth-request-email` header value into the canonical
-   * email used for user lookup.
+   * Normalise a raw proxy identity header value into the canonical email
+   * used for user lookup.
    *
    * - Lowercased and whitespace-trimmed.
    * - If it isn't email-shaped (e.g. oauth2-proxy is forwarding a bare

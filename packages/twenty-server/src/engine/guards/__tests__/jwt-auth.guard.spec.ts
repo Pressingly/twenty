@@ -140,6 +140,34 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
+    it('falls back to X-Auth-Request-User when X-Auth-Request-Email is absent', async () => {
+      const request: RequestStub = {
+        get: jest.fn((header: string) =>
+          header === 'x-auth-request-user' ? 'alice@example.com' : undefined,
+        ),
+      };
+      const response: ResponseStub = { clearCookie: jest.fn() };
+      const services = buildServices(
+        {
+          user: { email: 'alice@example.com' },
+          userWorkspaceId: 'uw-1',
+        },
+        { AUTH_TYPE: 'SSO' },
+      );
+      const guard = new JwtAuthGuard(
+        services.accessTokenService,
+        services.workspaceCacheStorageService,
+        services.twentyConfigService,
+      );
+
+      const result = await guard.canActivate(
+        buildExecutionContext(request, response),
+      );
+
+      expect(result).toBe(true);
+      expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+
     it('refuses and clears tokenPair when proxy email differs from JWT user', async () => {
       const request: RequestStub = {
         get: jest.fn((header: string) =>
@@ -204,6 +232,44 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
+    it('prefers X-Auth-Request-Email over X-Auth-Request-User when both are present', async () => {
+      const request: RequestStub = {
+        get: jest.fn((header: string) => {
+          if (header === 'x-auth-request-email') {
+            return 'bob@example.com';
+          }
+
+          if (header === 'x-auth-request-user') {
+            return 'alice@example.com';
+          }
+
+          return undefined;
+        }),
+      };
+      const response: ResponseStub = { clearCookie: jest.fn() };
+      const services = buildServices(
+        {
+          user: { email: 'alice@example.com' },
+          userWorkspaceId: 'uw-1',
+        },
+        { AUTH_TYPE: 'SSO' },
+      );
+      const guard = new JwtAuthGuard(
+        services.accessTokenService,
+        services.workspaceCacheStorageService,
+        services.twentyConfigService,
+      );
+
+      const result = await guard.canActivate(
+        buildExecutionContext(request, response),
+      );
+
+      expect(result).toBe(false);
+      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
+        path: '/',
+      });
+    });
+
     it('synthesises bare username against DEFAULT_EMAIL_DOMAIN before comparing', async () => {
       // When the Cognito pool is configured with user_id_claim=cognito:username,
       // X-Auth-Request-Email carries a bare username (no @). The guard MUST
@@ -213,6 +279,34 @@ describe('JwtAuthGuard', () => {
       const request: RequestStub = {
         get: jest.fn((header: string) =>
           header === 'x-auth-request-email' ? '1020010000019120' : undefined,
+        ),
+      };
+      const response: ResponseStub = { clearCookie: jest.fn() };
+      const services = buildServices(
+        {
+          user: { email: '1020010000019120@askii.ai' },
+          userWorkspaceId: 'uw-1',
+        },
+        { AUTH_TYPE: 'SSO', DEFAULT_EMAIL_DOMAIN: 'askii.ai' },
+      );
+      const guard = new JwtAuthGuard(
+        services.accessTokenService,
+        services.workspaceCacheStorageService,
+        services.twentyConfigService,
+      );
+
+      const result = await guard.canActivate(
+        buildExecutionContext(request, response),
+      );
+
+      expect(result).toBe(true);
+      expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+
+    it('synthesises bare X-Auth-Request-User against DEFAULT_EMAIL_DOMAIN before comparing', async () => {
+      const request: RequestStub = {
+        get: jest.fn((header: string) =>
+          header === 'x-auth-request-user' ? '1020010000019120' : undefined,
         ),
       };
       const response: ResponseStub = { clearCookie: jest.fn() };
@@ -363,14 +457,11 @@ describe('JwtAuthGuard', () => {
     it('returns false when validateTokenByRequest throws', async () => {
       const request: RequestStub = { get: jest.fn(() => undefined) };
       const response: ResponseStub = { clearCookie: jest.fn() };
-      const services = buildServices(
-        {},
-        { AUTH_TYPE: 'SSO' },
-      );
+      const services = buildServices({}, { AUTH_TYPE: 'SSO' });
 
-      (services.accessTokenService.validateTokenByRequest as jest.Mock).mockRejectedValueOnce(
-        new Error('Invalid token'),
-      );
+      (
+        services.accessTokenService.validateTokenByRequest as jest.Mock
+      ).mockRejectedValueOnce(new Error('Invalid token'));
 
       const guard = new JwtAuthGuard(
         services.accessTokenService,
