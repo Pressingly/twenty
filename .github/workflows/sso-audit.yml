@@ -60,6 +60,8 @@ jobs:
           exit 1
 
   sso-fork-audit-comment:
+    # Run comment updates only on same-repo PRs. Fork PR tokens are read-only
+    # and cannot write PR comments.
     if: |
       always() &&
       github.event_name == 'pull_request' &&

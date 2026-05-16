@@ -42,10 +42,14 @@ set -euo pipefail
 
 JWT_GUARD="packages/twenty-server/src/engine/guards/jwt-auth.guard.ts"
 USE_AUTH="packages/twenty-front/src/modules/auth/hooks/useAuth.ts"
+# clearCookie('tokenPair', ...)
 CLEAR_COOKIE_PATTERN="clearCookie\\(\\s*['\\\"]tokenPair['\\\"]"
+# get('AUTH_TYPE') === 'SSO'
 AUTH_TYPE_SSO_PATTERN="get\\(\\s*['\\\"]AUTH_TYPE['\\\"]\\s*\\)\\s*===\\s*['\\\"]SSO['\\\"]"
 MISMATCH_HEADER_PATTERN="X-Auth-Request-Email"
 MISMATCH_USER_PATTERN="data\\.user\\.email"
+# 25 lines keeps the required signals in one logical guard block while
+# tolerating normal formatting/wrapping drift.
 PROXIMITY_WINDOW=25
 
 declare -a ROW_STATUS=()
