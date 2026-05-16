@@ -43,9 +43,9 @@ set -euo pipefail
 JWT_GUARD="packages/twenty-server/src/engine/guards/jwt-auth.guard.ts"
 USE_AUTH="packages/twenty-front/src/modules/auth/hooks/useAuth.ts"
 # clearCookie('tokenPair', ...)
-CLEAR_COOKIE_PATTERN="clearCookie\\(\\s*['\\\"]tokenPair['\\\"]"
+CLEAR_COOKIE_PATTERN='clearCookie\(\s*['"'"'"]tokenPair['"'"'"]'
 # get('AUTH_TYPE') === 'SSO'
-AUTH_TYPE_SSO_PATTERN="get\\(\\s*['\\\"]AUTH_TYPE['\\\"]\\s*\\)\\s*===\\s*['\\\"]SSO['\\\"]"
+AUTH_TYPE_SSO_PATTERN='get\(\s*['"'"'"]AUTH_TYPE['"'"'"]\s*\)\s*===\s*['"'"'"]SSO['"'"'"]'
 MISMATCH_HEADER_PATTERN="X-Auth-Request-Email"
 MISMATCH_USER_PATTERN="data\\.user\\.email"
 # 25 lines keeps the required signals in one logical guard block while
@@ -153,7 +153,10 @@ check_row_20() {
         $0 ~ userPattern { user[NR]=1 }
         END {
           for (line = 1; line <= NR; line++) {
-            hasClear = hasAuth = hasHeader = hasUser = 0
+            hasClear = 0
+            hasAuth = 0
+            hasHeader = 0
+            hasUser = 0
             for (i = line - window; i <= line + window; i++) {
               if (clear[i]) hasClear = 1
               if (auth[i]) hasAuth = 1
