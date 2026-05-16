@@ -118,7 +118,7 @@ export class JwtAuthGuard implements CanActivate {
     const normalizedProxyIdentity = this.normalizeProxyIdentity(headerRaw);
 
     if (!normalizedProxyIdentity) {
-      return true;
+      return false;
     }
 
     return normalizedProxyIdentity === jwtEmail.toLowerCase();
@@ -151,6 +151,9 @@ export class JwtAuthGuard implements CanActivate {
    *   Cognito username via user_id_claim=cognito:username), synthesise
    *   `<local>@${DEFAULT_EMAIL_DOMAIN}` so the resulting key matches the
    *   one Twenty's SSO proxy-login flow uses to provision the user.
+   * - If bare usernames are present but DEFAULT_EMAIL_DOMAIN is missing,
+   *   return null so the caller can fail closed rather than comparing
+   *   against an invalid synthesized identity.
    */
   private normalizeProxyIdentity(raw: string): string | null {
     const trimmed = raw.toLowerCase().trim();

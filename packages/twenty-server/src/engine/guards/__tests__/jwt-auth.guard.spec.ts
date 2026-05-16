@@ -260,6 +260,36 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
+    it('refuses mismatched proxy identities containing @ even without a dot suffix', async () => {
+      const request: RequestStub = {
+        get: jest.fn((header: string) =>
+          header === 'x-auth-request-email' ? 'Alice@corp' : undefined,
+        ),
+      };
+      const response: ResponseStub = { clearCookie: jest.fn() };
+      const services = buildServices(
+        {
+          user: { email: 'bob@example.com' },
+          userWorkspaceId: 'uw-1',
+        },
+        { AUTH_TYPE: 'SSO', DEFAULT_EMAIL_DOMAIN: 'askii.ai' },
+      );
+      const guard = new JwtAuthGuard(
+        services.accessTokenService,
+        services.workspaceCacheStorageService,
+        services.twentyConfigService,
+      );
+
+      const result = await guard.canActivate(
+        buildExecutionContext(request, response),
+      );
+
+      expect(result).toBe(false);
+      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
+        path: '/',
+      });
+    });
+
     it('prefers X-Auth-Request-Email over X-Auth-Request-User when both are present', async () => {
       const request: RequestStub = {
         get: jest.fn((header: string) => {
@@ -359,7 +389,7 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
-    it('passes through when bare proxy identity arrives without DEFAULT_EMAIL_DOMAIN configured', async () => {
+    it('refuses and clears tokenPair when bare proxy identity arrives without DEFAULT_EMAIL_DOMAIN configured', async () => {
       const request: RequestStub = {
         get: jest.fn((header: string) =>
           header === 'x-auth-request-user' ? 'bare_username' : undefined,
@@ -383,8 +413,10 @@ describe('JwtAuthGuard', () => {
         buildExecutionContext(request, response),
       );
 
-      expect(result).toBe(true);
-      expect(response.clearCookie).not.toHaveBeenCalled();
+      expect(result).toBe(false);
+      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
+        path: '/',
+      });
     });
   });
 
