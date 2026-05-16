@@ -46,6 +46,7 @@ CLEAR_COOKIE_PATTERN="clearCookie\\(\\s*['\\\"]tokenPair['\\\"]"
 AUTH_TYPE_SSO_PATTERN="get\\(\\s*['\\\"]AUTH_TYPE['\\\"]\\s*\\)\\s*===\\s*['\\\"]SSO['\\\"]"
 MISMATCH_HEADER_PATTERN="X-Auth-Request-Email"
 MISMATCH_USER_PATTERN="data\\.user\\.email"
+PROXIMITY_WINDOW=25
 
 declare -a ROW_STATUS=()
 declare -a ROW_TITLES=(
@@ -110,7 +111,7 @@ check_row_14() {
 #   - SSO gate: get('AUTH_TYPE') === 'SSO'
 #   - mismatch operands: X-Auth-Request-Email + data.user.email
 #   - token flush: clearCookie('tokenPair', ...)
-# All must exist in the same nearby block (within ±25 lines), so unrelated
+# All must exist in the same nearby block (within ±PROXIMITY_WINDOW lines), so unrelated
 # AUTH_TYPE/clearCookie references elsewhere in the file cannot false-pass.
 #
 # SECURITY-CRITICAL: without this, the stale-session leak returns.
@@ -140,7 +141,8 @@ check_row_20() {
         -v clearPattern="$CLEAR_COOKIE_PATTERN" \
         -v authPattern="$AUTH_TYPE_SSO_PATTERN" \
         -v headerPattern="$MISMATCH_HEADER_PATTERN" \
-        -v userPattern="$MISMATCH_USER_PATTERN" '
+        -v userPattern="$MISMATCH_USER_PATTERN" \
+        -v window="$PROXIMITY_WINDOW" '
         $0 ~ clearPattern { clear[NR]=1 }
         $0 ~ authPattern { auth[NR]=1 }
         $0 ~ headerPattern { header[NR]=1 }
@@ -148,7 +150,7 @@ check_row_20() {
         END {
           for (line = 1; line <= NR; line++) {
             hasClear = hasAuth = hasHeader = hasUser = 0
-            for (i = line - 25; i <= line + 25; i++) {
+            for (i = line - window; i <= line + window; i++) {
               if (clear[i]) hasClear = 1
               if (auth[i]) hasAuth = 1
               if (header[i]) hasHeader = 1
@@ -165,7 +167,7 @@ check_row_20() {
     )
 
     if [[ "$nearby_match" == "1" ]]; then
-      record 1 "✅" "$JWT_GUARD contains nearby SSO gate + identity-mismatch comparison + \`clearCookie('tokenPair'\` (within ±25 lines) — Rule 2 mismatch flush in place"
+      record 1 "✅" "$JWT_GUARD contains nearby SSO gate + identity-mismatch comparison + \`clearCookie('tokenPair'\` (within ±$PROXIMITY_WINDOW lines) — Rule 2 mismatch flush in place"
       return
     fi
   fi

@@ -51,6 +51,7 @@ jobs:
         with:
           name: sso-fork-audit-output
           path: audit-output.md
+          if-no-files-found: warn
 
       - name: Fail on security-critical violations
         if: steps.audit.outputs.audit_exit != '0'
