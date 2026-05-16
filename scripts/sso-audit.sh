@@ -102,10 +102,12 @@ check_row_14() {
 # AND it MUST gate the mismatch check on AUTH_TYPE === 'SSO' so non-SSO
 # deployments are unaffected.
 #
-# The presence of both `clearCookie('tokenPair'` AND `AUTH_TYPE` references
-# in the same file is the deterministic signal. The test suite at
-# packages/twenty-server/src/engine/guards/__tests__/jwt-auth.guard.spec.ts
-# pins the exact behaviour.
+# Deterministic signal:
+#   - SSO gate: get('AUTH_TYPE') === 'SSO'
+#   - mismatch operands: X-Auth-Request-Email + data.user.email
+#   - token flush: clearCookie('tokenPair', ...)
+# All must exist in the same nearby block (within ±25 lines), so unrelated
+# AUTH_TYPE/clearCookie references elsewhere in the file cannot false-pass.
 #
 # SECURITY-CRITICAL: without this, the stale-session leak returns.
 # ============================================================================
@@ -115,23 +117,52 @@ check_row_20() {
     return
   fi
 
-  local has_clear_cookie
-  has_clear_cookie=$(grep -cE "clearCookie\(\s*['\"]tokenPair['\"]" "$JWT_GUARD" || true)
+  local clear_cookie_lines
+  clear_cookie_lines=$(grep -nE "clearCookie\(\s*['\"]tokenPair['\"]" "$JWT_GUARD" || true)
 
-  local has_auth_type
-  has_auth_type=$(grep -cE "AUTH_TYPE" "$JWT_GUARD" || true)
+  local auth_type_lines
+  auth_type_lines=$(grep -nE "get\(\s*['\"]AUTH_TYPE['\"]\s*\)\s*===\s*['\"]SSO['\"]" "$JWT_GUARD" || true)
 
-  if [[ "$has_clear_cookie" -gt 0 && "$has_auth_type" -gt 0 ]]; then
-    record 1 "✅" "$JWT_GUARD contains \`clearCookie('tokenPair'\` gated on AUTH_TYPE — Rule 2 mismatch flush in place"
-    return
+  local mismatch_header_lines
+  mismatch_header_lines=$(grep -nE "X-Auth-Request-Email" "$JWT_GUARD" || true)
+
+  local mismatch_user_lines
+  mismatch_user_lines=$(grep -nE "data\.user\.email" "$JWT_GUARD" || true)
+
+  if [[ -n "$clear_cookie_lines" && -n "$auth_type_lines" && -n "$mismatch_header_lines" && -n "$mismatch_user_lines" ]]; then
+    local nearby_match=0
+    local clear_line auth_line header_line user_line
+
+    while IFS=: read -r clear_line _; do
+      [[ -z "$clear_line" ]] && continue
+      while IFS=: read -r auth_line _; do
+        [[ -z "$auth_line" ]] && continue
+        (( clear_line - auth_line > 25 || auth_line - clear_line > 25 )) && continue
+        while IFS=: read -r header_line _; do
+          [[ -z "$header_line" ]] && continue
+          (( clear_line - header_line > 25 || header_line - clear_line > 25 )) && continue
+          while IFS=: read -r user_line _; do
+            [[ -z "$user_line" ]] && continue
+            (( clear_line - user_line > 25 || user_line - clear_line > 25 )) && continue
+            nearby_match=1
+            break 4
+          done <<< "$mismatch_user_lines"
+        done <<< "$mismatch_header_lines"
+      done <<< "$auth_type_lines"
+    done <<< "$clear_cookie_lines"
+
+    if [[ "$nearby_match" -eq 1 ]]; then
+      record 1 "✅" "$JWT_GUARD contains nearby SSO gate + identity-mismatch comparison + \`clearCookie('tokenPair'\` (within ±25 lines) — Rule 2 mismatch flush in place"
+      return
+    fi
   fi
 
-  if [[ "$has_clear_cookie" -eq 0 ]]; then
+  if [[ -z "$clear_cookie_lines" ]]; then
     record 1 "❌" "$JWT_GUARD does NOT call \`response.clearCookie('tokenPair', ...)\`. The cross-app spec (proxy-auth-middleware Rule 2) requires the guard to clear the tokenPair cookie when oauth2-proxy asserts a different identity than the JWT user. Without it, the stale-session-on-user-switch leak returns. Fix: add a comparison of \`X-Auth-Request-Email\` vs \`data.user.email\` after \`validateTokenByRequest\`, and on mismatch call \`response.clearCookie('tokenPair', { path: '/' })\` then return false. Gate the check on \`AUTH_TYPE === 'SSO'\`."
     return
   fi
 
-  record 1 "❌" "$JWT_GUARD calls \`clearCookie('tokenPair'\` but does NOT reference AUTH_TYPE. The mismatch check MUST be gated on \`AUTH_TYPE === 'SSO'\` so non-SSO deployments are unaffected. Fix: wrap the clearCookie call inside an \`if (twentyConfigService.get('AUTH_TYPE') === 'SSO' && ...)\` condition."
+  record 1 "❌" "$JWT_GUARD has \`clearCookie('tokenPair'\` but missing a nearby full Rule 2 block: \`get('AUTH_TYPE') === 'SSO'\` + \`X-Auth-Request-Email\` vs \`data.user.email\` comparison in the same conditional path. Keep these checks colocated to avoid false passes from unrelated references."
 }
 
 # ============================================================================

@@ -19,16 +19,10 @@ on:
       - 'packages/twenty-front/src/modules/auth/**'
       - 'scripts/sso-audit.sh'
       - '.github/workflows/sso-audit.yml'
-  push:
-    branches: [foss-main]
-  schedule:
-    # 09:00 UTC every Monday — pre-week sanity check
-    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   sso-fork-audit:
@@ -51,18 +45,11 @@ jobs:
         if: always()
         run: cat audit-output.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Post sticky PR comment
-        # Skip on fork PRs — read-only token would fail the action even
-        # when the audit passes. `continue-on-error` is a defensive belt
-        # for any other comment-posting failure (rate limit, API blip).
-        if: |
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          always()
-        continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          header: sso-fork-audit
+          name: sso-fork-audit-output
           path: audit-output.md
 
       - name: Fail on security-critical violations
@@ -70,3 +57,26 @@ jobs:
         run: |
           echo "::error::Security-critical SSO contract violation in fork audit. See table for the failing row and fix."
           exit 1
+
+  sso-fork-audit-comment:
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: sso-fork-audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Download audit output
+        uses: actions/download-artifact@v4
+        with:
+          name: sso-fork-audit-output
+
+      - name: Post sticky PR comment
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: sso-fork-audit
+          path: sso-fork-audit-output/audit-output.md
