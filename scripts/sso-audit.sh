@@ -130,28 +130,33 @@ check_row_20() {
   mismatch_user_lines=$(grep -nE "data\.user\.email" "$JWT_GUARD" || true)
 
   if [[ -n "$clear_cookie_lines" && -n "$auth_type_lines" && -n "$mismatch_header_lines" && -n "$mismatch_user_lines" ]]; then
-    local nearby_match=0
-    local clear_line auth_line header_line user_line
+    local nearby_match
+    nearby_match=$(
+      awk '
+        /clearCookie\(\s*['\''"]tokenPair['\''"]/ { clear[NR]=1 }
+        /get\(\s*['\''"]AUTH_TYPE['\''"]\s*\)\s*===\s*['\''"]SSO['\''"]/ { auth[NR]=1 }
+        /X-Auth-Request-Email/ { header[NR]=1 }
+        /data\.user\.email/ { user[NR]=1 }
+        END {
+          for (line = 1; line <= NR; line++) {
+            hasClear = hasAuth = hasHeader = hasUser = 0
+            for (i = line - 25; i <= line + 25; i++) {
+              if (clear[i]) hasClear = 1
+              if (auth[i]) hasAuth = 1
+              if (header[i]) hasHeader = 1
+              if (user[i]) hasUser = 1
+            }
+            if (hasClear && hasAuth && hasHeader && hasUser) {
+              print 1
+              exit
+            }
+          }
+          print 0
+        }
+      ' "$JWT_GUARD"
+    )
 
-    while IFS=: read -r clear_line _; do
-      [[ -z "$clear_line" ]] && continue
-      while IFS=: read -r auth_line _; do
-        [[ -z "$auth_line" ]] && continue
-        (( clear_line - auth_line > 25 || auth_line - clear_line > 25 )) && continue
-        while IFS=: read -r header_line _; do
-          [[ -z "$header_line" ]] && continue
-          (( clear_line - header_line > 25 || header_line - clear_line > 25 )) && continue
-          while IFS=: read -r user_line _; do
-            [[ -z "$user_line" ]] && continue
-            (( clear_line - user_line > 25 || user_line - clear_line > 25 )) && continue
-            nearby_match=1
-            break 4
-          done <<< "$mismatch_user_lines"
-        done <<< "$mismatch_header_lines"
-      done <<< "$auth_type_lines"
-    done <<< "$clear_cookie_lines"
-
-    if [[ "$nearby_match" -eq 1 ]]; then
+    if [[ "$nearby_match" == "1" ]]; then
       record 1 "✅" "$JWT_GUARD contains nearby SSO gate + identity-mismatch comparison + \`clearCookie('tokenPair'\` (within ±25 lines) — Rule 2 mismatch flush in place"
       return
     fi
