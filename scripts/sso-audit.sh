@@ -42,6 +42,10 @@ set -euo pipefail
 
 JWT_GUARD="packages/twenty-server/src/engine/guards/jwt-auth.guard.ts"
 USE_AUTH="packages/twenty-front/src/modules/auth/hooks/useAuth.ts"
+CLEAR_COOKIE_PATTERN="clearCookie\\(\\s*['\\\"]tokenPair['\\\"]"
+AUTH_TYPE_SSO_PATTERN="get\\(\\s*['\\\"]AUTH_TYPE['\\\"]\\s*\\)\\s*===\\s*['\\\"]SSO['\\\"]"
+MISMATCH_HEADER_PATTERN="X-Auth-Request-Email"
+MISMATCH_USER_PATTERN="data\\.user\\.email"
 
 declare -a ROW_STATUS=()
 declare -a ROW_TITLES=(
@@ -118,25 +122,29 @@ check_row_20() {
   fi
 
   local clear_cookie_lines
-  clear_cookie_lines=$(grep -nE "clearCookie\(\s*['\"]tokenPair['\"]" "$JWT_GUARD" || true)
+  clear_cookie_lines=$(grep -nE "$CLEAR_COOKIE_PATTERN" "$JWT_GUARD" || true)
 
   local auth_type_lines
-  auth_type_lines=$(grep -nE "get\(\s*['\"]AUTH_TYPE['\"]\s*\)\s*===\s*['\"]SSO['\"]" "$JWT_GUARD" || true)
+  auth_type_lines=$(grep -nE "$AUTH_TYPE_SSO_PATTERN" "$JWT_GUARD" || true)
 
   local mismatch_header_lines
-  mismatch_header_lines=$(grep -nE "X-Auth-Request-Email" "$JWT_GUARD" || true)
+  mismatch_header_lines=$(grep -nE "$MISMATCH_HEADER_PATTERN" "$JWT_GUARD" || true)
 
   local mismatch_user_lines
-  mismatch_user_lines=$(grep -nE "data\.user\.email" "$JWT_GUARD" || true)
+  mismatch_user_lines=$(grep -nE "$MISMATCH_USER_PATTERN" "$JWT_GUARD" || true)
 
   if [[ -n "$clear_cookie_lines" && -n "$auth_type_lines" && -n "$mismatch_header_lines" && -n "$mismatch_user_lines" ]]; then
     local nearby_match
     nearby_match=$(
-      awk '
-        /clearCookie\(\s*['\''"]tokenPair['\''"]/ { clear[NR]=1 }
-        /get\(\s*['\''"]AUTH_TYPE['\''"]\s*\)\s*===\s*['\''"]SSO['\''"]/ { auth[NR]=1 }
-        /X-Auth-Request-Email/ { header[NR]=1 }
-        /data\.user\.email/ { user[NR]=1 }
+      awk \
+        -v clearPattern="$CLEAR_COOKIE_PATTERN" \
+        -v authPattern="$AUTH_TYPE_SSO_PATTERN" \
+        -v headerPattern="$MISMATCH_HEADER_PATTERN" \
+        -v userPattern="$MISMATCH_USER_PATTERN" '
+        $0 ~ clearPattern { clear[NR]=1 }
+        $0 ~ authPattern { auth[NR]=1 }
+        $0 ~ headerPattern { header[NR]=1 }
+        $0 ~ userPattern { user[NR]=1 }
         END {
           for (line = 1; line <= NR; line++) {
             hasClear = hasAuth = hasHeader = hasUser = 0
