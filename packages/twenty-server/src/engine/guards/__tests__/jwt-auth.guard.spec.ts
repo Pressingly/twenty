@@ -232,6 +232,34 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
+    it('treats proxy identities containing @ as email-shaped even without a dot suffix', async () => {
+      const request: RequestStub = {
+        get: jest.fn((header: string) =>
+          header === 'x-auth-request-email' ? 'Alice@corp' : undefined,
+        ),
+      };
+      const response: ResponseStub = { clearCookie: jest.fn() };
+      const services = buildServices(
+        {
+          user: { email: 'alice@corp' },
+          userWorkspaceId: 'uw-1',
+        },
+        { AUTH_TYPE: 'SSO', DEFAULT_EMAIL_DOMAIN: 'askii.ai' },
+      );
+      const guard = new JwtAuthGuard(
+        services.accessTokenService,
+        services.workspaceCacheStorageService,
+        services.twentyConfigService,
+      );
+
+      const result = await guard.canActivate(
+        buildExecutionContext(request, response),
+      );
+
+      expect(result).toBe(true);
+      expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+
     it('prefers X-Auth-Request-Email over X-Auth-Request-User when both are present', async () => {
       const request: RequestStub = {
         get: jest.fn((header: string) => {
@@ -316,6 +344,34 @@ describe('JwtAuthGuard', () => {
           userWorkspaceId: 'uw-1',
         },
         { AUTH_TYPE: 'SSO', DEFAULT_EMAIL_DOMAIN: 'askii.ai' },
+      );
+      const guard = new JwtAuthGuard(
+        services.accessTokenService,
+        services.workspaceCacheStorageService,
+        services.twentyConfigService,
+      );
+
+      const result = await guard.canActivate(
+        buildExecutionContext(request, response),
+      );
+
+      expect(result).toBe(true);
+      expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+
+    it('passes through when bare proxy identity arrives without DEFAULT_EMAIL_DOMAIN configured', async () => {
+      const request: RequestStub = {
+        get: jest.fn((header: string) =>
+          header === 'x-auth-request-user' ? 'bare_username' : undefined,
+        ),
+      };
+      const response: ResponseStub = { clearCookie: jest.fn() };
+      const services = buildServices(
+        {
+          user: { email: 'alice@example.com' },
+          userWorkspaceId: 'uw-1',
+        },
+        { AUTH_TYPE: 'SSO' },
       );
       const guard = new JwtAuthGuard(
         services.accessTokenService,

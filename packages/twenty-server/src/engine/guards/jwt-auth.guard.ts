@@ -115,7 +115,13 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    return this.normalizeProxyEmail(headerRaw) === jwtEmail.toLowerCase();
+    const normalizedProxyIdentity = this.normalizeProxyIdentity(headerRaw);
+
+    if (!normalizedProxyIdentity) {
+      return true;
+    }
+
+    return normalizedProxyIdentity === jwtEmail.toLowerCase();
   }
 
   private resolveProxyIdentity(request: Request): string | null {
@@ -136,33 +142,34 @@ export class JwtAuthGuard implements CanActivate {
 
   /**
    * Normalise a raw proxy identity header value into the canonical email
-   * used for user lookup.
+   * used for user lookup, matching SSO proxy-login semantics.
    *
    * - Lowercased and whitespace-trimmed.
-   * - If it isn't email-shaped (e.g. oauth2-proxy is forwarding a bare
+   * - Any value containing `@` is treated as an email as-is, matching
+   *   SsoProxyLoginController.resolveEmail().
+   * - If it doesn't contain `@` (e.g. oauth2-proxy is forwarding a bare
    *   Cognito username via user_id_claim=cognito:username), synthesise
    *   `<local>@${DEFAULT_EMAIL_DOMAIN}` so the resulting key matches the
    *   one Twenty's SSO proxy-login flow uses to provision the user.
-   *
-   * The email-shape check uses indexOf rather than a regex to avoid
-   * polynomial-backtracking complexity on adversarial input — per
-   * openspec proxy-auth-middleware §"email-shape detection on header
-   * values SHALL avoid polynomial-backtracking regex".
    */
-  private normalizeProxyEmail(raw: string): string {
+  private normalizeProxyIdentity(raw: string): string | null {
     const trimmed = raw.toLowerCase().trim();
-    const atIdx = trimmed.indexOf('@');
-    const dotIdx = trimmed.indexOf('.', atIdx + 1);
-    const isEmailShaped = atIdx > 0 && dotIdx > atIdx + 1;
 
-    if (isEmailShaped) {
+    if (trimmed.includes('@')) {
       return trimmed;
     }
 
     const domain = this.twentyConfigService.get('DEFAULT_EMAIL_DOMAIN');
-    const localPart = trimmed.split('@')[0];
 
-    return `${localPart}@${domain}`;
+    if (!domain) {
+      this.logger.warn(
+        'Proxy identity contains a bare username but DEFAULT_EMAIL_DOMAIN is not configured.',
+      );
+
+      return null;
+    }
+
+    return `${trimmed}@${domain}`;
   }
 
   /**
