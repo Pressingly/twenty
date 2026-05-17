@@ -12,7 +12,7 @@ export class GraphQLHydrateRequestFromTokenMiddleware
 
   async use(req: Request, res: Response, next: NextFunction) {
     try {
-      await this.middlewareService.hydrateGraphqlRequest(req);
+      await this.middlewareService.hydrateGraphqlRequest(req, res);
     } catch (error) {
       this.middlewareService.writeGraphqlResponseOnExceptionCaught(res, error);
 

@@ -10,7 +10,7 @@ export class RestCoreMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     try {
-      await this.middlewareService.hydrateRestRequest(req);
+      await this.middlewareService.hydrateRestRequest(req, res);
     } catch (error) {
       this.middlewareService.writeRestResponseOnExceptionCaught(res, error);
 
