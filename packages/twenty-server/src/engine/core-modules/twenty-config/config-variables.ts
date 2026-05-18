@@ -1720,6 +1720,15 @@ export class ConfigVariables {
   })
   @IsOptional()
   SMB_NAME = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Root domain of the foss-server-bundle deployment. Used by /auth/portal-logout?next= as the redirect allowlist — only URLs whose host equals PLATFORM_DOMAIN or is a subdomain of it are followed.',
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  PLATFORM_DOMAIN = '';
 }
 
 export const validate = (config: Record<string, unknown>): ConfigVariables => {
