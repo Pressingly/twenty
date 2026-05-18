@@ -5,10 +5,16 @@ import {
   Logger,
 } from '@nestjs/common';
 
+import { type Request, type Response } from 'express';
 import { isDefined } from 'twenty-shared/utils';
 
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
+import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { bindDataToRequestObject } from 'src/engine/utils/bind-data-to-request-object.util';
+import {
+  clearTokenPairCookie,
+  matchesProxyIdentity,
+} from 'src/engine/utils/proxy-identity.util';
 import { WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
 
 @Injectable()
@@ -18,14 +24,55 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly accessTokenService: AccessTokenService,
     private readonly workspaceStorageCacheService: WorkspaceCacheStorageService,
+    private readonly twentyConfigService: TwentyConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
+    const response = context.switchToHttp().getResponse<Response>();
 
     try {
       const data =
         await this.accessTokenService.validateTokenByRequest(request);
+
+      // SSO stale-session detection (proxy-auth-middleware Rule 2). When
+      // oauth2-proxy asserts a different identity than what this JWT was
+      // issued for, the tokenPair cookie that produced this Bearer is stale.
+      //
+      // Repro: portal "Logout all" clears the shared _oauth2_proxy cookie
+      // and Cognito SSO but NOT Twenty's tokenPair cookie on its subdomain.
+      // A different user then logs in upstream and refreshes the Twenty tab.
+      // Without this check, validateTokenByRequest happily decodes the
+      // stale Bearer and we serve the previous user.
+      //
+      // On mismatch: clear the tokenPair cookie BEFORE returning false so
+      // the browser stops sending the stale Bearer. The frontend bootstrap
+      // then has no tokenPair → routes through /auth/sso/proxy-login →
+      // new tokens issued for the new upstream user.
+      //
+      // Gating:
+      //   - AUTH_TYPE=SSO  — non-SSO deployments use Twenty's native auth,
+      //                     no upstream identity to compare against
+      //   - data.user      — only browser SSO sessions carry a User; API
+      //                     keys, application contexts, and tokens without
+      //                     a resolved user bypass this check unchanged
+      if (
+        this.twentyConfigService.get('AUTH_TYPE') === 'SSO' &&
+        isDefined(data.user?.email) &&
+        !matchesProxyIdentity(
+          request,
+          data.user.email,
+          this.twentyConfigService,
+        )
+      ) {
+        clearTokenPairCookie(response);
+        this.logger.warn(
+          `Auth refused: proxy identity differs from JWT user; tokenPair cleared`,
+        );
+
+        return false;
+      }
+
       const metadataVersion = data.workspace
         ? await this.workspaceStorageCacheService.getMetadataVersion(
             data.workspace.id,
