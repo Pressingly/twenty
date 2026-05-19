@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 
 import { BootstrapSsoAdminCommand } from 'src/database/commands/bootstrap-sso-admin.command';
 
-type ConfigKey = 'SMB_NAME';
+type ConfigKey = 'SMB_NAME' | 'SMB_DEFAULT_WORKSPACE_NAME';
 
 const buildCommand = (overrides?: {
   existingUser?: unknown;
@@ -38,12 +38,19 @@ const buildCommand = (overrides?: {
         overrides?.helperResult ?? { wasExistingMember: false },
       ),
   };
+  const configuredSubdomain = overrides?.configuredSubdomain ?? 'askii';
   const twentyConfigService = {
-    get: jest.fn((key: ConfigKey) =>
-      key === 'SMB_NAME'
-        ? (overrides?.configuredSubdomain ?? 'askii')
-        : undefined,
-    ),
+    get: jest.fn((key: ConfigKey) => {
+      if (key === 'SMB_DEFAULT_WORKSPACE_NAME') {
+        return configuredSubdomain;
+      }
+
+      if (key === 'SMB_NAME') {
+        return 'portal-slug';
+      }
+
+      return undefined;
+    }),
   };
 
   const command = new BootstrapSsoAdminCommand(
@@ -77,11 +84,20 @@ describe('BootstrapSsoAdminCommand', () => {
     logSpy.mockRestore();
   });
 
-  it('throws when SMB_NAME is not configured', async () => {
-    const { command } = buildCommand({ configuredSubdomain: '' });
+  it('throws when SMB workspace subdomain is not configured', async () => {
+    const twentyConfigService = {
+      get: jest.fn(() => ''),
+    };
+    const command = new BootstrapSsoAdminCommand(
+      { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as any,
+      { findOne: jest.fn() } as any,
+      { findOne: jest.fn() } as any,
+      { addUserToWorkspaceOrEnsureRole: jest.fn() } as any,
+      twentyConfigService as any,
+    );
 
     await expect(command.run([], { email: 'admin@askii.ai' })).rejects.toThrow(
-      'SMB_NAME is not configured',
+      'SMB_DEFAULT_WORKSPACE_NAME (or SMB_NAME) is not configured',
     );
   });
 

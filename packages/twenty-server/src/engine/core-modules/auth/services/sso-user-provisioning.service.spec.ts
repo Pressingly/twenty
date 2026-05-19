@@ -1,7 +1,7 @@
 import { AuthException } from 'src/engine/core-modules/auth/auth.exception';
 import { SsoUserProvisioningService } from 'src/engine/core-modules/auth/services/sso-user-provisioning.service';
 
-type ConfigKey = 'SMB_NAME';
+type ConfigKey = 'SMB_NAME' | 'SMB_DEFAULT_WORKSPACE_NAME';
 
 const buildService = (overrides?: {
   existingUser?: unknown;
@@ -24,12 +24,19 @@ const buildService = (overrides?: {
   const userWorkspaceService = {
     addUserToWorkspaceIfUserNotInWorkspace: jest.fn(),
   };
+  const configuredSubdomain = overrides?.configuredSubdomain ?? 'askii';
   const twentyConfigService = {
-    get: jest.fn((key: ConfigKey) =>
-      key === 'SMB_NAME'
-        ? (overrides?.configuredSubdomain ?? 'askii')
-        : undefined,
-    ),
+    get: jest.fn((key: ConfigKey) => {
+      if (key === 'SMB_DEFAULT_WORKSPACE_NAME') {
+        return configuredSubdomain;
+      }
+
+      if (key === 'SMB_NAME') {
+        return 'portal-slug';
+      }
+
+      return undefined;
+    }),
   };
 
   const service = new SsoUserProvisioningService(
@@ -63,11 +70,19 @@ describe('SsoUserProvisioningService', () => {
     await expect(service.findOrProvision('   ')).rejects.toThrow(AuthException);
   });
 
-  it('should throw when SMB_NAME is not configured', async () => {
-    const { service } = buildService({ configuredSubdomain: '' });
+  it('should throw when SMB workspace subdomain is not configured', async () => {
+    const twentyConfigService = {
+      get: jest.fn(() => ''),
+    };
+    const service = new SsoUserProvisioningService(
+      { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as any,
+      { findOne: jest.fn() } as any,
+      { addUserToWorkspaceIfUserNotInWorkspace: jest.fn() } as any,
+      twentyConfigService as any,
+    );
 
     await expect(service.findOrProvision('user@askii.ai')).rejects.toThrow(
-      'SMB_NAME not configured',
+      'SMB_DEFAULT_WORKSPACE_NAME (or SMB_NAME) not configured',
     );
   });
 

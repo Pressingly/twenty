@@ -34,12 +34,14 @@ export type SeededEmptyWorkspacesIds =
 
 // The "apple" seed slot is repurposed as the SSO landing workspace in the
 // foss-server-bundle-devstack: ForwardAuth + Traefik route
-// foss-twenty.<DOMAIN> to the workspace whose subdomain matches the
-// bundle's SMB_NAME (the canonical per-deployment tenant identifier wired
-// into every app via docker-compose). Fall back to the upstream "apple"
-// identity when SMB_NAME is unset so dev/test runs that don't set it stay
+// twenty.<DOMAIN> to the workspace whose subdomain matches
+// SMB_DEFAULT_WORKSPACE_NAME (or SMB_NAME when unset). Fall back to the
+// upstream "apple" identity when neither is set so dev/test runs stay
 // byte-for-byte compatible with twentyhq.
-const SEED_WORKSPACE_SUBDOMAIN = process.env.SMB_NAME ?? 'apple';
+const SEED_WORKSPACE_SUBDOMAIN =
+  process.env.SMB_DEFAULT_WORKSPACE_NAME?.trim() ||
+  process.env.SMB_NAME?.trim() ||
+  'apple';
 const SEED_WORKSPACE_DISPLAY_NAME =
   SEED_WORKSPACE_SUBDOMAIN.charAt(0).toUpperCase() +
   SEED_WORKSPACE_SUBDOMAIN.slice(1);
