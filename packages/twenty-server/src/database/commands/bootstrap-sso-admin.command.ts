@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 
 import { hashPassword } from 'src/engine/core-modules/auth/auth.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { getSmbWorkspaceSubdomain } from 'src/engine/core-modules/twenty-config/utils/get-smb-workspace-subdomain.util';
 import { UserWorkspaceService } from 'src/engine/core-modules/user-workspace/user-workspace.service';
 import { UserEntity } from 'src/engine/core-modules/user/user.entity';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
@@ -18,7 +19,7 @@ type BootstrapSsoAdminOptions = {
   email: string;
 };
 
-// Pre-seed one Admin user for the SMB_NAME workspace so SSO sign-in lands a
+// Pre-seed one Admin user for the SMB workspace so SSO sign-in lands a
 // useful role on first hit. Mirrors `provision-plane.sh` (ADMIN_EMAIL →
 // InstanceAdmin). Idempotent: subsequent runs ensure the Admin role on the
 // existing userWorkspace, even if the user signed in via SSO first and was
@@ -26,12 +27,12 @@ type BootstrapSsoAdminOptions = {
 //
 // Wired into the foss-server-bundle-devstack provisioning pipeline at
 // `provision/provision-twenty.sh`, which runs `workspace:seed:dev --light`
-// (creates the SMB_NAME workspace + standard roles) and then this command.
+// (creates the SMB workspace + standard roles) and then this command.
 // Both steps are idempotent on re-runs.
 @Command({
   name: 'workspace:bootstrap-sso-admin',
   description:
-    'Pre-seed a Cognito-known email as the Admin user of the SMB_NAME workspace. Run once after `workspace:seed:dev --light` (see foss-server-bundle-devstack/provision/provision-twenty.sh).',
+    'Pre-seed a Cognito-known email as the Admin user of the SMB workspace. Run once after `workspace:seed:dev --light` (see foss-server-bundle-devstack/provision/provision-twenty.sh).',
 })
 export class BootstrapSsoAdminCommand extends CommandRunner {
   private readonly logger = new Logger(BootstrapSsoAdminCommand.name);
@@ -62,10 +63,12 @@ export class BootstrapSsoAdminCommand extends CommandRunner {
     _passedParams: string[],
     options: BootstrapSsoAdminOptions,
   ): Promise<void> {
-    const subdomain = this.twentyConfigService.get('SMB_NAME');
+    const subdomain = getSmbWorkspaceSubdomain(this.twentyConfigService);
 
     if (!subdomain) {
-      throw new Error('SMB_NAME is not configured — refusing to bootstrap.');
+      throw new Error(
+        'SMB_DEFAULT_WORKSPACE_NAME (or SMB_NAME) is not configured — refusing to bootstrap.',
+      );
     }
 
     const normalizedEmail = options.email.trim().toLowerCase();

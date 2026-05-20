@@ -1715,11 +1715,20 @@ export class ConfigVariables {
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
-      'Per-deployment tenant identifier wired into every foss-server-bundle-devstack app. Twenty uses it both as the seed workspace subdomain (see seeder-workspaces.constant.ts) and as the workspace SSO users join on first login. Required when AUTH_TYPE=SSO.',
+      'Per-deployment tenant identifier (portal hostname segment) for the foss-server-bundle-devstack. Used by the frontend runtime config when AUTH_TYPE=SSO.',
     type: ConfigVariableType.STRING,
   })
   @IsOptional()
   SMB_NAME = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'SMB workspace subdomain for seeding and SSO auto-join (same as Plane/Outline/SurfSense). Falls back to SMB_NAME when unset.',
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  SMB_DEFAULT_WORKSPACE_NAME = '';
 }
 
 export const validate = (config: Record<string, unknown>): ConfigVariables => {

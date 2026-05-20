@@ -11,6 +11,7 @@ import {
 } from 'src/engine/core-modules/auth/auth.exception';
 import { hashPassword } from 'src/engine/core-modules/auth/auth.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { getSmbWorkspaceSubdomain } from 'src/engine/core-modules/twenty-config/utils/get-smb-workspace-subdomain.util';
 import { UserWorkspaceService } from 'src/engine/core-modules/user-workspace/user-workspace.service';
 import { UserEntity } from 'src/engine/core-modules/user/user.entity';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
@@ -47,11 +48,11 @@ export class SsoUserProvisioningService {
       );
     }
 
-    const subdomain = this.twentyConfigService.get('SMB_NAME');
+    const subdomain = getSmbWorkspaceSubdomain(this.twentyConfigService);
 
     if (!subdomain) {
       throw new AuthException(
-        'SMB_NAME not configured',
+        'SMB_DEFAULT_WORKSPACE_NAME (or SMB_NAME) not configured',
         AuthExceptionCode.INTERNAL_SERVER_ERROR,
       );
     }
@@ -62,7 +63,7 @@ export class SsoUserProvisioningService {
 
     if (!workspace) {
       this.logger.error(
-        `SSO landing workspace (subdomain="${subdomain}") missing — the seeder should have created it from SMB_NAME on first init.`,
+        `SSO landing workspace (subdomain="${subdomain}") missing — the seeder should have created it on first init.`,
       );
       throw new AuthException(
         'SSO workspace not provisioned',

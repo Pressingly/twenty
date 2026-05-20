@@ -8,6 +8,7 @@ import { ApplicationRegistrationService } from 'src/engine/core-modules/applicat
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { SdkClientGenerationService } from 'src/engine/core-modules/sdk-client/sdk-client-generation.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { isSmbBundleDeployment } from 'src/engine/core-modules/twenty-config/utils/get-smb-workspace-subdomain.util';
 import { UpgradeMigrationService } from 'src/engine/core-modules/upgrade/services/upgrade-migration.service';
 import { UpgradeSequenceReaderService } from 'src/engine/core-modules/upgrade/services/upgrade-sequence-reader.service';
 import { type UpgradeMigrationStatus } from 'src/engine/core-modules/upgrade/upgrade-migration.entity';
@@ -144,12 +145,13 @@ export class DevSeederService {
     });
 
     // initPermissions assigns admin/limited/guest/member roles to the demo
-    // userWorkspace rows (Tim, Jane, Jony, Phil + ~200 random). When SMB_NAME
-    // is set those userWorkspace rows weren't seeded above, so fall back to
-    // the minimal init path (member role + workspace activation, no
-    // user-specific assignments). The first SSO user provisioned via
-    // ForwardAuth picks up the member role from defaultRoleId on sign-in.
-    if (this.twentyConfigService.get('SMB_NAME')) {
+    // userWorkspace rows (Tim, Jane, Jony, Phil + ~200 random). In SMB bundle
+    // deployments (SMB_DEFAULT_WORKSPACE_NAME or SMB_NAME set) those
+    // userWorkspace rows weren't seeded above, so fall back to the minimal init
+    // path (member role + workspace activation, no user-specific assignments).
+    // The first SSO user provisioned via ForwardAuth picks up the member role
+    // from defaultRoleId on sign-in.
+    if (isSmbBundleDeployment(this.twentyConfigService)) {
       await this.devSeederPermissionsService.initMinimalPermissionsAndActivateWorkspace(
         {
           workspaceId,
@@ -196,10 +198,10 @@ export class DevSeederService {
     // devSeederDataService.seed populates the workspace schema with demo CRM
     // data (companies, people, opportunities, workspace members). Workspace
     // member rows reference core."user" via userId FK, which we didn't seed
-    // when SMB_NAME is set, so skip the entire data fixture in that mode and
-    // leave the workspace clean. SSO users provisioned via ForwardAuth get
-    // their workspaceMember rows created at sign-in time.
-    if (!this.twentyConfigService.get('SMB_NAME')) {
+    // in SMB bundle deployments, so skip the entire data fixture in that mode
+    // and leave the workspace clean. SSO users provisioned via ForwardAuth
+    // get their workspaceMember rows created at sign-in time.
+    if (!isSmbBundleDeployment(this.twentyConfigService)) {
       await this.devSeederDataService.seed({
         schemaName,
         workspaceId,
@@ -337,8 +339,9 @@ export class DevSeederService {
       // downstream FK reference (seedAgents / seedMetadataEntities) would
       // break against missing userWorkspace rows. Same single switch as the
       // workspace subdomain/displayName override in seeder-workspaces.constant.ts.
-      const seedDemoUsersAndDependents =
-        !this.twentyConfigService.get('SMB_NAME');
+      const seedDemoUsersAndDependents = !isSmbBundleDeployment(
+        this.twentyConfigService,
+      );
 
       await seedServerId({ queryRunner, schemaName });
       if (seedDemoUsersAndDependents) {
