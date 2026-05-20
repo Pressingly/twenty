@@ -1,5 +1,6 @@
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
 
+import { getSmbWorkspaceSubdomainFromProcessEnv } from 'src/engine/core-modules/twenty-config/utils/get-smb-workspace-subdomain.util';
 import { type WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 
 export const WORKSPACE_FIELDS_TO_SEED = [
@@ -39,9 +40,7 @@ export type SeededEmptyWorkspacesIds =
 // upstream "apple" identity when neither is set so dev/test runs stay
 // byte-for-byte compatible with twentyhq.
 const SEED_WORKSPACE_SUBDOMAIN =
-  process.env.SMB_DEFAULT_WORKSPACE_NAME?.trim() ||
-  process.env.SMB_NAME?.trim() ||
-  'apple';
+  getSmbWorkspaceSubdomainFromProcessEnv() || 'apple';
 const SEED_WORKSPACE_DISPLAY_NAME =
   SEED_WORKSPACE_SUBDOMAIN.charAt(0).toUpperCase() +
   SEED_WORKSPACE_SUBDOMAIN.slice(1);
