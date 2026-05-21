@@ -174,6 +174,72 @@ packages/
 Use existing helpers from `twenty-shared` instead of manual type guards:
 - `isDefined()`, `isNonEmptyString()`, `isNonEmptyArray()`
 
+## Access Control & Permissions
+
+Twenty has **two independent admin layers** — do not conflate them:
+
+| Layer | Field / role | Scope | UI |
+|---|---|---|---|
+| **Instance admin** | `User.canAccessFullAdminPanel = true` (on `core.user`) | Whole Twenty instance — feature flags, system health, AI models, config variables | `/settings/admin-panel` |
+| **Workspace admin** | `WorkspaceMember.role = "Admin"` (universalIdentifier `20202020-02c2-43f2-b94d-cab1f2b532eb`) | One workspace — members, settings within it | `/settings/members`, `/settings/general` |
+
+- Instance admin is enforced by `AdminPanelGuard` (`packages/twenty-server/src/engine/guards/admin-panel-guard.ts`) on every admin GraphQL op. Admin endpoint is `/admin-panel-graphql-api`, separate from `/graphql`.
+- `canAccessFullAdminPanel` is **baked into the JWT at sign-in time** (`auth-context-user-select-fields.constants.ts:12`). After flipping it in the DB, the user MUST sign out and back in for the change to take effect.
+- There is **no GraphQL mutation** to toggle `canAccessFullAdminPanel`. Only paths are the CLI bootstrap command (in deployment bundles) or a direct DB UPDATE on `core."user"`.
+- Admin role universal identifier: `packages/twenty-server/src/engine/workspace-manager/twenty-standard-application/constants/standard-role.constant.ts:2`.
+
+### Permission flags (`PermissionFlagType`)
+
+Many features are gated by `SettingsPermissionGuard(PermissionFlagType.<FLAG>)` at the resolver layer. Flags split into two categories (`packages/twenty-shared/src/constants/PermissionFlagType.ts`):
+
+- **Settings flags** (`WORKFLOWS`, `WORKSPACE_MEMBERS`, `ROLES`, `DATA_MODEL`, `SECURITY`, `BILLING`, `AI_SETTINGS`, …) — bypassed by `role.canUpdateAllSettings = true`.
+- **Tool flags** (`AI`, `VIEWS`, `UPLOAD_FILE`, `IMPORT_CSV`, `SEND_EMAIL_TOOL`, …; canonical list in `permissions/constants/tool-permission-flags.ts`) — bypassed by `role.canAccessAllTools = true`.
+
+The guard picks which bypass-boolean via `isToolPermission(flag)`. Default value for **every** flag on a non-admin role is `false` (`permissions.service.ts:100-128`).
+
+A role passes the guard if **either**:
+- The category-appropriate bypass is true on the role, OR
+- The role's `permissionFlags` array contains an explicit entry for that flag.
+
+Check logic: `permissions.service.ts:checkRolePermissions` (~232-249). Bootstrap bypass: guard returns true while workspace is in `PENDING_CREATION`/`ONGOING_CREATION` state.
+
+**Workflows are gated this way.** Every workflow resolver (`workflow-builder`, `workflow-version`, `workflow-trigger`, `workflow-version-step`, `workflow-version-edge`, plus `logic-function`) uses `SettingsPermissionGuard(PermissionFlagType.WORKFLOWS)`. A second enforcement layer in `workspace-roles-permissions-cache.service.ts:149-160` also sets `canRead/canUpdate/canSoftDelete/canDestroy = false` on the `workflow`, `workflowRun`, and `workflowVersion` objects when the flag is off — so workflows are hidden from listings too, not just blocked on create.
+
+**To grant a non-admin user workflow access:** go to `/settings/roles`, edit their role, toggle the **Workflows** permission flag on. No code change needed — the default-off behavior is intentional.
+
+## SSO (Single Sign-On)
+
+**This repo = upstream Twenty.** Upstream supports per-workspace OIDC and SAML SSO, gated as an Enterprise feature. The header-trust / proxy-login flow used in deployment bundles (oauth2-proxy + Traefik ForwardAuth) lives in a **separate fork** and is **NOT present in this tree** — `grep` for `proxy-login` / `ProxyAuthMiddleware` / `AUTH_TYPE` returns nothing here. Don't waste a session looking for it in this repo; the bundle-side contract is owned by the bundle/fork repos, not this one. Full spec: [`docs/specs/sso.md`](docs/specs/sso.md).
+
+### Upstream SSO surface (this repo)
+
+- **Provider entity:** `WorkspaceSSOIdentityProvider` at `packages/twenty-server/src/engine/core-modules/sso/workspace-sso-identity-provider.entity.ts` — type (`OIDC` | `SAML`), `status` (Active/Inactive/Error), `issuer`, OIDC fields (`clientID`, `clientSecret`), SAML fields (`ssoURL`, `certificate`, `fingerprint`), `workspaceId` FK.
+- **HTTP routes** (`auth/controllers/sso-auth.controller.ts`):
+  - `GET /auth/oidc/login/:identityProviderId` — initiate OIDC (guard: `OIDCAuthGuard`)
+  - `GET /auth/oidc/callback` — IDP callback
+  - `GET /auth/saml/login/:identityProviderId` — initiate SAML (guard: `SAMLAuthGuard`)
+  - `POST /auth/saml/callback/:identityProviderId` — SAML callback
+  - `GET /auth/saml/metadata/:identityProviderId` — SP metadata XML
+- **Strategies:** OIDC uses `openid-client` (`auth/strategies/oidc.auth.strategy.ts`); SAML uses `@node-saml/passport-saml` `MultiSamlStrategy` for per-request provider lookup (`auth/strategies/saml.auth.strategy.ts`) — certificate whitespace is sanitised at load.
+- **GraphQL mutations** (`sso/sso.resolver.ts`): `createOIDCIdentityProvider`, `createSAMLIdentityProvider`, `editSSOIdentityProvider`, `deleteSSOIdentityProvider`. Frontend kicks off login via the `getAuthorizationUrlForSSO` mutation (returns `authorizationURL` + provider type).
+- **Frontend:** `packages/twenty-front/src/modules/auth/sign-in-up/components/internal/SignInUpWithSSO.tsx` + `hooks/useSSO.ts`. One provider → direct redirect; multiple → picker (`SignInUpStep.SSOIdentityProviderSelection`). Active providers come from `get-auth-providers-by-workspace.util.ts`.
+- **Login resolution:** controller calls `authService.findWorkspaceForSignInUp()` then `signInUp()` to link user↔workspace, then `generateLoginToken()` and redirects to the workspace subdomain. Optional `ConnectedAccount` write is feature-flagged.
+- **Gating** (both must pass):
+  - Instance: `EnterpriseFeaturesEnabledGuard` (`auth/guards/enterprise-features-enabled.guard.ts`) — `enterprisePlanService.isValid()` based on a signed JWT licence. There is **no plain env var** to disable SSO globally.
+  - Workspace: `BillingService.hasEntitlement(BillingEntitlementKey.SSO)` per workspace.
+- **Login email override.** The synthesised email from IDP claims (e.g. oauth2-proxy `cognito:username`) is what `signInUp` keys on. Workspace membership and any per-user state hangs off this — make sure it's stable across IDP rotations.
+
+## Specs
+
+Cross-cutting capability specs live in `docs/specs/`. They describe **what this repo actually does**, with file:line citations, and are kept in sync with code in the same PR.
+
+- [`docs/specs/sso.md`](docs/specs/sso.md) — Workspace OIDC/SAML SSO: providers, routes, strategies, enterprise + workspace gating, login resolution.
+- [`docs/specs/permissions.md`](docs/specs/permissions.md) — Role-based access control: `SettingsPermissionGuard`, `PermissionFlagType`, role capability booleans, the object-permission cache, and the workflow example.
+- [`docs/specs/admin-panel.md`](docs/specs/admin-panel.md) — Instance vs workspace admin, `AdminPanelGuard`, JWT-baked `canAccessFullAdminPanel`, promotion paths and the sign-out requirement.
+- [`docs/specs/README.md`](docs/specs/README.md) — Index + conventions for adding/maintaining specs.
+
+When adding a new cross-cutting capability or changing one of the above, update the relevant spec in the same PR. Don't reach for external rule sets — this repo owns its specs.
+
 ## Development Workflow
 
 IMPORTANT: Use Context7 for code generation, setup or configuration steps, or library/API documentation. Automatically use the Context7 MCP tools to resolve library IDs and get library docs without waiting for explicit requests.
