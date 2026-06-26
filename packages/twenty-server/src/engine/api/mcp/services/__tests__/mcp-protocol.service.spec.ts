@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
+import { FieldActorSource } from 'twenty-shared/types';
 
 import { JSON_RPC_ERROR_CODE } from 'src/engine/api/mcp/constants/json-rpc-error-code.const';
 import { MCP_PROTOCOL_VERSION } from 'src/engine/api/mcp/constants/mcp-protocol-version.const';
@@ -17,6 +18,7 @@ import { LOAD_SKILL_TOOL_NAME } from 'src/engine/core-modules/tool-provider/tool
 import { ToolRegistryService } from 'src/engine/core-modules/tool-provider/services/tool-registry.service';
 import { type FlatWorkspace } from 'src/engine/core-modules/workspace/types/flat-workspace.type';
 import { SkillService } from 'src/engine/metadata-modules/skill/skill.service';
+import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { UserRoleService } from 'src/engine/metadata-modules/user-role/user-role.service';
 
 describe('McpProtocolService', () => {
@@ -25,6 +27,7 @@ describe('McpProtocolService', () => {
   let userRoleService: jest.Mocked<UserRoleService>;
   let mcpToolExecutorService: jest.Mocked<McpToolExecutorService>;
   let apiKeyRoleService: jest.Mocked<ApiKeyRoleService>;
+  let workspaceCacheService: jest.Mocked<WorkspaceCacheService>;
 
   const mockWorkspace = { id: 'workspace-1' } as FlatWorkspace;
   const mockUserWorkspaceId = 'user-workspace-1';
@@ -88,6 +91,17 @@ describe('McpProtocolService', () => {
             findAllFlatSkills: jest.fn().mockResolvedValue([]),
           },
         },
+        {
+          provide: WorkspaceCacheService,
+          useValue: {
+            getOrRecompute: jest.fn().mockResolvedValue({
+              flatWorkspaceMemberMaps: {
+                idByUserId: {},
+                byId: {},
+              },
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -96,6 +110,7 @@ describe('McpProtocolService', () => {
     userRoleService = module.get(UserRoleService);
     mcpToolExecutorService = module.get(McpToolExecutorService);
     apiKeyRoleService = module.get(ApiKeyRoleService);
+    workspaceCacheService = module.get(WorkspaceCacheService);
   });
 
   it('should be defined', () => {
@@ -298,6 +313,73 @@ describe('McpProtocolService', () => {
             ]),
           ),
         ),
+      );
+    });
+
+    it('should pass actorContext with FieldActorSource.AGENT to getToolsByName', async () => {
+      userRoleService.getRoleIdForUserWorkspace.mockResolvedValue(mockRoleId);
+
+      const mockRequest: JsonRpc = {
+        jsonrpc: '2.0',
+        method: 'tools/list',
+        id: '123',
+      };
+
+      await service.handleMCPCoreQuery(mockRequest, {
+        workspace: mockWorkspace,
+        userWorkspaceId: mockUserWorkspaceId,
+        apiKey: undefined,
+      });
+
+      expect(_toolRegistryService.getToolsByName).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          actorContext: expect.objectContaining({
+            source: FieldActorSource.AGENT,
+          }),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('should attribute actorContext to the calling workspace member', async () => {
+      userRoleService.getRoleIdForUserWorkspace.mockResolvedValue(mockRoleId);
+      workspaceCacheService.getOrRecompute.mockResolvedValue({
+        flatWorkspaceMemberMaps: {
+          idByUserId: { 'user-1': 'workspace-member-1' },
+          byId: {
+            'workspace-member-1': {
+              id: 'workspace-member-1',
+              name: { firstName: 'Jane', lastName: 'Doe' },
+            },
+          },
+        },
+      } as never);
+
+      const mockRequest: JsonRpc = {
+        jsonrpc: '2.0',
+        method: 'tools/list',
+        id: '123',
+      };
+
+      await service.handleMCPCoreQuery(mockRequest, {
+        workspace: mockWorkspace,
+        userId: 'user-1',
+        userWorkspaceId: mockUserWorkspaceId,
+        apiKey: undefined,
+      });
+
+      expect(_toolRegistryService.getToolsByName).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          actorContext: {
+            source: FieldActorSource.AGENT,
+            workspaceMemberId: 'workspace-member-1',
+            name: 'Jane Doe',
+            context: {},
+          },
+        }),
+        expect.anything(),
       );
     });
 
