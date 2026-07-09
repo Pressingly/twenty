@@ -70,9 +70,11 @@ export const getSessionStorageOptions = (
         console.error('Session Redis client error:', err),
       );
 
-      redisClient.connect().catch((err) =>
-        console.error('Session Redis initial connect failed:', err),
-      );
+      redisClient
+        .connect()
+        .catch((err) =>
+          console.error('Session Redis initial connect failed:', err),
+        );
 
       return {
         ...sessionStorage,
