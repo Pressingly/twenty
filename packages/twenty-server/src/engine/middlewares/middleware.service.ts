@@ -24,6 +24,8 @@ import {
   handleExceptionAndConvertToGraphQLError,
 } from 'src/engine/utils/global-exception-handler.util';
 import {
+  CorporateIdError,
+  assertCorporateId,
   clearTokenPairCookie,
   matchesProxyIdentity,
 } from 'src/engine/utils/proxy-identity.util';
@@ -110,6 +112,7 @@ export class MiddlewareService {
     const data = await this.accessTokenService.validateTokenByRequest(request);
 
     this.assertProxyIdentityMatchesUser(request, response, data.user?.email);
+    this.assertCorporateIdMatches(request);
 
     const metadataVersion = data.workspace
       ? await this.workspaceStorageCacheService.getMetadataVersion(
@@ -140,6 +143,7 @@ export class MiddlewareService {
     const data = await this.accessTokenService.validateTokenByRequest(request);
 
     this.assertProxyIdentityMatchesUser(request, response, data.user?.email);
+    this.assertCorporateIdMatches(request);
 
     const metadataVersion = data.workspace
       ? await this.workspaceStorageCacheService.getMetadataVersion(
@@ -185,6 +189,29 @@ export class MiddlewareService {
       'Proxy identity differs from JWT user; tokenPair cleared',
       AuthExceptionCode.UNAUTHENTICATED,
     );
+  }
+
+  // Layer 2 corporate ID enforcement. When SMB_CORPORATE_ID is set,
+  // every authenticated request must carry an access token with matching
+  // custom:corporate_id. Gated on AUTH_TYPE=SSO so non-SSO deployments
+  // are unaffected.
+  private assertCorporateIdMatches(request: Request): void {
+    if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
+      return;
+    }
+
+    try {
+      assertCorporateId(request, this.twentyConfigService);
+    } catch (error) {
+      if (error instanceof CorporateIdError) {
+        throw new AuthException(
+          error.message,
+          AuthExceptionCode.FORBIDDEN_EXCEPTION,
+        );
+      }
+
+      throw error;
+    }
   }
 
   private hasErrorStatus(error: unknown): error is { status: number } {

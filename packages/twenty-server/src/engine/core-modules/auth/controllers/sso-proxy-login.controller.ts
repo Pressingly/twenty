@@ -1,16 +1,18 @@
 import {
   Controller,
+  ForbiddenException,
   Get,
   Headers,
   HttpStatus,
   Logger,
   NotFoundException,
+  Req,
   Res,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
 
-import { Response } from 'express';
+import { type Request, Response } from 'express';
 import ms from 'ms';
 
 import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
@@ -22,6 +24,10 @@ import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twent
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
 import { PublicEndpointGuard } from 'src/engine/guards/public-endpoint.guard';
+import {
+  CorporateIdError,
+  assertCorporateId,
+} from 'src/engine/utils/proxy-identity.util';
 
 const TOKEN_PAIR_COOKIE_NAME = 'tokenPair';
 
@@ -54,12 +60,38 @@ export class SsoProxyLoginController {
   @Get('proxy-login')
   @UseGuards(PublicEndpointGuard, NoPermissionGuard)
   async proxyLogin(
+    @Req() req: Request,
     @Headers('x-auth-request-email') headerEmail: string | string[] | undefined,
     @Headers('x-auth-request-user') headerUser: string | string[] | undefined,
     @Res() res: Response,
   ) {
     if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
       throw new NotFoundException();
+    }
+
+    // Layer 2 corporate ID enforcement — reject at login time if the
+    // access token's corporate_id does not match this deployment.
+    // Unlike middleware/guard paths, proxy-login is always behind
+    // Traefik ForwardAuth, so a missing header with enforcement on
+    // is suspicious and must be rejected.
+    const expectedCorporateId = this.twentyConfigService.get('SMB_CORPORATE_ID');
+
+    if (expectedCorporateId && !req.get('x-auth-request-access-token')) {
+      this.logger.warn('SSO proxy-login refused: missing access token header');
+
+      throw new ForbiddenException({ error: 'access_denied' });
+    }
+
+    try {
+      assertCorporateId(req, this.twentyConfigService);
+    } catch (error) {
+      if (error instanceof CorporateIdError) {
+        this.logger.warn(`SSO proxy-login refused: ${error.message}`);
+
+        throw new ForbiddenException({ error: 'access_denied' });
+      }
+
+      throw error;
     }
 
     const email = this.resolveEmail(headerEmail, headerUser);
