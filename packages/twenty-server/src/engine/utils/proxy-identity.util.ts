@@ -106,17 +106,10 @@ export const normalizeProxyIdentity = (
   return `${trimmed}@${domain}`;
 };
 
-/**
- * Layer 2 tenant isolation: verify that the caller's mPass access token
- * carries `custom:corporate_id` matching this deployment's
- * `SMB_CORPORATE_ID`. When the env var is empty the check is skipped
- * entirely (backward-compatible default).
- *
- * The JWT signature is NOT verified here — oauth2-proxy already did that
- * before forwarding the request. We only base64-decode the payload.
- *
- * Throws `AuthException` with FORBIDDEN code on mismatch.
- */
+// Layer 2 tenant isolation: verify the caller's mPass access token
+// carries custom:corporate_id matching SMB_CORPORATE_ID. Skipped when
+// the env var is empty OR when the request has no access token header
+// (MCP, API-key, and internal traffic bypass oauth2-proxy).
 export const assertCorporateId = (
   request: Request,
   configService: TwentyConfigService,
@@ -130,7 +123,7 @@ export const assertCorporateId = (
   const accessToken = request.get('x-auth-request-access-token');
 
   if (!accessToken) {
-    throw new CorporateIdError('Access denied: missing access token');
+    return;
   }
 
   try {
