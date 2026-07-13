@@ -59,8 +59,7 @@ export const getSessionStorageOptions = (
         url: connectionString,
         pingInterval: 30_000,
         socket: {
-          keepAlive: true,
-          keepAliveInitialDelay: 30_000,
+          keepAlive: 30_000,
           reconnectStrategy: (retries: number) =>
             Math.min(retries * 200, 5_000),
         },

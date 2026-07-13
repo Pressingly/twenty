@@ -1,7 +1,7 @@
 import { type CacheModuleOptions } from '@nestjs/cache-manager';
 
 import { redisInsStore } from 'cache-manager-redis-yet';
-import { createClient } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 
 import { CacheStorageType } from 'src/engine/core-modules/cache-storage/types/cache-storage-type.enum';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
@@ -33,8 +33,7 @@ export const cacheStorageModuleFactory = async (
         url: redisUrl,
         pingInterval: 30_000,
         socket: {
-          keepAlive: true,
-          keepAliveInitialDelay: 30_000,
+          keepAlive: 30_000,
           reconnectStrategy: (retries: number) =>
             Math.min(retries * 200, 5_000),
         },
@@ -48,7 +47,7 @@ export const cacheStorageModuleFactory = async (
 
       return {
         ...cacheModuleOptions,
-        store: redisInsStore(redisClient, {
+        store: redisInsStore(redisClient as RedisClientType, {
           ttl: cacheStorageTtl * 1000,
         }),
       };
