@@ -95,9 +95,23 @@ export const SignInUp = () => {
       // served separately from the backend. In the unified-image setup
       // both share an origin and the absolute URL collapses to the same
       // path; in split-deploy mode it correctly hits the API.
-      window.location.replace(
-        `${REACT_APP_SERVER_BASE_URL}/auth/sso/proxy-login`,
+      //
+      // Thread returnToPath so the server can redirect back after setting
+      // the JWT cookie -- without this, navigating to /authorize (MCP
+      // OAuth consent) would land the user on the dashboard instead of
+      // returning to the consent screen after SSO.
+      const returnToPath =
+        window.location.pathname + window.location.search + window.location.hash;
+      const proxyUrl = new URL(
+        '/auth/sso/proxy-login',
+        REACT_APP_SERVER_BASE_URL || window.location.origin,
       );
+
+      if (returnToPath && returnToPath !== '/') {
+        proxyUrl.searchParams.set('returnToPath', returnToPath);
+      }
+
+      window.location.replace(proxyUrl.toString());
     }
   }, [isSsoEnabled]);
 

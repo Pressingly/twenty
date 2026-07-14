@@ -106,6 +106,67 @@ export const normalizeProxyIdentity = (
   return `${trimmed}@${domain}`;
 };
 
+// Layer 2 tenant isolation: verify the caller's mPass access token
+// carries custom:corporate_id matching SMB_CORPORATE_ID. Skipped when
+// the env var is empty OR when the request has no access token header
+// (MCP, API-key, and internal traffic bypass oauth2-proxy).
+export const assertCorporateId = (
+  request: Request,
+  configService: TwentyConfigService,
+): void => {
+  const expectedCorporateId = configService.get('SMB_CORPORATE_ID');
+
+  if (!expectedCorporateId) {
+    return;
+  }
+
+  const accessToken = request.get('x-auth-request-access-token');
+
+  if (!accessToken) {
+    return;
+  }
+
+  try {
+    const parts = accessToken.split('.');
+
+    if (parts.length < 2) {
+      throw new CorporateIdError('Access denied: malformed access token');
+    }
+
+    const payloadB64 = parts[1];
+    const payload = JSON.parse(
+      Buffer.from(payloadB64, 'base64url').toString(),
+    );
+
+    if (payload['custom:is_corporate'] !== 'true') {
+      throw new CorporateIdError('Access denied: not a corporate account');
+    }
+
+    if (payload['custom:corporate_id'] !== expectedCorporateId) {
+      throw new CorporateIdError('Access denied: corporate ID mismatch');
+    }
+  } catch (error) {
+    if (error instanceof CorporateIdError) {
+      throw error;
+    }
+
+    throw new CorporateIdError('Access denied: invalid access token');
+  }
+};
+
+/**
+ * Typed error for corporate ID enforcement so callers can distinguish
+ * it from other errors and map to a 403 response.
+ */
+export class CorporateIdError extends Error {
+  readonly statusCode = 403;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'CorporateIdError';
+  }
+}
+
 /**
  * Expire the tokenPair cookie. Defensive: in some test harnesses
  * `response.clearCookie` may not be wired up, so guard with a typeof

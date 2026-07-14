@@ -1,13 +1,14 @@
 import { type CacheModuleOptions } from '@nestjs/cache-manager';
 
-import { redisStore } from 'cache-manager-redis-yet';
+import { redisInsStore } from 'cache-manager-redis-yet';
+import { createClient, type RedisClientType } from 'redis';
 
 import { CacheStorageType } from 'src/engine/core-modules/cache-storage/types/cache-storage-type.enum';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 
-export const cacheStorageModuleFactory = (
+export const cacheStorageModuleFactory = async (
   twentyConfigService: TwentyConfigService,
-): CacheModuleOptions => {
+): Promise<CacheModuleOptions> => {
   const cacheStorageType = CacheStorageType.Redis;
   const cacheStorageTtl = twentyConfigService.get('CACHE_STORAGE_TTL');
   const cacheModuleOptions: CacheModuleOptions = {
@@ -28,10 +29,27 @@ export const cacheStorageModuleFactory = (
         );
       }
 
+      const redisClient = createClient({
+        url: redisUrl,
+        pingInterval: 30_000,
+        socket: {
+          keepAlive: 30_000,
+          reconnectStrategy: (retries: number) =>
+            Math.min(retries * 200, 5_000),
+        },
+      });
+
+      redisClient.on('error', (err) =>
+        console.error('Cache Redis client error:', err),
+      );
+
+      await redisClient.connect();
+
       return {
         ...cacheModuleOptions,
-        store: redisStore,
-        url: redisUrl,
+        store: redisInsStore(redisClient as RedisClientType, {
+          ttl: cacheStorageTtl * 1000,
+        }),
       };
     }
     default:

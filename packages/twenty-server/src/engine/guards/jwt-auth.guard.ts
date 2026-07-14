@@ -12,6 +12,8 @@ import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { bindDataToRequestObject } from 'src/engine/utils/bind-data-to-request-object.util';
 import {
+  CorporateIdError,
+  assertCorporateId,
   clearTokenPairCookie,
   matchesProxyIdentity,
 } from 'src/engine/utils/proxy-identity.util';
@@ -71,6 +73,22 @@ export class JwtAuthGuard implements CanActivate {
         );
 
         return false;
+      }
+
+      // Layer 2 corporate ID enforcement — when SMB_CORPORATE_ID is set
+      // and AUTH_TYPE=SSO, verify the access token's custom:corporate_id.
+      if (this.twentyConfigService.get('AUTH_TYPE') === 'SSO') {
+        try {
+          assertCorporateId(request, this.twentyConfigService);
+        } catch (error) {
+          if (error instanceof CorporateIdError) {
+            this.logger.warn(`Auth refused: ${error.message}`);
+
+            return false;
+          }
+
+          throw error;
+        }
       }
 
       const metadataVersion = data.workspace
