@@ -133,7 +133,17 @@ export class SsoProxyLoginController {
       },
     });
 
-    return res.redirect(HttpStatus.FOUND, '/');
+    // Honour returnToPath so callers like the MCP OAuth /authorize page
+    // can survive the SSO round-trip. Validate that the value is a
+    // same-origin path (starts with exactly one `/`) to prevent open
+    // redirect attacks via protocol-relative URLs (`//evil.com`).
+    const returnToPath = req.query.returnToPath as string | undefined;
+    const destination =
+      returnToPath?.startsWith('/') && !returnToPath.startsWith('//')
+        ? returnToPath
+        : '/';
+
+    return res.redirect(HttpStatus.FOUND, destination);
   }
 
   private resolveEmail(
