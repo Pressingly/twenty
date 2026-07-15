@@ -3,7 +3,7 @@ import { useDefaultHomePagePath } from '@/navigation/hooks/useDefaultHomePagePat
 import { useOnboardingStatus } from '@/onboarding/hooks/useOnboardingStatus';
 import { useIsWorkspaceActivationStatusEqualsTo } from '@/workspace/hooks/useIsWorkspaceActivationStatusEqualsTo';
 import { useQuery } from '@apollo/client/react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { AppPath, SettingsPath } from 'twenty-shared/types';
 import { getSettingsPath } from 'twenty-shared/utils';
@@ -68,6 +68,16 @@ const setupMockUseQuery = (result?: { data?: unknown; loading?: boolean }) => {
 };
 
 jest.mock('react-router-dom');
+const setupMockUseLocation = (pathname: string, search?: string) => {
+  jest.mocked(useLocation).mockReturnValueOnce({
+    pathname,
+    search: search ?? '',
+    hash: '',
+    state: null,
+    key: 'default',
+  });
+};
+
 const setupMockUseParams = (
   objectNamePlural?: string,
   pageLayoutId?: string,
@@ -328,7 +338,7 @@ const testCases: {
 
   { loc: AppPath.Authorize, hasAccessTokenPair: true, isWorkspaceSuspended: false, onboardingStatus: OnboardingStatus.PLAN_REQUIRED, res: AppPath.PlanRequired },
   { loc: AppPath.Authorize, hasAccessTokenPair: true, isWorkspaceSuspended: true, onboardingStatus: OnboardingStatus.COMPLETED, res: getSettingsPath(SettingsPath.Billing) },
-  { loc: AppPath.Authorize, hasAccessTokenPair: false, isWorkspaceSuspended: false, onboardingStatus: undefined, res: AppPath.SignInUp },
+  { loc: AppPath.Authorize, hasAccessTokenPair: false, isWorkspaceSuspended: false, onboardingStatus: undefined, res: `${AppPath.SignInUp}?returnToPath=${encodeURIComponent(AppPath.Authorize)}` },
   { loc: AppPath.Authorize, hasAccessTokenPair: true, isWorkspaceSuspended: false, onboardingStatus: OnboardingStatus.WORKSPACE_ACTIVATION, res: AppPath.CreateWorkspace },
   { loc: AppPath.Authorize, hasAccessTokenPair: true, isWorkspaceSuspended: false, onboardingStatus: OnboardingStatus.PROFILE_CREATION, res: AppPath.CreateProfile },
   { loc: AppPath.Authorize, hasAccessTokenPair: true, isWorkspaceSuspended: false, onboardingStatus: OnboardingStatus.SYNC_EMAIL, res: AppPath.SyncEmails },
@@ -388,6 +398,7 @@ describe('usePageChangeEffectNavigateLocation', () => {
       setupMockIsWorkspaceActivationStatusEqualsTo(isWorkspaceSuspended);
       setupMockHasAccessTokenPair(hasAccessTokenPair);
       setupMockIsOnAWorkspace(isOnAWorkspace ?? true);
+      setupMockUseLocation(loc);
       setupMockUseQuery(useQueryResult);
       setupMockUseParams(objectNamePluralFromParams, pageLayoutId);
       setupMockState(

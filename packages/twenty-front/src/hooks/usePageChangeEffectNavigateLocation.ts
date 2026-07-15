@@ -81,6 +81,12 @@ export const usePageChangeEffectNavigateLocation = () => {
       AppPath.ResetPassword,
     ])
   ) {
+    if (isMatchingLocation(location, AppPath.Authorize)) {
+      const fullAuthorizeUrl = `${location.pathname}${location.search}`;
+
+      return `${AppPath.SignInUp}?returnToPath=${encodeURIComponent(fullAuthorizeUrl)}`;
+    }
+
     return AppPath.SignInUp;
   }
 
