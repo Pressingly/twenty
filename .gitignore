@@ -55,3 +55,6 @@ TRANSLATION_QA_REPORT.md
 .playwright-mcp/
 .playwright-cli/
 output/playwright/
+
+# graphify knowledge graph (generated locally; rebuilt on commit via post-commit hook)
+graphify-out/
