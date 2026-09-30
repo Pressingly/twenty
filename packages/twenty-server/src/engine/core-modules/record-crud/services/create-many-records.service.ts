@@ -11,7 +11,7 @@ import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-c
 import { type CreateManyRecordsParams } from 'src/engine/core-modules/record-crud/types/create-many-records-params.type';
 import { getRecordDisplayName } from 'src/engine/core-modules/record-crud/utils/get-record-display-name.util';
 import { removeUndefinedFromRecord } from 'src/engine/core-modules/record-crud/utils/remove-undefined-from-record.util';
-import { canRecordCrudToolsManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-tools-manage-object.util';
+import { canRecordCrudManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -38,9 +38,10 @@ export class CreateManyRecordsService {
       });
 
       if (
-        !canRecordCrudToolsManageObject({
+        !canRecordCrudManageObject({
           nameSingular: flatObjectMetadata.nameSingular,
           isSystem: flatObjectMetadata.isSystem,
+          allowLinkingSystemObjects: params.allowLinkingSystemObjects,
         })
       ) {
         throw new RecordCrudException(

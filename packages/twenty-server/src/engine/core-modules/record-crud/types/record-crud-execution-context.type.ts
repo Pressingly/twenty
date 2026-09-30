@@ -5,4 +5,5 @@ export type RecordCrudExecutionContext = {
   authContext: WorkspaceAuthContext;
   rolePermissionConfig?: RolePermissionConfig;
   slimResponse?: boolean;
+  allowLinkingSystemObjects?: boolean;
 };

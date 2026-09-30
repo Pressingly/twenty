@@ -108,6 +108,19 @@ describe('record crud schemas for morph relations', () => {
     ).toBe(true);
   });
 
+  it('should not expose a morph one-to-many relation as a writable property', () => {
+    const morphOneToManyField = buildRelationField(
+      FieldMetadataType.MORPH_RELATION,
+      'targetedBy',
+      RelationType.ONE_TO_MANY,
+    );
+    const shape = generateRecordPropertiesZodSchema({
+      fields: [morphOneToManyField],
+    } as ObjectMetadataForToolSchema).shape;
+
+    expect(Object.keys(shape)).toEqual([]);
+  });
+
   it('should key the find filter on the morph join column', () => {
     const { filterShape } = generateRecordFilterSchema(objectMetadata);
 

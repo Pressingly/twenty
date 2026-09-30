@@ -2,12 +2,15 @@ import { canObjectBeManagedByWorkflow } from 'twenty-shared/workflow';
 
 const LINKING_SYSTEM_OBJECT_NAMES = ['noteTarget', 'taskTarget'];
 
-export const canRecordCrudToolsManageObject = ({
+export const canRecordCrudManageObject = ({
   nameSingular,
   isSystem,
+  allowLinkingSystemObjects = false,
 }: {
   nameSingular: string;
   isSystem: boolean;
+  allowLinkingSystemObjects?: boolean;
 }) =>
-  LINKING_SYSTEM_OBJECT_NAMES.includes(nameSingular) ||
+  (allowLinkingSystemObjects &&
+    LINKING_SYSTEM_OBJECT_NAMES.includes(nameSingular)) ||
   canObjectBeManagedByWorkflow({ nameSingular, isSystem });

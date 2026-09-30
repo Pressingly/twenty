@@ -106,10 +106,12 @@ export const generateRecordPropertiesZodSchema = (
       return;
     }
 
-    if (
-      isFieldMetadataEntityOfType(field, FieldMetadataType.RELATION) &&
-      field.settings?.relationType === RelationType.ONE_TO_MANY
-    ) {
+    const isOneToManyRelationField =
+      (isFieldMetadataEntityOfType(field, FieldMetadataType.RELATION) ||
+        isFieldMetadataEntityOfType(field, FieldMetadataType.MORPH_RELATION)) &&
+      field.settings?.relationType === RelationType.ONE_TO_MANY;
+
+    if (isOneToManyRelationField) {
       return;
     }
 

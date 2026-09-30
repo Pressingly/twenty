@@ -10,7 +10,7 @@ import {
 } from 'src/engine/core-modules/record-crud/exceptions/record-crud.exception';
 import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-crud/services/common-api-context-builder.service';
 import { type DeleteRecordParams } from 'src/engine/core-modules/record-crud/types/delete-record-params.type';
-import { canRecordCrudToolsManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-tools-manage-object.util';
+import { canRecordCrudManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -42,9 +42,10 @@ export class DeleteRecordService {
         });
 
       if (
-        !canRecordCrudToolsManageObject({
+        !canRecordCrudManageObject({
           nameSingular: flatObjectMetadata.nameSingular,
           isSystem: flatObjectMetadata.isSystem,
+          allowLinkingSystemObjects: params.allowLinkingSystemObjects,
         })
       ) {
         throw new RecordCrudException(

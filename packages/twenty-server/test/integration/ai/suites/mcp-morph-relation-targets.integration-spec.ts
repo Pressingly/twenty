@@ -5,8 +5,10 @@ type ToolCallResult = {
   content: Array<{ type: string; text: string }>;
 };
 
-const UUID_PATTERN =
-  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+type ToolOutput = {
+  success: boolean;
+  result: { id: string };
+};
 
 describe('MCP morph relation targets (integration)', () => {
   const baseUrl = `http://localhost:${APP_PORT}`;
@@ -42,19 +44,22 @@ describe('MCP morph relation targets (integration)', () => {
     toolName: string,
     args: Record<string, unknown>,
   ): Promise<string> => {
-    const output = await executeTool(toolName, {
-      position: 'first',
-      ...args,
-    });
+    const output: ToolOutput = JSON.parse(
+      await executeTool(toolName, { position: 'first', ...args }),
+    );
 
-    expect(output).toContain('"success":true');
+    expect(output.success).toBe(true);
+    expect(output.result.id).toBeDefined();
 
-    const recordId = output.match(UUID_PATTERN)?.[0];
-
-    expect(recordId).toBeDefined();
-
-    return recordId as string;
+    return output.result.id;
   };
+
+  const findTargetsFor = (toolName: string, companyId: string) =>
+    executeTool(toolName, {
+      limit: 100,
+      offset: 0,
+      targetCompanyId: { eq: companyId },
+    });
 
   it('should advertise the morph join columns as uuid fields on note targets', async () => {
     const learned = await callTool('learn_tools', {
@@ -67,49 +72,61 @@ describe('MCP morph relation targets (integration)', () => {
     expect(learned).not.toMatch(/"targetCompany":\{/);
   });
 
-  it('should link a created note to a company and read the link back', async () => {
-    const companyId = await createRecordAndGetId('create_company', {
+  it('should link notes to a company and filter the links by that company', async () => {
+    const alphaId = await createRecordAndGetId('create_company', {
       name: 'Alpha Firm',
     });
-    const noteId = await createRecordAndGetId('create_note', {
+    const gammaId = await createRecordAndGetId('create_company', {
+      name: 'Gamma Firm',
+    });
+    const alphaNoteId = await createRecordAndGetId('create_note', {
       title: 'Met with client on 2nd September',
+    });
+    const gammaNoteId = await createRecordAndGetId('create_note', {
+      title: 'Met with Gamma on 3rd September',
     });
 
     await createRecordAndGetId('create_note_target', {
-      noteId,
-      targetCompanyId: companyId,
+      noteId: alphaNoteId,
+      targetCompanyId: alphaId,
+    });
+    await createRecordAndGetId('create_note_target', {
+      noteId: gammaNoteId,
+      targetCompanyId: gammaId,
     });
 
-    const foundTargets = await executeTool('find_note_targets', {
-      limit: 100,
-      offset: 0,
-      targetCompanyId: { eq: companyId },
-    });
+    const alphaTargets = await findTargetsFor('find_note_targets', alphaId);
 
-    expect(foundTargets).toContain(noteId);
-    expect(foundTargets).toContain(companyId);
+    expect(alphaTargets).toContain(alphaNoteId);
+    expect(alphaTargets).not.toContain(gammaNoteId);
   });
 
-  it('should link a created task to a company and read the link back', async () => {
-    const companyId = await createRecordAndGetId('create_company', {
+  it('should link tasks to a company and filter the links by that company', async () => {
+    const betaId = await createRecordAndGetId('create_company', {
       name: 'Beta Firm',
     });
-    const taskId = await createRecordAndGetId('create_task', {
+    const deltaId = await createRecordAndGetId('create_company', {
+      name: 'Delta Firm',
+    });
+    const betaTaskId = await createRecordAndGetId('create_task', {
       title: 'Follow up with Beta Firm',
+    });
+    const deltaTaskId = await createRecordAndGetId('create_task', {
+      title: 'Follow up with Delta Firm',
     });
 
     await createRecordAndGetId('create_task_target', {
-      taskId,
-      targetCompanyId: companyId,
+      taskId: betaTaskId,
+      targetCompanyId: betaId,
+    });
+    await createRecordAndGetId('create_task_target', {
+      taskId: deltaTaskId,
+      targetCompanyId: deltaId,
     });
 
-    const foundTargets = await executeTool('find_task_targets', {
-      limit: 100,
-      offset: 0,
-      targetCompanyId: { eq: companyId },
-    });
+    const betaTargets = await findTargetsFor('find_task_targets', betaId);
 
-    expect(foundTargets).toContain(taskId);
-    expect(foundTargets).toContain(companyId);
+    expect(betaTargets).toContain(betaTaskId);
+    expect(betaTargets).not.toContain(deltaTaskId);
   });
 });

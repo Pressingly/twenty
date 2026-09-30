@@ -114,6 +114,7 @@ export class ToolExecutorService {
 
       case 'create':
         return this.createRecordService.execute({
+          allowLinkingSystemObjects: true,
           objectName: ref.objectNameSingular,
           objectRecord: args,
           authContext,
@@ -124,6 +125,7 @@ export class ToolExecutorService {
 
       case 'create_many':
         return this.createManyRecordsService.execute({
+          allowLinkingSystemObjects: true,
           objectName: ref.objectNameSingular,
           objectRecords: args.records as Record<string, unknown>[],
           authContext,
@@ -139,6 +141,7 @@ export class ToolExecutorService {
         );
 
         return this.updateRecordService.execute({
+          allowLinkingSystemObjects: true,
           objectName: ref.objectNameSingular,
           objectRecordId: id as string,
           objectRecord,
@@ -150,6 +153,7 @@ export class ToolExecutorService {
 
       case 'update_many':
         return this.updateManyRecordsService.execute({
+          allowLinkingSystemObjects: true,
           objectName: ref.objectNameSingular,
           filter: args.filter as Record<string, unknown>,
           data: args.data as Record<string, unknown>,
@@ -160,6 +164,7 @@ export class ToolExecutorService {
 
       case 'delete':
         return this.deleteRecordService.execute({
+          allowLinkingSystemObjects: true,
           objectName: ref.objectNameSingular,
           objectRecordId: args.id as string,
           authContext,

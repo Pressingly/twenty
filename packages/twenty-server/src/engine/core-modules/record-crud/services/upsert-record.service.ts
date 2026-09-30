@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { canObjectBeManagedByWorkflow } from 'twenty-shared/workflow';
+
 import { CommonCreateOneQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-create-one-query-runner.service';
 import {
   RecordCrudException,
@@ -8,7 +10,6 @@ import {
 import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-crud/services/common-api-context-builder.service';
 import { type UpsertRecordParams } from 'src/engine/core-modules/record-crud/types/upsert-record-params.type';
 import { removeUndefinedFromRecord } from 'src/engine/core-modules/record-crud/utils/remove-undefined-from-record.util';
-import { canRecordCrudToolsManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-tools-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -31,7 +32,7 @@ export class UpsertRecordService {
         });
 
       if (
-        !canRecordCrudToolsManageObject({
+        !canObjectBeManagedByWorkflow({
           nameSingular: flatObjectMetadata.nameSingular,
           isSystem: flatObjectMetadata.isSystem,
         })
