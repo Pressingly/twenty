@@ -11,4 +11,5 @@ export type UpdateManyRecordsParams = {
   authContext: WorkspaceAuthContext;
   rolePermissionConfig?: RolePermissionConfig;
   slimResponse?: boolean;
+  allowLinkingSystemObjects?: boolean;
 };
