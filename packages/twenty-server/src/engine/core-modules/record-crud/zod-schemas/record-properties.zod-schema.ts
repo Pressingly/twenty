@@ -11,6 +11,7 @@ import { RelationType } from 'src/engine/metadata-modules/field-metadata/interfa
 
 import { filesFieldSchema } from 'src/engine/api/common/common-args-processors/data-arg-processor/validator-utils/validate-files-field-or-throw.util';
 import { type ObjectMetadataForToolSchema } from 'src/engine/core-modules/record-crud/types/object-metadata-for-tool-schema.type';
+import { getManyToOneJoinColumnName } from 'src/engine/core-modules/record-crud/utils/get-many-to-one-join-column-name.util';
 import { type FlatFieldMetadata } from 'src/engine/metadata-modules/flat-field-metadata/types/flat-field-metadata.type';
 import { isFieldMetadataEntityOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
 
@@ -93,13 +94,12 @@ export const generateRecordPropertiesZodSchema = (
       return;
     }
 
-    if (
-      isFieldMetadataEntityOfType(field, FieldMetadataType.RELATION) &&
-      field.settings?.relationType === RelationType.MANY_TO_ONE
-    ) {
+    const joinColumnName = getManyToOneJoinColumnName(field);
+
+    if (isDefined(joinColumnName)) {
       const uuidSchema = z.uuidv4();
 
-      shape[`${field.name}Id`] = field.isNullable
+      shape[joinColumnName] = field.isNullable
         ? uuidSchema.optional()
         : uuidSchema;
 

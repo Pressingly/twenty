@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { canObjectBeManagedByWorkflow } from 'twenty-shared/workflow';
-
 import { CommonUpdateManyQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-update-many-query-runner.service';
 import {
   RecordCrudException,
@@ -11,6 +9,7 @@ import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-c
 import { type UpdateManyRecordsParams } from 'src/engine/core-modules/record-crud/types/update-many-records-params.type';
 import { getRecordDisplayName } from 'src/engine/core-modules/record-crud/utils/get-record-display-name.util';
 import { removeUndefinedFromRecord } from 'src/engine/core-modules/record-crud/utils/remove-undefined-from-record.util';
+import { canRecordCrudToolsManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-tools-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -37,7 +36,7 @@ export class UpdateManyRecordsService {
       });
 
       if (
-        !canObjectBeManagedByWorkflow({
+        !canRecordCrudToolsManageObject({
           nameSingular: flatObjectMetadata.nameSingular,
           isSystem: flatObjectMetadata.isSystem,
         })
