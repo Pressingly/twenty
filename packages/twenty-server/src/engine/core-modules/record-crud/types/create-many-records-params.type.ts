@@ -11,4 +11,5 @@ export type CreateManyRecordsParams = {
   rolePermissionConfig?: RolePermissionConfig;
   createdBy?: ActorMetadata;
   slimResponse?: boolean;
+  allowLinkingSystemObjects?: boolean;
 };

@@ -1,11 +1,10 @@
 import { FieldMetadataType } from 'twenty-shared/types';
+import { isDefined } from 'twenty-shared/utils';
 import { z } from 'zod';
 
-import { RelationType } from 'src/engine/metadata-modules/field-metadata/interfaces/relation-type.interface';
-
+import { getManyToOneJoinColumnName } from 'src/engine/core-modules/record-crud/utils/get-many-to-one-join-column-name.util';
 import { type FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 import { type FlatFieldMetadata } from 'src/engine/metadata-modules/flat-field-metadata/types/flat-field-metadata.type';
-import { isFieldMetadataEntityOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
 
 const NullCheckEnum = z.enum(['NULL', 'NOT_NULL']);
 
@@ -466,12 +465,10 @@ export const generateFieldFilterZodSchema = (
         .describe(`Filter by ${field.name} (links field)`);
 
     case FieldMetadataType.RELATION:
-      if (
-        isFieldMetadataEntityOfType(field, FieldMetadataType.RELATION) &&
-        field.settings?.relationType === RelationType.MANY_TO_ONE
-      ) {
-        const fieldName = `${field.name}Id`;
+    case FieldMetadataType.MORPH_RELATION: {
+      const fieldName = getManyToOneJoinColumnName(field);
 
+      if (isDefined(fieldName)) {
         return z
           .object({
             eq: z
@@ -497,6 +494,7 @@ export const generateFieldFilterZodSchema = (
       }
 
       return null;
+    }
 
     case FieldMetadataType.RAW_JSON:
     case FieldMetadataType.FILES:
