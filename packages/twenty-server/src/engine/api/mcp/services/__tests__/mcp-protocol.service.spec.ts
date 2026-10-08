@@ -383,6 +383,32 @@ describe('McpProtocolService', () => {
       );
     });
 
+    it('should attribute actorContext to the api key name', async () => {
+      const mockRequest: JsonRpc = {
+        jsonrpc: '2.0',
+        method: 'tools/list',
+        id: '123',
+      };
+
+      await service.handleMCPCoreQuery(mockRequest, {
+        workspace: mockWorkspace,
+        apiKey: { ...mockApiKey, name: 'Zapier' } as FlatApiKey,
+      });
+
+      expect(_toolRegistryService.getToolsByName).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          actorContext: {
+            source: FieldActorSource.AGENT,
+            workspaceMemberId: null,
+            name: 'Zapier',
+            context: {},
+          },
+        }),
+        expect.anything(),
+      );
+    });
+
     it('should return prompts list without role resolution', async () => {
       const mockRequest: JsonRpc = {
         jsonrpc: '2.0',
