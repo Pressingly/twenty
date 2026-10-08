@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 import { type ToolSet, zodSchema } from 'ai';
 import { isDefined } from 'twenty-shared/utils';
+import { type ActorMetadata, FieldActorSource } from 'twenty-shared/types';
 
 import { JSON_RPC_ERROR_CODE } from 'src/engine/api/mcp/constants/json-rpc-error-code.const';
 import { MCP_EXCLUDED_TOOL_NAMES } from 'src/engine/api/mcp/constants/mcp-excluded-tool-names.const';
@@ -39,6 +40,7 @@ import {
 } from 'src/engine/core-modules/tool-provider/tools/load-skill.tool';
 import { type FlatWorkspace } from 'src/engine/core-modules/workspace/types/flat-workspace.type';
 import { SkillService } from 'src/engine/metadata-modules/skill/skill.service';
+import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { UserRoleService } from 'src/engine/metadata-modules/user-role/user-role.service';
 
 @Injectable()
@@ -49,6 +51,7 @@ export class McpProtocolService {
     private readonly mcpToolExecutorService: McpToolExecutorService,
     private readonly apiKeyRoleService: ApiKeyRoleService,
     private readonly skillService: SkillService,
+    private readonly workspaceCacheService: WorkspaceCacheService,
   ) {}
 
   handleInitialize(requestId: string | number) {
@@ -97,6 +100,50 @@ export class McpProtocolService {
     return roleId;
   }
 
+  private async buildActorContext(
+    workspaceId: string,
+    userId?: string,
+    apiKey?: FlatApiKey,
+  ): Promise<ActorMetadata> {
+    let actorContext: ActorMetadata = {
+      source: FieldActorSource.AGENT,
+      workspaceMemberId: null,
+      name: 'Agent',
+      context: {},
+    };
+
+    if (isDefined(apiKey)) {
+      actorContext = {
+        source: FieldActorSource.AGENT,
+        workspaceMemberId: null,
+        name: apiKey.name,
+        context: {},
+      };
+    } else if (isDefined(userId)) {
+      const { flatWorkspaceMemberMaps } =
+        await this.workspaceCacheService.getOrRecompute(workspaceId, [
+          'flatWorkspaceMemberMaps',
+        ]);
+      const workspaceMemberId = flatWorkspaceMemberMaps.idByUserId[userId];
+      const workspaceMember = isDefined(workspaceMemberId)
+        ? flatWorkspaceMemberMaps.byId[workspaceMemberId]
+        : undefined;
+
+      if (isDefined(workspaceMember)) {
+        actorContext = {
+          source: FieldActorSource.AGENT,
+          workspaceMemberId: workspaceMember.id,
+          name:
+            `${workspaceMember.name?.firstName ?? ''} ${workspaceMember.name?.lastName ?? ''}`.trim() ||
+            'Agent',
+          context: {},
+        };
+      }
+    }
+
+    return actorContext;
+  }
+
   private async buildMcpToolSet(
     workspace: FlatWorkspace,
     roleId: string,
@@ -104,14 +151,22 @@ export class McpProtocolService {
       authContext?: WorkspaceAuthContext;
       userId?: string;
       userWorkspaceId?: string;
+      apiKey?: FlatApiKey;
     },
   ): Promise<ToolSet> {
+    const actorContext = await this.buildActorContext(
+      workspace.id,
+      options?.userId,
+      options?.apiKey,
+    );
+
     const toolContext = {
       workspaceId: workspace.id,
       roleId,
       authContext: options?.authContext,
       userId: options?.userId,
       userWorkspaceId: options?.userWorkspaceId,
+      actorContext,
     };
 
     const preloadedTools = await this.toolRegistry.getToolsByName(
@@ -226,6 +281,7 @@ export class McpProtocolService {
         authContext,
         userId,
         userWorkspaceId,
+        apiKey,
       });
 
       if (method === 'tools/call') {
