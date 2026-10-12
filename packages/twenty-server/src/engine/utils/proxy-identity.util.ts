@@ -133,9 +133,7 @@ export const assertCorporateId = (
     }
 
     const payloadB64 = parts[1];
-    const payload = JSON.parse(
-      Buffer.from(payloadB64, 'base64url').toString(),
-    );
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
 
     if (payload['custom:is_corporate'] !== 'true') {
       throw new CorporateIdError('Access denied: not a corporate account');

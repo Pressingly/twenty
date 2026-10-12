@@ -72,7 +72,8 @@ export class SsoProxyLoginController {
     // Unlike middleware/guard paths, proxy-login is always behind
     // Traefik ForwardAuth, so a missing header with enforcement on
     // is suspicious and must be rejected.
-    const expectedCorporateId = this.twentyConfigService.get('SMB_CORPORATE_ID');
+    const expectedCorporateId =
+      this.twentyConfigService.get('SMB_CORPORATE_ID');
 
     if (expectedCorporateId && !req.get('x-auth-request-access-token')) {
       this.logger.warn('SSO proxy-login refused: missing access token header');

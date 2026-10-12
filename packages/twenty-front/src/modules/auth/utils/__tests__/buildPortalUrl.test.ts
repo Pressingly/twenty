@@ -30,8 +30,8 @@ describe('buildPortalUrl', () => {
   });
 
   it('preserves port when present', () => {
-    expect(
-      buildPortalUrl('foss-twenty.local.moneta.dev:8080', 'http:'),
-    ).toBe('http://foss.local.moneta.dev:8080/');
+    expect(buildPortalUrl('foss-twenty.local.moneta.dev:8080', 'http:')).toBe(
+      'http://foss.local.moneta.dev:8080/',
+    );
   });
 });
