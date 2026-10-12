@@ -1,3 +1,4 @@
+import { useIsWorkflowCoreEnabled } from '@/workflow/hooks/useIsWorkflowCoreEnabled';
 import { CommandMenuContext } from '@/command-menu-item/contexts/CommandMenuContext';
 import { useSidePanelWorkflowNavigation } from '@/side-panel/pages/workflow/hooks/useSidePanelWorkflowNavigation';
 import { useAtomComponentStateCallbackState } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateCallbackState';
@@ -20,7 +21,8 @@ import { useStepsOutputSchema } from '@/workflow/workflow-variables/hooks/useSte
 import { useStore } from 'jotai';
 import { useCallback, useContext, useEffect } from 'react';
 import { isDefined } from 'twenty-shared/utils';
-import { useIcons } from 'twenty-ui/display';
+
+import { useIcons } from 'twenty-ui/icon';
 
 export const WorkflowRunVisualizerEffect = ({
   workflowRunId,
@@ -28,14 +30,23 @@ export const WorkflowRunVisualizerEffect = ({
   workflowRunId: string;
 }) => {
   const { getIcon } = useIcons();
+  const isCore = useIsWorkflowCoreEnabled();
 
   const workflowRun = useWorkflowRun({ workflowRunId });
   const setWorkflowVisualizerWorkflowRunId = useSetAtomComponentState(
     workflowVisualizerWorkflowRunIdComponentState,
   );
 
-  const workflowVersionId = workflowRun?.workflowVersionId;
-  const workflowVersion = useWorkflowVersion(workflowVersionId);
+  const workflowVersionId = isCore
+    ? (workflowRun?.coreWorkflowVersionId ??
+      workflowRun?.workflowVersionId ??
+      undefined)
+    : (workflowRun?.workflowVersionId ?? undefined);
+  const workflowVersion = useWorkflowVersion(
+    isCore
+      ? (workflowRun?.coreWorkflowVersionId ?? undefined)
+      : workflowVersionId,
+  );
   const setWorkflowVisualizerWorkflowVersionId = useSetAtomComponentState(
     workflowVisualizerWorkflowVersionIdComponentState,
   );
@@ -82,8 +93,12 @@ export const WorkflowRunVisualizerEffect = ({
       return;
     }
 
-    setWorkflowVisualizerWorkflowId(workflowRun.workflowId);
-  }, [setWorkflowVisualizerWorkflowId, workflowRun]);
+    setWorkflowVisualizerWorkflowId(
+      isCore
+        ? (workflowRun.coreWorkflowId ?? workflowRun.workflowId ?? undefined)
+        : (workflowRun.workflowId ?? undefined),
+    );
+  }, [isCore, setWorkflowVisualizerWorkflowId, workflowRun]);
 
   useEffect(() => {
     if (!isDefined(workflowVersionId)) {
@@ -122,12 +137,37 @@ export const WorkflowRunVisualizerEffect = ({
         steps: workflowRunState.flow.steps,
       });
 
-      const { diagram: baseWorkflowRunDiagram, stepToOpenByDefault } =
+      const { diagram: generatedWorkflowRunDiagram, stepToOpenByDefault } =
         generateWorkflowRunDiagram({
           trigger: workflowRunState.flow.trigger,
           steps: workflowRunState.flow.steps,
           stepInfos: workflowRunState.stepInfos,
         });
+
+      const previousNodesById = new Map(
+        (store.get(workflowDiagram)?.nodes ?? []).map((node) => [
+          node.id,
+          node,
+        ]),
+      );
+
+      const baseWorkflowRunDiagram = {
+        ...generatedWorkflowRunDiagram,
+        nodes: generatedWorkflowRunDiagram.nodes.map((node) => {
+          const previousNode = previousNodesById.get(node.id);
+
+          if (!isDefined(previousNode?.measured)) {
+            return node;
+          }
+
+          return {
+            ...node,
+            measured: previousNode.measured,
+            width: previousNode.width,
+            height: previousNode.height,
+          };
+        }),
+      };
 
       if (workflowDiagramStatus !== 'done') {
         store.set(workflowDiagramStatusState, 'computing-dimensions');
@@ -209,23 +249,27 @@ export const WorkflowRunVisualizerEffect = ({
   useEffect(() => {
     handleWorkflowRunDiagramGeneration({
       workflowRunState: workflowRun?.state ?? undefined,
-      workflowVersionId: workflowRun?.workflowVersionId,
+      workflowVersionId,
       isInSidePanel,
     });
   }, [
     handleWorkflowRunDiagramGeneration,
     isInSidePanel,
     workflowRun?.state,
-    workflowRun?.workflowVersionId,
+    workflowVersionId,
   ]);
 
   useEffect(() => {
-    if (!isDefined(workflowVersion)) {
+    if (!isDefined(workflowVersion) || !isDefined(workflowRun?.state)) {
       return;
     }
 
-    populateStepsOutputSchema(workflowVersion);
-  }, [populateStepsOutputSchema, workflowVersion]);
+    populateStepsOutputSchema({
+      ...workflowVersion,
+      trigger: workflowRun.state.flow.trigger,
+      steps: workflowRun.state.flow.steps,
+    });
+  }, [populateStepsOutputSchema, workflowRun?.state, workflowVersion]);
 
   return null;
 };

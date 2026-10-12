@@ -14,6 +14,9 @@ import {
   isDefined,
 } from 'twenty-shared/utils';
 
+import { computeMorphOrRelationFieldJoinColumnName } from 'src/engine/metadata-modules/field-metadata/utils/compute-morph-or-relation-field-join-column-name.util';
+import { isFieldMetadataSettingsOfType } from 'src/engine/metadata-modules/field-metadata/utils/is-field-metadata-settings-of-type.util';
+import { belongsToTwentyStandardApp } from 'src/engine/metadata-modules/utils/belongs-to-twenty-standard-app.util';
 import { transformActorField } from 'src/engine/api/common/common-args-processors/data-arg-processor/transformer-utils/transform-actor-field.util';
 import { transformAddressField } from 'src/engine/api/common/common-args-processors/data-arg-processor/transformer-utils/transform-address-field.util';
 import { transformArrayField } from 'src/engine/api/common/common-args-processors/data-arg-processor/transformer-utils/transform-array-field.util';
@@ -56,12 +59,10 @@ import { transformLinksValue } from 'src/engine/core-modules/record-transformer/
 import { transformPhonesValue } from 'src/engine/core-modules/record-transformer/utils/transform-phones-value.util';
 import { transformRichTextValue } from 'src/engine/core-modules/record-transformer/utils/transform-rich-text.util';
 import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
-import { computeMorphOrRelationFieldJoinColumnName } from 'src/engine/metadata-modules/field-metadata/utils/compute-morph-or-relation-field-join-column-name.util';
 import { FlatEntityMaps } from 'src/engine/metadata-modules/flat-entity/types/flat-entity-maps.type';
 import { findFlatEntityByIdInFlatEntityMaps } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps.util';
-import { FlatFieldMetadata } from 'src/engine/metadata-modules/flat-field-metadata/types/flat-field-metadata.type';
+import { type OrmFlatFieldMetadata } from 'src/engine/metadata-modules/flat-field-metadata/types/orm-flat-field-metadata.type';
 import { buildFieldMapsFromFlatObjectMetadata } from 'src/engine/metadata-modules/flat-field-metadata/utils/build-field-maps-from-flat-object-metadata.util';
-import { isFlatFieldMetadataOfType } from 'src/engine/metadata-modules/flat-field-metadata/utils/is-flat-field-metadata-of-type.util';
 import { FlatObjectMetadata } from 'src/engine/metadata-modules/flat-object-metadata/types/flat-object-metadata.type';
 
 @Injectable()
@@ -79,7 +80,7 @@ export class DataArgProcessorService {
     partialRecordInputs: Partial<ObjectRecord>[] | undefined;
     authContext: WorkspaceAuthContext;
     flatObjectMetadata: FlatObjectMetadata;
-    flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>;
+    flatFieldMetadataMaps: FlatEntityMaps<OrmFlatFieldMetadata>;
     flatObjectMetadataMaps: FlatEntityMaps<FlatObjectMetadata>;
     shouldBackfillPositionIfUndefined?: boolean;
   }): Promise<Partial<ObjectRecord>[]> {
@@ -102,7 +103,7 @@ export class DataArgProcessorService {
         partialRecordInputs: partialRecordInputs,
         workspaceId: workspace.id,
         objectMetadata: {
-          isCustom: flatObjectMetadata.isCustom,
+          isCustom: !belongsToTwentyStandardApp(flatObjectMetadata),
           nameSingular: flatObjectMetadata.nameSingular,
           fieldIdByName,
         },
@@ -127,7 +128,7 @@ export class DataArgProcessorService {
         }
 
         const fieldMetadata =
-          findFlatEntityByIdInFlatEntityMaps<FlatFieldMetadata>({
+          findFlatEntityByIdInFlatEntityMaps<OrmFlatFieldMetadata>({
             flatEntityId: fieldMetadataId,
             flatEntityMaps: flatFieldMetadataMaps,
           });
@@ -171,10 +172,10 @@ export class DataArgProcessorService {
   }
 
   private async processField(
-    fieldMetadata: FlatFieldMetadata,
+    fieldMetadata: OrmFlatFieldMetadata,
     key: string,
     value: unknown,
-    flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>,
+    flatFieldMetadataMaps: FlatEntityMaps<OrmFlatFieldMetadata>,
     flatObjectMetadataMaps: FlatEntityMaps<FlatObjectMetadata>,
   ): Promise<unknown> {
     switch (fieldMetadata.type) {
@@ -245,14 +246,9 @@ export class DataArgProcessorService {
           );
         }
 
-        const joinColumnName = isFlatFieldMetadataOfType(
-          fieldMetadata,
-          FieldMetadataType.MORPH_RELATION,
-        )
-          ? computeMorphOrRelationFieldJoinColumnName({
-              name: fieldMetadata.name,
-            })
-          : relationSettings.joinColumnName;
+        const joinColumnName = computeMorphOrRelationFieldJoinColumnName({
+          name: fieldMetadata.name,
+        });
 
         if (key === joinColumnName) {
           return validateUUIDFieldOrThrow(value, key);
@@ -260,7 +256,7 @@ export class DataArgProcessorService {
 
         if (isDefined(joinColumnName) && !isRelationNestedOperation(value)) {
           throw new CommonQueryRunnerException(
-            `Relation "${key}" requires connect or disconnect operation`,
+            `Relation "${key}" requires create, connect, or disconnect operation`,
             CommonQueryRunnerExceptionCode.INVALID_ARGS_DATA,
             { userFriendlyMessage: STANDARD_ERROR_MESSAGE },
           );
@@ -337,9 +333,20 @@ export class DataArgProcessorService {
         return await transformRichTextValue(validatedValue);
       }
       case FieldMetadataType.LINKS: {
-        const validatedValue = validateLinksFieldOrThrow(value, key);
+        const settings = isFieldMetadataSettingsOfType(
+          fieldMetadata.settings,
+          FieldMetadataType.LINKS,
+        )
+          ? fieldMetadata.settings
+          : null;
 
-        return transformLinksValue(validatedValue);
+        const validatedValue = validateLinksFieldOrThrow({
+          value,
+          fieldName: key,
+          linksVariant: settings?.type,
+        });
+
+        return transformLinksValue({ input: validatedValue, settings });
       }
       case FieldMetadataType.TS_VECTOR:
         throw new CommonQueryRunnerException(
@@ -357,8 +364,8 @@ export class DataArgProcessorService {
 
   private async processConnectWhere(
     connectWhere: Record<string, unknown>,
-    relationFieldMetadata: FlatFieldMetadata,
-    flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>,
+    relationFieldMetadata: OrmFlatFieldMetadata,
+    flatFieldMetadataMaps: FlatEntityMaps<OrmFlatFieldMetadata>,
     flatObjectMetadataMaps: FlatEntityMaps<FlatObjectMetadata>,
   ): Promise<Record<string, unknown>> {
     if (!isDefined(relationFieldMetadata.relationTargetObjectMetadataId)) {
@@ -399,7 +406,7 @@ export class DataArgProcessorService {
       }
 
       const whereFieldMetadata =
-        findFlatEntityByIdInFlatEntityMaps<FlatFieldMetadata>({
+        findFlatEntityByIdInFlatEntityMaps<OrmFlatFieldMetadata>({
           flatEntityId: fieldId,
           flatEntityMaps: flatFieldMetadataMaps,
         });

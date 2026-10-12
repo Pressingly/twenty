@@ -1,3 +1,5 @@
+import { TabListRoot } from '@/ui/layout/tab-list/components/TabListRoot';
+import { Tabs } from 'twenty-ui/primitives/navigation';
 import { useParams } from 'react-router-dom';
 
 import { useQuery } from '@apollo/client/react';
@@ -5,33 +7,41 @@ import { styled } from '@linaria/react';
 import { t } from '@lingui/core/macro';
 import { isNonEmptyString } from '@sniptt/guards';
 import { SettingsPath } from 'twenty-shared/types';
-import { getImageAbsoluteURI, getSettingsPath } from 'twenty-shared/utils';
+import {
+  getImageAbsoluteURI,
+  getSettingsPath,
+  isDefined,
+  isNonEmptyArray,
+} from 'twenty-shared/utils';
 
 import { currentUserState } from '@/auth/states/currentUserState';
 import { useApolloAdminClient } from '@/settings/admin-panel/apollo/hooks/useApolloAdminClient';
+import { SettingsAdminServerAdminAccess } from '@/settings/admin-panel/components/SettingsAdminServerAdminAccess';
+import { SettingsAdminTwoFactorAuthenticationRecoveryCode } from '@/settings/admin-panel/components/SettingsAdminTwoFactorAuthenticationRecoveryCode';
 import { SettingsAdminWorkspaceContent } from '@/settings/admin-panel/components/SettingsAdminWorkspaceContent';
 import { SETTINGS_ADMIN_USER_LOOKUP_WORKSPACE_TABS_ID } from '@/settings/admin-panel/constants/SettingsAdminUserLookupWorkspaceTabsId';
 import { useHandleImpersonate } from '@/settings/admin-panel/hooks/useHandleImpersonate';
 import { SettingsPageContainer } from '@/settings/components/SettingsPageContainer';
 import { SettingsSkeletonLoader } from '@/settings/components/SettingsSkeletonLoader';
 import { SettingsTableCard } from '@/settings/components/SettingsTableCard';
-import { TabList } from '@/ui/layout/tab-list/components/TabList';
+import { SettingsPageLayout } from '@/settings/components/layout/SettingsPageLayout';
+import { SettingsTabBar } from '@/settings/components/layout/SettingsTabBar';
 import { activeTabIdComponentState } from '@/ui/layout/tab-list/states/activeTabIdComponentState';
-import { SubMenuTopBarContainer } from '@/ui/layout/page/components/SubMenuTopBarContainer';
 import { DEFAULT_WORKSPACE_LOGO } from '@/ui/navigation/navigation-drawer/constants/DefaultWorkspaceLogo';
 import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
+import { Section } from 'twenty-ui/components/layout';
 import {
-  H2Title,
   IconCalendar,
   IconEyeShare,
   IconId,
+  IconLock,
   IconMail,
   IconUser,
-} from 'twenty-ui/display';
-import { Button } from 'twenty-ui/input';
-import { Section } from 'twenty-ui/layout';
-import { themeCssVariables } from 'twenty-ui/theme-constants';
+} from 'twenty-ui/icon';
+import { Avatar } from 'twenty-ui/primitives/data-display';
+import { Button } from 'twenty-ui/primitives/input';
+import { themeCssVariables } from 'twenty-ui/theme';
 import { REACT_APP_SERVER_BASE_URL } from '~/config';
 import {
   type UserLookupAdminPanelQuery,
@@ -64,9 +74,10 @@ export const SettingsAdminUserDetail = () => {
   const { handleImpersonate, impersonatingUserId } = useHandleImpersonate();
 
   const effectiveTabId = activeTabId || userLookupResult?.workspaces?.[0]?.id;
+  const user = userLookupResult?.user;
 
-  const userFullName = `${userLookupResult?.user.firstName || ''} ${
-    userLookupResult?.user.lastName || ''
+  const userFullName = `${user?.firstName || ''} ${
+    user?.lastName || ''
   }`.trim();
 
   const activeWorkspace = userLookupResult?.workspaces.find(
@@ -86,6 +97,8 @@ export const SettingsAdminUserDetail = () => {
         }) ?? '',
     })) ?? [];
 
+  const displayName = userFullName || userId || '';
+
   const userInfoItems = [
     {
       Icon: IconUser,
@@ -95,98 +108,144 @@ export const SettingsAdminUserDetail = () => {
     {
       Icon: IconMail,
       label: t`Email`,
-      value: userLookupResult?.user.email,
+      value: user?.email,
     },
     {
       Icon: IconId,
       label: t`ID`,
-      value: userLookupResult?.user.id,
+      value: user?.id,
     },
     {
       Icon: IconCalendar,
       label: t`Created`,
-      value: userLookupResult?.user.createdAt
-        ? new Date(userLookupResult.user.createdAt).toLocaleDateString()
+      value: user?.createdAt
+        ? new Date(user.createdAt).toLocaleDateString()
         : '',
     },
+    ...(currentUser?.canAccessFullAdminPanel && isDefined(userId)
+      ? [
+          {
+            Icon: IconLock,
+            label: t`Server access`,
+            value: (
+              <SettingsAdminServerAdminAccess
+                userId={userId}
+                userLabel={displayName}
+              />
+            ),
+          },
+        ]
+      : []),
   ];
 
-  const displayName = userFullName || userId || '';
+  const workspaceContent = (
+    <Section.Root>
+      <Section.Header
+        title={t`Workspaces`}
+        description={t`All workspaces this user is a member of`}
+      />
+      <SettingsAdminWorkspaceContent activeWorkspace={activeWorkspace} />
+      {currentUser?.canImpersonate &&
+        activeWorkspace &&
+        isDefined(user) &&
+        user.id !== currentUser.id && (
+          <StyledButtonContainer>
+            <Button
+              startIcon={<IconEyeShare />}
+              onClick={() => handleImpersonate(user.id, activeWorkspace.id)}
+              disabled={
+                impersonatingUserId !== null ||
+                activeWorkspace.allowImpersonation === false
+              }
+              variant="outline"
+            >
+              {activeWorkspace.allowImpersonation === false
+                ? t`Impersonation is disabled for this workspace`
+                : t`Impersonate`}
+            </Button>
+          </StyledButtonContainer>
+        )}
+      {currentUser?.canAccessFullAdminPanel &&
+        activeWorkspace &&
+        isDefined(user) &&
+        user.id !== currentUser.id && (
+          <SettingsAdminTwoFactorAuthenticationRecoveryCode
+            key={`${user.id}-${activeWorkspace.id}`}
+            userId={user.id}
+            workspaceId={activeWorkspace.id}
+            memberName={displayName}
+          />
+        )}
+    </Section.Root>
+  );
 
   if (isLoading) {
     return <SettingsSkeletonLoader />;
   }
 
   return (
-    <SubMenuTopBarContainer
-      links={[
-        {
-          children: t`Other`,
-          href: getSettingsPath(SettingsPath.AdminPanel),
-        },
-        {
-          children: t`Admin Panel - General`,
-          href: getSettingsPath(SettingsPath.AdminPanel),
-        },
-        {
-          children: displayName,
-        },
-      ]}
+    <TabListRoot
+      componentInstanceId={SETTINGS_ADMIN_USER_LOOKUP_WORKSPACE_TABS_ID}
     >
-      <SettingsPageContainer>
-        {userLookupResult && (
-          <>
-            <Section>
-              <H2Title title={t`User Info`} description={t`About this user`} />
-              <SettingsTableCard
-                items={userInfoItems}
-                rounded
-                gridAutoColumns="1fr 4fr"
-              />
-            </Section>
-            <Section>
-              <H2Title
-                title={t`Workspaces`}
-                description={t`All workspaces this user is a member of`}
-              />
-              <TabList
-                tabs={tabs}
-                behaveAsLinks={false}
-                componentInstanceId={
-                  SETTINGS_ADMIN_USER_LOOKUP_WORKSPACE_TABS_ID
-                }
-              />
-              <SettingsAdminWorkspaceContent
-                activeWorkspace={activeWorkspace}
-              />
-              {currentUser?.canImpersonate && activeWorkspace && (
-                <StyledButtonContainer>
-                  <Button
-                    Icon={IconEyeShare}
-                    variant="primary"
-                    accent="default"
-                    title={
-                      activeWorkspace.allowImpersonation === false
-                        ? t`Impersonation is disabled for this workspace`
-                        : t`Impersonate`
-                    }
-                    onClick={() =>
-                      handleImpersonate(
-                        userLookupResult.user.id,
-                        activeWorkspace.id,
-                      )
-                    }
-                    disabled={
-                      impersonatingUserId !== null ||
-                      activeWorkspace.allowImpersonation === false
-                    }
-                  />
-                </StyledButtonContainer>
+      <SettingsPageLayout
+        title={displayName}
+        icon={
+          <Avatar
+            name={displayName}
+            colorSeed={user?.id}
+            size="md"
+            shape="circle"
+          />
+        }
+        links={[
+          {
+            children: t`Other`,
+            href: getSettingsPath(SettingsPath.AdminPanel),
+          },
+          {
+            children: t`Admin Panel - General`,
+            href: getSettingsPath(SettingsPath.AdminPanel),
+          },
+          {
+            children: displayName,
+          },
+        ]}
+        secondaryBar={
+          tabs.length > 0 ? (
+            <SettingsTabBar
+              aria-label={t`User workspaces`}
+              tabs={tabs}
+              behaveAsLinks={false}
+              componentInstanceId={SETTINGS_ADMIN_USER_LOOKUP_WORKSPACE_TABS_ID}
+            />
+          ) : undefined
+        }
+      >
+        <SettingsPageContainer>
+          {userLookupResult && (
+            <>
+              <Section.Root>
+                <Section.Header
+                  title={t`User Info`}
+                  description={t`About this user`}
+                />
+                <SettingsTableCard
+                  items={userInfoItems}
+                  rounded
+                  gridAutoColumns="1fr 4fr"
+                />
+              </Section.Root>
+              {isNonEmptyArray(tabs) ? (
+                <Tabs.Panel value={effectiveTabId ?? ''}>
+                  {workspaceContent}
+                </Tabs.Panel>
+              ) : (
+                workspaceContent
               )}
-            </Section>
-          </>
-        )}
-      </SettingsPageContainer>
-    </SubMenuTopBarContainer>
+            </>
+          )}
+        </SettingsPageContainer>
+      </SettingsPageLayout>
+    </TabListRoot>
   );
 };

@@ -1,47 +1,39 @@
 import { Module } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
-import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { CommandShutdownModule } from 'src/database/commands/command-runners/command-shutdown.module';
 import { WorkspaceIteratorModule } from 'src/database/commands/command-runners/workspace-iterator.module';
 import { InstanceCommandProviderModule } from 'src/database/commands/upgrade-version-command/instance-command-provider.module';
 import { WorkspaceCommandProviderModule } from 'src/database/commands/upgrade-version-command/workspace-command-provider.module';
+import { MetricsModule } from 'src/engine/core-modules/metrics/metrics.module';
 import { InstanceCommandRunnerService } from 'src/engine/core-modules/upgrade/services/instance-command-runner.service';
-import { UpgradeCommandRegistryService } from 'src/engine/core-modules/upgrade/services/upgrade-command-registry.service';
-import { UpgradeMigrationService } from 'src/engine/core-modules/upgrade/services/upgrade-migration.service';
-import { UpgradeSequenceReaderService } from 'src/engine/core-modules/upgrade/services/upgrade-sequence-reader.service';
 import { UpgradeSequenceRunnerService } from 'src/engine/core-modules/upgrade/services/upgrade-sequence-runner.service';
-import { UpgradeStatusService } from 'src/engine/core-modules/upgrade/services/upgrade-status.service';
 import { WorkspaceCommandRunnerService } from 'src/engine/core-modules/upgrade/services/workspace-command-runner.service';
-import { UpgradeMigrationEntity } from 'src/engine/core-modules/upgrade/upgrade-migration.entity';
-import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
+import { UpgradeGaugeService } from 'src/engine/core-modules/upgrade/upgrade-gauge.service';
+import { UpgradeStatusModule } from 'src/engine/core-modules/upgrade/upgrade-status.module';
+import { UpgradeAwareEntityMetadataAdapter } from 'src/engine/twenty-orm/upgrade-aware/upgrade-aware-entity-metadata.adapter';
 import { WorkspaceVersionModule } from 'src/engine/workspace-manager/workspace-version/workspace-version.module';
 
 @Module({
   imports: [
-    DiscoveryModule,
+    CommandShutdownModule,
     InstanceCommandProviderModule,
+    MetricsModule,
+    UpgradeStatusModule,
     WorkspaceCommandProviderModule,
     WorkspaceIteratorModule,
     WorkspaceVersionModule,
-    TypeOrmModule.forFeature([UpgradeMigrationEntity, WorkspaceEntity]),
   ],
   providers: [
-    UpgradeMigrationService,
     InstanceCommandRunnerService,
     WorkspaceCommandRunnerService,
-    UpgradeCommandRegistryService,
-    UpgradeSequenceReaderService,
+    UpgradeAwareEntityMetadataAdapter,
     UpgradeSequenceRunnerService,
-    UpgradeStatusService,
+    UpgradeGaugeService,
   ],
   exports: [
-    UpgradeMigrationService,
+    UpgradeStatusModule,
     InstanceCommandRunnerService,
-    WorkspaceCommandRunnerService,
-    UpgradeCommandRegistryService,
-    UpgradeSequenceReaderService,
     UpgradeSequenceRunnerService,
-    UpgradeStatusService,
   ],
 })
 export class UpgradeModule {}

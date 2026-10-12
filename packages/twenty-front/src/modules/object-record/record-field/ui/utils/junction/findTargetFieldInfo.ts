@@ -1,7 +1,10 @@
 import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
-import { getJoinColumnName } from '@/object-record/record-field/ui/utils/junction/getJoinColumnName';
-import { computeMorphRelationFieldName, isDefined } from 'twenty-shared/utils';
+import {
+  computeMorphRelationGqlFieldName,
+  computeRelationGqlFieldJoinColumnName,
+  isDefined,
+} from 'twenty-shared/utils';
 
 export type TargetFieldInfo = {
   fieldName: string;
@@ -34,18 +37,16 @@ const findMorphTargetFieldInfo = (
     return undefined;
   }
 
-  const fieldName = computeMorphRelationFieldName({
+  const fieldName = computeMorphRelationGqlFieldName({
     fieldName: matchingMorphRelation.sourceFieldMetadata.name,
     relationType: matchingMorphRelation.type,
     targetObjectMetadataNameSingular: targetObjectMetadata.nameSingular,
     targetObjectMetadataNamePlural: targetObjectMetadata.namePlural,
   });
 
-  // For morph relations, compute the join column name from the computed field name
-  // e.g., caretakerPerson → caretakerPersonId
   return {
     fieldName,
-    joinColumnName: `${fieldName}Id`,
+    joinColumnName: computeRelationGqlFieldJoinColumnName({ name: fieldName }),
   };
 };
 
@@ -68,7 +69,9 @@ export const findTargetFieldInfo = (
     if (field.relation?.targetObjectMetadata.id === targetObjectMetadataId) {
       return {
         fieldName: field.name,
-        joinColumnName: getJoinColumnName(field.settings),
+        joinColumnName: computeRelationGqlFieldJoinColumnName({
+          name: field.name,
+        }),
       };
     }
   }

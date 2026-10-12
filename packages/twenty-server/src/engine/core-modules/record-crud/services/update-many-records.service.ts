@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { isDefined } from 'twenty-shared/utils';
+import { canObjectBeManagedByAutomation } from 'twenty-shared/workflow';
+
 import { CommonUpdateManyQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-update-many-query-runner.service';
+import { isRecordFilterEmpty } from 'src/engine/api/common/common-query-runners/utils/is-record-filter-empty.util';
 import {
   RecordCrudException,
   RecordCrudExceptionCode,
@@ -9,7 +13,6 @@ import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-c
 import { type UpdateManyRecordsParams } from 'src/engine/core-modules/record-crud/types/update-many-records-params.type';
 import { getRecordDisplayName } from 'src/engine/core-modules/record-crud/utils/get-record-display-name.util';
 import { removeUndefinedFromRecord } from 'src/engine/core-modules/record-crud/utils/remove-undefined-from-record.util';
-import { canRecordCrudManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -22,7 +25,17 @@ export class UpdateManyRecordsService {
   ) {}
 
   async execute(params: UpdateManyRecordsParams): Promise<ToolOutput> {
-    const { objectName, filter, data, authContext } = params;
+    const { objectName, filter, data, authContext, rolePermissionConfig } =
+      params;
+
+    if (!isDefined(filter) || isRecordFilterEmpty(filter)) {
+      return {
+        success: false,
+        message: `Failed to update records in ${objectName}`,
+        error:
+          'Filter must not be empty — updating without a filter is not allowed',
+      };
+    }
 
     try {
       const {
@@ -33,17 +46,16 @@ export class UpdateManyRecordsService {
       } = await this.commonApiContextBuilder.build({
         authContext,
         objectName,
+        rolePermissionConfig,
       });
 
       if (
-        !canRecordCrudManageObject({
+        !canObjectBeManagedByAutomation({
           nameSingular: flatObjectMetadata.nameSingular,
-          isSystem: flatObjectMetadata.isSystem,
-          allowLinkingSystemObjects: params.allowLinkingSystemObjects,
         })
       ) {
         throw new RecordCrudException(
-          'Failed to update: Object cannot be updated by workflow',
+          'Failed to update: Object cannot be updated by automation',
           RecordCrudExceptionCode.INVALID_REQUEST,
         );
       }

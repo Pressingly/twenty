@@ -1,12 +1,13 @@
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { SettingsCard } from '@/settings/components/SettingsCard';
 import { useCurrentUserWorkspaceTwoFactorAuthentication } from '@/settings/two-factor-authentication/hooks/useCurrentUserWorkspaceTwoFactorAuthentication';
+import { UndecoratedLink } from '@/ui/navigation/link/components/UndecoratedLink/UndecoratedLink';
 import { useLingui } from '@lingui/react/macro';
 import { SettingsPath } from 'twenty-shared/types';
 import { getSettingsPath } from 'twenty-shared/utils';
-import { H2Title, IconShield, Status } from 'twenty-ui/display';
-import { Section } from 'twenty-ui/layout';
-import { UndecoratedLink } from 'twenty-ui/navigation';
+import { Section } from 'twenty-ui/components/layout';
+import { IconShield } from 'twenty-ui/icon';
+import { Status } from 'twenty-ui/primitives/data-display';
 
 // Under SSO the IdP owns MFA — Twenty's local TOTP setup is a dead control.
 // Outer component bails out before inner hooks run.
@@ -31,8 +32,8 @@ const ProfileTwoFactorAuthenticationSectionInner = () => {
     'VERIFIED';
 
   return (
-    <Section>
-      <H2Title
+    <Section.Root>
+      <Section.Header
         title={t`Two Factor Authentication`}
         description={t`Enhances security by requiring a code along with your password`}
       />
@@ -47,13 +48,13 @@ const ProfileTwoFactorAuthenticationSectionInner = () => {
           Icon={<IconShield />}
           Status={
             has2FAMethod ? (
-              <Status text={t`Active`} color="turquoise" />
+              <Status color="turquoise">{t`Active`}</Status>
             ) : (
-              <Status text={t`Deactivated`} color="gray" />
+              <Status color="gray">{t`Deactivated`}</Status>
             )
           }
         />
       </UndecoratedLink>
-    </Section>
+    </Section.Root>
   );
 };

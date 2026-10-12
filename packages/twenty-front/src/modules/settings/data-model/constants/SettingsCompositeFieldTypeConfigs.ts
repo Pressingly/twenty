@@ -8,10 +8,10 @@ import {
   type FieldPhonesValue,
   type FieldRichTextValue,
 } from '@/object-record/record-field/ui/types/FieldMetadata';
-import { COMPOSITE_FIELD_SUB_FIELD_LABELS } from '@/settings/data-model/constants/CompositeFieldSubFieldLabel';
 import { type SettingsFieldTypeConfig } from '@/settings/data-model/constants/SettingsNonCompositeFieldTypeConfigs';
 import { type CompositeFieldType } from '@/settings/data-model/types/CompositeFieldType';
 import {
+  COMPOSITE_FIELD_SUB_FIELD_LABELS,
   COMPOSITE_FIELD_TYPE_SUB_FIELDS_NAMES,
   CurrencyCode,
 } from 'twenty-shared/constants';
@@ -25,7 +25,7 @@ import {
   IllustrationIconSetting,
   IllustrationIconText,
   IllustrationIconUser,
-} from 'twenty-ui/display';
+} from 'twenty-ui/icon';
 import { FieldMetadataType } from '~/generated-metadata/graphql';
 
 //TODO : isIncludedInUniqueConstraint refactor - https://github.com/twentyhq/core-team-issues/issues/1097
@@ -209,7 +209,7 @@ export const SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS = {
             .primaryPhoneCallingCode,
         isImportable: true,
         isFilterable: true,
-        isIncludedInUniqueConstraint: false,
+        isIncludedInUniqueConstraint: true,
       },
       {
         subFieldName:
@@ -220,7 +220,7 @@ export const SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS = {
             .primaryPhoneCountryCode,
         isImportable: true,
         isFilterable: false,
-        isIncludedInUniqueConstraint: false,
+        isIncludedInUniqueConstraint: true,
       },
       {
         subFieldName:

@@ -6,17 +6,22 @@ import { FileUrlService } from 'src/engine/core-modules/file/file-url/file-url.s
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { AuthWorkspace } from 'src/engine/decorators/auth/auth-workspace.decorator';
 import { AgentMessagePartDTO } from 'src/engine/metadata-modules/ai/ai-agent-execution/dtos/agent-message-part.dto';
-import { AgentMessagePartEntity } from 'src/engine/metadata-modules/ai/ai-agent-execution/entities/agent-message-part.entity';
+import { AgentMessagePartWorkspaceEntity } from 'src/engine/metadata-modules/ai/ai-history/standard-objects/agent-message-part.workspace-entity';
 
 @Resolver(() => AgentMessagePartDTO)
 export class AgentMessagePartResolver {
   constructor(private readonly fileUrlService: FileUrlService) {}
 
+  @ResolveField(() => Date)
+  createdAt(@Parent() part: AgentMessagePartWorkspaceEntity): Date {
+    return new Date(part.createdAt);
+  }
+
   @ResolveField(() => String, { nullable: true })
-  fileUrl(
-    @Parent() part: AgentMessagePartEntity,
+  async fileUrl(
+    @Parent() part: AgentMessagePartWorkspaceEntity,
     @AuthWorkspace() workspace: WorkspaceEntity,
-  ): string | null {
+  ): Promise<string | null> {
     if (!part.fileId) {
       return null;
     }
@@ -29,7 +34,9 @@ export class AgentMessagePartResolver {
   }
 
   @ResolveField(() => String, { nullable: true })
-  fileMediaType(@Parent() part: AgentMessagePartEntity): string | null {
+  fileMediaType(
+    @Parent() part: AgentMessagePartWorkspaceEntity,
+  ): string | null {
     return part.file?.mimeType ?? null;
   }
 }

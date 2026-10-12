@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 
 import { isNonEmptyString } from '@sniptt/guards';
 import { type Request, type Response } from 'express';
-import { type APP_LOCALES, SOURCE_LOCALE } from 'twenty-shared/translations';
 import { isDefined } from 'twenty-shared/utils';
 
 import {
@@ -11,14 +10,16 @@ import {
 } from 'src/engine/core-modules/auth/auth.exception';
 import { AuthGraphqlApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-graphql-api-exception.filter';
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
-import { getAuthExceptionRestStatus } from 'src/engine/core-modules/auth/utils/get-auth-exception-rest-status.util';
 import { ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { ErrorCode } from 'src/engine/core-modules/graphql/utils/graphql-errors.util';
 import { JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
+import { type FlatWorkspace } from 'src/engine/core-modules/workspace/types/flat-workspace.type';
 import { WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
 import { INTERNAL_SERVER_ERROR } from 'src/engine/middlewares/constants/default-error-message.constant';
 import { bindDataToRequestObject } from 'src/engine/utils/bind-data-to-request-object.util';
+import { getRequestLocaleFromHeader } from 'src/engine/utils/get-request-locale-from-header.util';
 import {
   handleException,
   handleExceptionAndConvertToGraphQLError,
@@ -26,11 +27,18 @@ import {
 import {
   CorporateIdError,
   assertCorporateId,
-  clearTokenPairCookie,
   matchesProxyIdentity,
 } from 'src/engine/utils/proxy-identity.util';
 import { WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
 import { type CustomException } from 'src/utils/custom-exception';
+
+const DEAD_SESSION_COOKIE_EXCEPTION_CODES = new Set<string>([
+  AuthExceptionCode.UNAUTHENTICATED,
+  AuthExceptionCode.USER_WORKSPACE_NOT_FOUND,
+  AuthExceptionCode.FORBIDDEN_EXCEPTION,
+  AuthExceptionCode.USER_NOT_FOUND,
+  AuthExceptionCode.WORKSPACE_NOT_FOUND,
+]);
 
 @Injectable()
 export class MiddlewareService {
@@ -41,19 +49,25 @@ export class MiddlewareService {
     private readonly exceptionHandlerService: ExceptionHandlerService,
     private readonly jwtWrapperService: JwtWrapperService,
     private readonly twentyConfigService: TwentyConfigService,
+    private readonly userSessionCookieService: UserSessionCookieService,
   ) {}
 
   public isTokenPresent(request: Request): boolean {
     const token = this.jwtWrapperService.extractJwtFromRequest()(request);
 
-    return !!token;
+    if (token) {
+      return true;
+    }
+
+    return isDefined(
+      this.userSessionCookieService.extractSessionTokenFromRequest(request),
+    );
   }
 
-  // oxlint-disable-next-line @typescripttypescript/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   public writeRestResponseOnExceptionCaught(res: Response, error: any) {
     const statusCode = this.getStatus(error);
 
-    // capture and handle custom exceptions
     handleException({
       exception: error as CustomException,
       exceptionHandlerService: this.exceptionHandlerService,
@@ -72,7 +86,7 @@ export class MiddlewareService {
     res.end();
   }
 
-  // oxlint-disable-next-line @typescripttypescript/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   public writeGraphqlResponseOnExceptionCaught(res: Response, error: any) {
     let errors;
 
@@ -115,9 +129,7 @@ export class MiddlewareService {
     this.assertCorporateIdMatches(request);
 
     const metadataVersion = data.workspace
-      ? await this.workspaceStorageCacheService.getMetadataVersion(
-          data.workspace.id,
-        )
+      ? await this.getOrSeedMetadataVersion(data.workspace)
       : undefined;
 
     if (!data.workspace) {
@@ -131,36 +143,81 @@ export class MiddlewareService {
     bindDataToRequestObject(data, request, metadataVersion);
   }
 
+  private clearDeadSessionCookie(request: Request, error: unknown) {
+    const isCookieAuthenticated = !isNonEmptyString(
+      this.jwtWrapperService.extractJwtFromRequest()(request),
+    );
+
+    const isDeadCredential =
+      error instanceof AuthException &&
+      DEAD_SESSION_COOKIE_EXCEPTION_CODES.has(error.code);
+
+    if (
+      !isCookieAuthenticated ||
+      !isDeadCredential ||
+      !isDefined(request.res)
+    ) {
+      return;
+    }
+
+    this.userSessionCookieService.clearSessionCookie(request.res);
+  }
+
   public async hydrateGraphqlRequest(request: Request, response?: Response) {
     if (!this.isTokenPresent(request)) {
-      request.locale =
-        (request.headers['x-locale'] as keyof typeof APP_LOCALES) ??
-        SOURCE_LOCALE;
+      request.locale = getRequestLocaleFromHeader(request);
 
       return;
     }
 
-    const data = await this.accessTokenService.validateTokenByRequest(request);
+    let data;
+
+    try {
+      data = await this.accessTokenService.validateTokenByRequest(request);
+    } catch (error) {
+      // Never swallow: continuing unauthenticated yields "Cannot query field" instead of an auth error
+      this.clearDeadSessionCookie(request, error);
+
+      throw error;
+    }
 
     this.assertProxyIdentityMatchesUser(request, response, data.user?.email);
     this.assertCorporateIdMatches(request);
 
     const metadataVersion = data.workspace
-      ? await this.workspaceStorageCacheService.getMetadataVersion(
-          data.workspace.id,
-        )
+      ? await this.getOrSeedMetadataVersion(data.workspace)
       : undefined;
 
     bindDataToRequestObject(data, request, metadataVersion);
   }
 
+  private async getOrSeedMetadataVersion(
+    workspace: Pick<FlatWorkspace, 'id' | 'metadataVersion'>,
+  ): Promise<number | undefined> {
+    const cachedMetadataVersion =
+      await this.workspaceStorageCacheService.getMetadataVersion(workspace.id);
+
+    if (isDefined(cachedMetadataVersion)) {
+      return cachedMetadataVersion;
+    }
+
+    if (isDefined(workspace.metadataVersion)) {
+      await this.workspaceStorageCacheService.setMetadataVersion(
+        workspace.id,
+        workspace.metadataVersion,
+      );
+    }
+
+    return workspace.metadataVersion;
+  }
+
   /**
    * SSO stale-session detection for the GraphQL and REST data API paths.
    * Mirrors the JwtAuthGuard check applied to the REST controller path. When
-   * oauth2-proxy asserts a different identity than what the JWT was issued
-   * for, clear the tokenPair cookie and refuse — the browser then has no
-   * tokenPair on the next request, so the SPA bootstrap hits
-   * /auth/sso/proxy-login and gets a fresh tokenPair for the new identity.
+   * oauth2-proxy asserts a different identity than what the session was issued
+   * for, clear the session cookie and refuse — the browser then has no
+   * session on the next request, so the SPA bootstrap hits
+   * /auth/sso/proxy-login and gets a fresh session for the new identity.
    *
    * Gating:
    *   - AUTH_TYPE=SSO       — non-SSO deployments use Twenty's native auth
@@ -183,10 +240,12 @@ export class MiddlewareService {
       return;
     }
 
-    clearTokenPairCookie(response);
+    if (isDefined(response)) {
+      this.userSessionCookieService.clearSessionCookie(response);
+    }
 
     throw new AuthException(
-      'Proxy identity differs from JWT user; tokenPair cleared',
+      'Proxy identity differs from JWT user; session cookie cleared',
       AuthExceptionCode.UNAUTHENTICATED,
     );
   }
@@ -218,14 +277,14 @@ export class MiddlewareService {
     return isDefined((error as { status: number })?.status);
   }
 
-  // oxlint-disable-next-line @typescripttypescript/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   private getStatus(error: any): number {
     if (this.hasErrorStatus(error)) {
       return error.status;
     }
 
     if (error instanceof AuthException) {
-      return getAuthExceptionRestStatus(error);
+      return error.statusCode ?? 500;
     }
 
     return 500;

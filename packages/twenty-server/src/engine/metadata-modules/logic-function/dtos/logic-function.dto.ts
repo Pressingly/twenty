@@ -1,13 +1,13 @@
-import { Field, HideField, ObjectType } from '@nestjs/graphql';
+import {
+  Field,
+  HideField,
+  ObjectType,
+  registerEnumType,
+} from '@nestjs/graphql';
 
 import {
-  Authorize,
-  IDField,
-  QueryOptions,
-} from '@ptc-org/nestjs-query-graphql';
-import {
-  IsBoolean,
   IsDateString,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsObject,
@@ -20,27 +20,22 @@ import {
   CronTriggerSettings,
   DatabaseEventTriggerSettings,
   HttpRouteTriggerSettings,
+  ToolTriggerSettings,
+  WorkflowActionTriggerSettings,
 } from 'twenty-shared/application';
 
-import type { InputJsonSchema } from 'twenty-shared/logic-function';
-
 import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
+import { LogicFunctionExecutionMode } from 'src/engine/metadata-modules/logic-function/logic-function.entity';
+
+registerEnumType(LogicFunctionExecutionMode, {
+  name: 'LogicFunctionExecutionMode',
+});
 
 @ObjectType('LogicFunction')
-@Authorize({
-  // oxlint-disable-next-line @typescripttypescript/no-explicit-any
-  authorize: (context: any) => ({
-    workspaceId: { eq: context?.req?.workspace?.id },
-  }),
-})
-@QueryOptions({
-  defaultResultSize: 10,
-  maxResultsSize: 1000,
-})
 export class LogicFunctionDTO {
   @IsUUID()
   @IsNotEmpty()
-  @IDField(() => UUIDScalarType)
+  @Field(() => UUIDScalarType)
   id: string;
 
   @IsString()
@@ -60,6 +55,10 @@ export class LogicFunctionDTO {
   @Field()
   timeoutSeconds: number;
 
+  @IsEnum(LogicFunctionExecutionMode)
+  @Field(() => LogicFunctionExecutionMode)
+  executionMode: LogicFunctionExecutionMode;
+
   @IsString()
   @Field()
   sourceHandlerPath: string;
@@ -67,15 +66,6 @@ export class LogicFunctionDTO {
   @IsString()
   @Field()
   handlerName: string;
-
-  @IsObject()
-  @IsOptional()
-  @Field(() => graphqlTypeJson, { nullable: true })
-  toolInputSchema?: InputJsonSchema;
-
-  @IsBoolean()
-  @Field()
-  isTool: boolean;
 
   @IsObject()
   @IsOptional()
@@ -91,6 +81,16 @@ export class LogicFunctionDTO {
   @IsOptional()
   @Field(() => graphqlTypeJson, { nullable: true })
   httpRouteTriggerSettings?: HttpRouteTriggerSettings;
+
+  @IsObject()
+  @IsOptional()
+  @Field(() => graphqlTypeJson, { nullable: true })
+  toolTriggerSettings?: ToolTriggerSettings;
+
+  @IsObject()
+  @IsOptional()
+  @Field(() => graphqlTypeJson, { nullable: true })
+  workflowActionTriggerSettings?: WorkflowActionTriggerSettings;
 
   @IsUUID()
   @IsOptional()

@@ -1,32 +1,45 @@
-import { SettingsTableCard } from '@/settings/components/SettingsTableCard';
+import { getChipLabel } from '@/ui/field/display/utils/getChipLabel';
+import { useNumberFormat } from '@/localization/hooks/useNumberFormat';
 import { type WorkspaceInfo } from '@/settings/admin-panel/types/WorkspaceInfo';
+import { getUpgradeHealthStatusBadge } from '@/settings/admin-panel/utils/getUpgradeHealthStatusBadge';
 import { getWorkspaceSchemaName } from '@/settings/admin-panel/utils/getWorkspaceSchemaName';
+import { SettingsTableCard } from '@/settings/components/SettingsTableCard';
+import { AvatarOrIcon } from '@/ui/field/display/components/internal/AvatarOrIcon/AvatarOrIcon';
+import { LinkChip } from '@/ui/navigation/link/components/LinkChip/LinkChip';
 import { DEFAULT_WORKSPACE_LOGO } from '@/ui/navigation/navigation-drawer/constants/DefaultWorkspaceLogo';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
+import { UserContext } from '@/users/contexts/UserContext';
 import { styled } from '@linaria/react';
 import { useLingui } from '@lingui/react/macro';
 import { isNonEmptyString } from '@sniptt/guards';
+import { useContext } from 'react';
 import { SettingsPath } from 'twenty-shared/types';
 import {
-  getImageAbsoluteURI,
+  formatUpgradeCommandName,
   getSettingsPath,
   isDefined,
 } from 'twenty-shared/utils';
-import { AvatarOrIcon, LinkChip } from 'twenty-ui/components';
+import { Section } from 'twenty-ui/components/layout';
+import { OverflowingTextWithTooltip } from 'twenty-ui/primitives/typography';
 import {
-  H2Title,
   IconCalendar,
   IconHome,
   IconId,
   IconLink,
   IconStatusChange,
   IconUser,
-} from 'twenty-ui/display';
-import { Section } from 'twenty-ui/layout';
-import { themeCssVariables } from 'twenty-ui/theme-constants';
-import { REACT_APP_SERVER_BASE_URL } from '~/config';
+} from 'twenty-ui/icon';
+import { Status } from 'twenty-ui/primitives/data-display';
+import { themeCssVariables } from 'twenty-ui/theme';
+import { type GetUpgradeStatusQuery } from '~/generated-admin/graphql';
+import { dateLocaleState } from '@/localization/states/dateLocaleState';
+import { getAbsoluteImageUrl } from '~/utils/image/getAbsoluteImageUrl';
+import { formatDateTimeString } from '@/object-record/record-field/ui/utils/formatDateTimeString';
+import { getWorkspaceUrl } from '~/utils/getWorkspaceUrl';
 
 type SettingsAdminWorkspaceContentProps = {
   activeWorkspace: WorkspaceInfo | undefined;
+  workspaceUpgradeStatus?: GetUpgradeStatusQuery['getUpgradeStatus'][number];
 };
 
 const StyledContainer = styled.div`
@@ -38,12 +51,24 @@ const StyledContainer = styled.div`
 
 export const SettingsAdminWorkspaceContent = ({
   activeWorkspace,
+  workspaceUpgradeStatus,
 }: SettingsAdminWorkspaceContentProps) => {
   const { t } = useLingui();
+  const { formatNumber } = useNumberFormat();
+  const { dateFormat, timeFormat, timeZone } = useContext(UserContext);
+  const { localeCatalog } = useAtomStateValue(dateLocaleState);
 
-  const getWorkspaceUrl = (workspaceUrls: WorkspaceInfo['workspaceUrls']) => {
-    return workspaceUrls.customUrl ?? workspaceUrls.subdomainUrl;
-  };
+  const formattedLastUpdated = formatDateTimeString({
+    value: workspaceUpgradeStatus?.latestCommand?.createdAt,
+    timeZone,
+    dateFormat,
+    timeFormat,
+    localeCatalog: localeCatalog,
+  });
+
+  const upgradeHealthStatusBadge = getUpgradeHealthStatusBadge(
+    workspaceUpgradeStatus?.health,
+  );
 
   const workspaceInfoItems = [
     {
@@ -51,24 +76,21 @@ export const SettingsAdminWorkspaceContent = ({
       label: t`Name`,
       value: activeWorkspace?.id ? (
         <LinkChip
-          label={activeWorkspace?.name ?? ''}
-          emptyLabel={t`Untitled`}
           to={getSettingsPath(SettingsPath.AdminPanelWorkspaceDetail, {
             workspaceId: activeWorkspace.id,
           })}
-          leftComponent={
+          startElement={
             <AvatarOrIcon
-              avatarUrl={
-                getImageAbsoluteURI({
-                  imageUrl: isNonEmptyString(activeWorkspace?.logo)
-                    ? activeWorkspace?.logo
-                    : DEFAULT_WORKSPACE_LOGO,
-                  baseUrl: REACT_APP_SERVER_BASE_URL,
-                }) ?? ''
-              }
+              src={getAbsoluteImageUrl(
+                isNonEmptyString(activeWorkspace?.logo)
+                  ? activeWorkspace?.logo
+                  : DEFAULT_WORKSPACE_LOGO,
+              )}
             />
           }
-        />
+        >
+          {getChipLabel(activeWorkspace.name).content}
+        </LinkChip>
       ) : (
         (activeWorkspace?.name ?? '')
       ),
@@ -95,7 +117,9 @@ export const SettingsAdminWorkspaceContent = ({
     {
       Icon: IconUser,
       label: t`Members`,
-      value: activeWorkspace?.totalUsers,
+      value: isDefined(activeWorkspace?.totalUsers)
+        ? formatNumber(activeWorkspace.totalUsers)
+        : activeWorkspace?.totalUsers,
     },
     {
       Icon: IconStatusChange,
@@ -115,8 +139,8 @@ export const SettingsAdminWorkspaceContent = ({
 
   return (
     <StyledContainer>
-      <Section>
-        <H2Title
+      <Section.Root>
+        <Section.Header
           title={t`Workspace Info`}
           description={t`About this workspace`}
         />
@@ -124,7 +148,84 @@ export const SettingsAdminWorkspaceContent = ({
           items={workspaceInfoItems}
           gridAutoColumns="1fr 4fr"
         />
-      </Section>
+      </Section.Root>
+      {workspaceUpgradeStatus && (
+        <Section.Root>
+          <Section.Header
+            title={t`Upgrade Status`}
+            description={t`Workspace upgrade health`}
+          />
+          <SettingsTableCard
+            items={[
+              {
+                Icon: IconStatusChange,
+                label: t`Status`,
+                value: (
+                  <Status
+                    color={upgradeHealthStatusBadge.color}
+                    weight="medium"
+                  >
+                    {upgradeHealthStatusBadge.label}
+                  </Status>
+                ),
+              },
+              {
+                Icon: IconId,
+                label: t`Inferred version`,
+                value: workspaceUpgradeStatus.inferredVersion ?? t`Unknown`,
+              },
+              {
+                Icon: IconCalendar,
+                label: t`Last command`,
+                value: (
+                  <OverflowingTextWithTooltip
+                    text={
+                      workspaceUpgradeStatus.latestCommand?.name
+                        ? formatUpgradeCommandName(
+                            workspaceUpgradeStatus.latestCommand.name,
+                          )
+                        : t`None`
+                    }
+                  />
+                ),
+              },
+              {
+                Icon: IconCalendar,
+                label: t`Last updated`,
+                value: isNonEmptyString(formattedLastUpdated)
+                  ? formattedLastUpdated
+                  : t`N/A`,
+              },
+              {
+                Icon: IconStatusChange,
+                label: t`Last command result`,
+                value: workspaceUpgradeStatus.latestCommand?.status
+                  ? workspaceUpgradeStatus.latestCommand.status === 'completed'
+                    ? t`Completed`
+                    : t`Failed`
+                  : t`N/A`,
+              },
+              ...(workspaceUpgradeStatus.latestCommand?.errorMessage
+                ? [
+                    {
+                      Icon: IconStatusChange,
+                      label: t`Last error`,
+                      value: (
+                        <OverflowingTextWithTooltip
+                          text={
+                            workspaceUpgradeStatus.latestCommand.errorMessage
+                          }
+                          isTooltipMultiline
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+            gridAutoColumns="2fr 3fr"
+          />
+        </Section.Root>
+      )}
     </StyledContainer>
   );
 };

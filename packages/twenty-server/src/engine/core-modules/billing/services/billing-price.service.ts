@@ -12,10 +12,12 @@ import {
 import { billingValidator } from 'src/engine/core-modules/billing/billing.validate';
 import { BillingPriceEntity } from 'src/engine/core-modules/billing/entities/billing-price.entity';
 import { type BillingPlanKey } from 'src/engine/core-modules/billing/enums/billing-plan-key.enum';
+import { BillingProductKey } from 'src/engine/core-modules/billing/enums/billing-product-key.enum';
 import { SubscriptionInterval } from 'src/engine/core-modules/billing/enums/billing-subscription-interval.enum';
 import { BillingProductService } from 'src/engine/core-modules/billing/services/billing-product.service';
 import { StripeSubscriptionService } from 'src/engine/core-modules/billing/stripe/services/stripe-subscription.service';
 import { type BillingMeterPrice } from 'src/engine/core-modules/billing/types/billing-meter-price.type';
+import { isSellableCatalogPrice } from 'src/engine/core-modules/billing/utils/is-sellable-catalog-price.util';
 
 @Injectable()
 export class BillingPriceService {
@@ -128,5 +130,64 @@ export class BillingPriceService {
         billingValidator.isMeteredPrice(p),
       ) as BillingMeterPrice[]
     ).sort((a, b) => a.tiers[0].up_to - b.tiers[0].up_to);
+  }
+
+  async findEquivalentResourceCreditPrice({
+    targetInterval,
+    targetPlanKey,
+    hasSameInterval,
+    hasSamePlanKey,
+    referencePrice,
+  }: {
+    targetInterval: SubscriptionInterval;
+    targetPlanKey: BillingPlanKey;
+    hasSameInterval: boolean;
+    hasSamePlanKey: boolean;
+    referencePrice: BillingPriceEntity;
+  }): Promise<BillingPriceEntity> {
+    if (hasSameInterval && hasSamePlanKey) {
+      return referencePrice;
+    }
+
+    const catalog = await this.billingProductService.getProductPrices({
+      interval: targetInterval,
+      planKey: targetPlanKey,
+    });
+
+    const referenceCreditAmount = Number(
+      referencePrice.metadata?.credit_amount,
+    );
+
+    const scaledAmount =
+      !hasSameInterval && targetInterval === SubscriptionInterval.Year
+        ? referenceCreditAmount * 12
+        : !hasSameInterval && targetInterval === SubscriptionInterval.Month
+          ? referenceCreditAmount / 12
+          : referenceCreditAmount;
+
+    const resourceCreditCandidates = catalog
+      .filter(
+        (p) =>
+          p.billingProduct?.metadata?.productKey ===
+            BillingProductKey.RESOURCE_CREDIT && isSellableCatalogPrice(p),
+      )
+      .sort(
+        (a, b) =>
+          Number(a.metadata?.credit_amount ?? 0) -
+          Number(b.metadata?.credit_amount ?? 0),
+      );
+
+    if (!resourceCreditCandidates.length) {
+      throw new BillingException(
+        'No RESOURCE_CREDIT price candidates found',
+        BillingExceptionCode.BILLING_PRICE_NOT_FOUND,
+      );
+    }
+
+    return (
+      resourceCreditCandidates
+        .filter((p) => Number(p.metadata?.credit_amount ?? 0) <= scaledAmount)
+        .pop() ?? resourceCreditCandidates[0]
+    );
   }
 }

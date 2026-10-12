@@ -7,7 +7,7 @@ import { sseEventStreamIdState } from '@/sse-db-event/states/sseEventStreamIdSta
 import { sseEventStreamReadyState } from '@/sse-db-event/states/sseEventStreamReadyState';
 import { isGracefullyHandledEventStreamError } from '@/sse-db-event/utils/isGracefullyHandledEventStreamError';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
-import { CombinedGraphQLErrors } from '@apollo/client/errors';
+import { captureException } from '@sentry/react';
 import { useMutation } from '@apollo/client/react';
 import { isNonEmptyString } from '@sniptt/guards';
 import { useStore } from 'jotai';
@@ -29,25 +29,50 @@ export const SSEQuerySubscribeEffect = () => {
   const sseEventStreamReady = useAtomStateValue(sseEventStreamReadyState);
 
   const [addQueryToEventStream] = useMutation<
-    boolean,
+    { addQueryToEventStream: boolean },
     { input: AddQuerySubscriptionInput }
   >(ADD_QUERY_TO_EVENT_STREAM_MUTATION);
 
   const [removeQueryFromEventStream] = useMutation<
-    void,
+    { removeQueryFromEventStream: boolean },
     { input: RemoveQueryFromEventStreamInput }
   >(REMOVE_QUERY_FROM_EVENT_STREAM_MUTATION);
 
   const requiredQueryListeners = useAtomStateValue(requiredQueryListenersState);
   const activeQueryListeners = useAtomStateValue(activeQueryListenersState);
 
-  const updateQueryListeners = useCallback(async () => {
+  const handleError = useCallback(
+    (error: unknown) => {
+      const extensions = getGraphqlErrorExtensionsFromError(error);
+
+      if (
+        !isGracefullyHandledEventStreamError({
+          subCode: extensions?.subCode,
+          code: extensions?.code,
+        })
+      ) {
+        captureException(
+          new Error(
+            `Unhandled error for event stream: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error },
+          ),
+        );
+      }
+
+      store.set(activeQueryListenersState.atom, []);
+      store.set(shouldDestroyEventStreamState.atom, true);
+    },
+    [store],
+  );
+
+  const syncAdditions = useCallback(async () => {
     if (!isDefined(sseEventStreamId)) {
       return;
     }
 
     const requiredQueryListeners = store.get(requiredQueryListenersState.atom);
-
     const activeQueryListeners = store.get(activeQueryListenersState.atom);
 
     const queryListenersToAdd = requiredQueryListeners.filter(
@@ -57,16 +82,13 @@ export const SSEQuerySubscribeEffect = () => {
         ),
     );
 
-    const queryListenersToRemove = activeQueryListeners.filter(
-      (listener) =>
-        !requiredQueryListeners.some(
-          (requiredListener) => requiredListener.queryId === listener.queryId,
-        ),
-    );
+    if (queryListenersToAdd.length === 0) {
+      return;
+    }
 
     try {
       for (const queryListenerToAdd of queryListenersToAdd) {
-        await addQueryToEventStream({
+        const result = await addQueryToEventStream({
           variables: {
             input: {
               eventStreamId: sseEventStreamId,
@@ -75,10 +97,56 @@ export const SSEQuerySubscribeEffect = () => {
             },
           },
         });
-      }
 
+        if (result.data?.addQueryToEventStream === false) {
+          store.set(activeQueryListenersState.atom, []);
+          store.set(shouldDestroyEventStreamState.atom, true);
+
+          return;
+        }
+      }
+    } catch (error) {
+      handleError(error);
+
+      return;
+    }
+
+    const currentActive = store.get(activeQueryListenersState.atom);
+
+    store.set(activeQueryListenersState.atom, [
+      ...currentActive,
+      ...queryListenersToAdd,
+    ]);
+  }, [addQueryToEventStream, handleError, sseEventStreamId, store]);
+
+  const syncRemovals = useCallback(async () => {
+    if (!isDefined(sseEventStreamId)) {
+      return;
+    }
+
+    const freshRequiredQueryListeners = store.get(
+      requiredQueryListenersState.atom,
+    );
+    const activeQueryListeners = store.get(activeQueryListenersState.atom);
+
+    const queryListenersToRemove = activeQueryListeners.filter(
+      (listener) =>
+        !freshRequiredQueryListeners.some(
+          (requiredListener) => requiredListener.queryId === listener.queryId,
+        ),
+    );
+
+    if (queryListenersToRemove.length === 0) {
+      return;
+    }
+
+    const removedQueryIds = new Set(
+      queryListenersToRemove.map((listener) => listener.queryId),
+    );
+
+    try {
       for (const queryListenerToRemove of queryListenersToRemove) {
-        await removeQueryFromEventStream({
+        const result = await removeQueryFromEventStream({
           variables: {
             input: {
               eventStreamId: sseEventStreamId,
@@ -86,61 +154,81 @@ export const SSEQuerySubscribeEffect = () => {
             },
           },
         });
-      }
-    } catch (error) {
-      if (CombinedGraphQLErrors.is(error)) {
-        const extensions = getGraphqlErrorExtensionsFromError(error);
 
-        if (
-          isGracefullyHandledEventStreamError({
-            subCode: extensions?.subCode,
-            code: extensions?.code,
-          })
-        ) {
+        if (result.data?.removeQueryFromEventStream === false) {
           store.set(activeQueryListenersState.atom, []);
           store.set(shouldDestroyEventStreamState.atom, true);
+
           return;
         }
-
-        throw new Error(`Unhandled error for event stream: ${error.message}`);
       }
+    } catch (error) {
+      handleError(error);
+
+      return;
     }
 
-    store.set(activeQueryListenersState.atom, requiredQueryListeners);
-  }, [
-    addQueryToEventStream,
-    removeQueryFromEventStream,
-    sseEventStreamId,
-    store,
-  ]);
+    const currentActive = store.get(activeQueryListenersState.atom);
 
-  const debouncedUpdateQueryListeners = useDebouncedCallback(
-    updateQueryListeners,
-    1000,
-    { leading: true },
-  );
+    store.set(
+      activeQueryListenersState.atom,
+      currentActive.filter(
+        (listener) => !removedQueryIds.has(listener.queryId),
+      ),
+    );
+  }, [handleError, removeQueryFromEventStream, sseEventStreamId, store]);
+
+  const debouncedSyncAdditions = useDebouncedCallback(syncAdditions, 1000, {
+    leading: true,
+  });
+
+  const debouncedSyncRemovals = useDebouncedCallback(syncRemovals, 200, {
+    leading: false,
+  });
 
   useEffect(() => {
     if (!isNonEmptyString(sseEventStreamId) || !sseEventStreamReady) {
       return;
     }
 
-    const areRequiredQueryListenersDifferentFromActiveQueryListeners =
-      compareArraysOfObjectsByProperty(
-        requiredQueryListeners,
-        activeQueryListeners,
-        'queryId',
-      );
+    const areDifferent = compareArraysOfObjectsByProperty(
+      requiredQueryListeners,
+      activeQueryListeners,
+      'queryId',
+    );
 
-    if (areRequiredQueryListenersDifferentFromActiveQueryListeners) {
-      debouncedUpdateQueryListeners();
+    if (!areDifferent) {
+      return;
+    }
+
+    const hasAdditions = requiredQueryListeners.some(
+      (listener) =>
+        !activeQueryListeners.some(
+          (activeListener) => activeListener.queryId === listener.queryId,
+        ),
+    );
+
+    const hasRemovals = activeQueryListeners.some(
+      (listener) =>
+        !requiredQueryListeners.some(
+          (requiredListener) => requiredListener.queryId === listener.queryId,
+        ),
+    );
+
+    if (hasAdditions) {
+      debouncedSyncAdditions();
+    }
+
+    if (hasRemovals) {
+      debouncedSyncRemovals();
     }
   }, [
     sseEventStreamId,
     sseEventStreamReady,
     requiredQueryListeners,
     activeQueryListeners,
-    debouncedUpdateQueryListeners,
+    debouncedSyncAdditions,
+    debouncedSyncRemovals,
   ]);
 
   return null;

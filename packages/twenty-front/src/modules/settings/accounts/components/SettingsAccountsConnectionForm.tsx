@@ -1,14 +1,16 @@
 import { styled } from '@linaria/react';
 import { useLingui } from '@lingui/react/macro';
+import { useState } from 'react';
 import { type Control, Controller } from 'react-hook-form';
 
 import { Select } from '@/ui/input/components/Select';
 import { SettingsTextInput } from '@/ui/input/components/SettingsTextInput';
 
+import { SettingsAccountsPasswordController } from '@/settings/accounts/components/SettingsAccountsPasswordController';
 import { type ConnectionFormData } from '@/settings/accounts/hooks/useImapSmtpCaldavConnectionForm';
-import { H2Title } from 'twenty-ui/display';
-import { Section } from 'twenty-ui/layout';
-import { MOBILE_VIEWPORT, themeCssVariables } from 'twenty-ui/theme-constants';
+import { type AccountType } from 'twenty-shared/constants';
+import { Section } from 'twenty-ui/components/layout';
+import { MOBILE_VIEWPORT, themeCssVariables } from 'twenty-ui/theme';
 
 const StyledFormContainer = styled.div`
   display: flex;
@@ -60,13 +62,26 @@ const StyledFieldGroup = styled.div`
 type SettingsAccountsConnectionFormProps = {
   control: Control<ConnectionFormData>;
   isEditing: boolean;
+  existingProtocols?: AccountType[];
 };
 
 export const SettingsAccountsConnectionForm = ({
   control,
   isEditing,
+  existingProtocols = [],
 }: SettingsAccountsConnectionFormProps) => {
   const { t } = useLingui();
+
+  const [isProtocolPasswordBeingEdited, setIsProtocolPasswordBeingEdited] =
+    useState<Record<AccountType, boolean>>({
+      IMAP: false,
+      SMTP: false,
+      CALDAV: false,
+    });
+
+  const isPasswordInputDisabled = (protocol: AccountType) =>
+    existingProtocols.includes(protocol) &&
+    !isProtocolPasswordBeingEdited[protocol];
 
   const getDescription = () => {
     if (isEditing) {
@@ -78,9 +93,25 @@ export const SettingsAccountsConnectionForm = ({
   const handlePortChange = (value: string) => Number(value);
 
   return (
-    <Section>
-      <H2Title title={t`Mail Account`} description={getDescription()} />
+    <Section.Root>
+      <Section.Header title={t`Mail Account`} description={getDescription()} />
       <StyledFormContainer>
+        <Controller
+          name="name"
+          control={control}
+          render={({ field, fieldState }) => (
+            <SettingsTextInput
+              instanceId="name-connection-form"
+              label={t`Name`}
+              placeholder={t`John Doe`}
+              value={field.value}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+              required={false}
+            />
+          )}
+        />
+
         <Controller
           name="handle"
           control={control}
@@ -126,6 +157,7 @@ export const SettingsAccountsConnectionForm = ({
             render={({ field, fieldState }) => (
               <SettingsTextInput
                 instanceId="imap-username-connection-form"
+                ignorePasswordManagers
                 label={t`IMAP Username (Optional)`}
                 placeholder={t`john.doe`}
                 type="text"
@@ -137,20 +169,17 @@ export const SettingsAccountsConnectionForm = ({
             )}
           />
 
-          <Controller
-            name="IMAP.password"
+          <SettingsAccountsPasswordController
+            protocol="IMAP"
+            label={t`IMAP Password`}
             control={control}
-            render={({ field, fieldState }) => (
-              <SettingsTextInput
-                instanceId="imap-password-connection-form"
-                label={t`IMAP Password`}
-                placeholder={t`••••••••`}
-                type="password"
-                value={field.value || ''}
-                onChange={field.onChange}
-                error={fieldState.error?.message}
-              />
-            )}
+            disabled={isPasswordInputDisabled('IMAP')}
+            onUnlock={() =>
+              setIsProtocolPasswordBeingEdited((prev) => ({
+                ...prev,
+                IMAP: true,
+              }))
+            }
           />
 
           <StyledFieldRow>
@@ -176,18 +205,19 @@ export const SettingsAccountsConnectionForm = ({
 
             <StyledFieldGroup>
               <Controller
-                name="IMAP.secure"
+                name="IMAP.connectionSecurity"
                 control={control}
                 render={({ field }) => (
                   <Select
-                    label={t`IMAP Encryption`}
+                    label={t`IMAP Connection security`}
                     options={[
-                      { label: 'SSL/TLS', value: true },
-                      { label: 'None', value: false },
+                      { label: 'None', value: 'NONE' },
+                      { label: 'STARTTLS', value: 'STARTTLS' },
+                      { label: 'SSL/TLS', value: 'SSL_TLS' },
                     ]}
                     value={field.value}
                     onChange={field.onChange}
-                    dropdownId="imap-secure-dropdown"
+                    dropdownId="imap-connection-security-dropdown"
                   />
                 )}
               />
@@ -225,6 +255,7 @@ export const SettingsAccountsConnectionForm = ({
             render={({ field, fieldState }) => (
               <SettingsTextInput
                 instanceId="smtp-username-connection-form"
+                ignorePasswordManagers
                 label={t`SMTP Username`}
                 placeholder={t`john.doe`}
                 type="text"
@@ -235,20 +266,17 @@ export const SettingsAccountsConnectionForm = ({
             )}
           />
 
-          <Controller
-            name="SMTP.password"
+          <SettingsAccountsPasswordController
+            protocol="SMTP"
+            label={t`SMTP Password`}
             control={control}
-            render={({ field, fieldState }) => (
-              <SettingsTextInput
-                instanceId="smtp-password-connection-form"
-                label={t`SMTP Password`}
-                placeholder={t`••••••••`}
-                type="password"
-                value={field.value || ''}
-                onChange={field.onChange}
-                error={fieldState.error?.message}
-              />
-            )}
+            disabled={isPasswordInputDisabled('SMTP')}
+            onUnlock={() =>
+              setIsProtocolPasswordBeingEdited((prev) => ({
+                ...prev,
+                SMTP: true,
+              }))
+            }
           />
 
           <StyledFieldRow>
@@ -274,18 +302,19 @@ export const SettingsAccountsConnectionForm = ({
 
             <StyledFieldGroup>
               <Controller
-                name="SMTP.secure"
+                name="SMTP.connectionSecurity"
                 control={control}
                 render={({ field }) => (
                   <Select
-                    label={t`SMTP Encryption`}
+                    label={t`SMTP Connection security`}
                     options={[
-                      { label: 'SSL/TLS', value: true },
-                      { label: 'STARTTLS', value: false },
+                      { label: 'None', value: 'NONE' },
+                      { label: 'STARTTLS', value: 'STARTTLS' },
+                      { label: 'SSL/TLS', value: 'SSL_TLS' },
                     ]}
                     value={field.value}
                     onChange={field.onChange}
-                    dropdownId="smtp-secure-dropdown"
+                    dropdownId="smtp-connection-security-dropdown"
                   />
                 )}
               />
@@ -323,6 +352,7 @@ export const SettingsAccountsConnectionForm = ({
             render={({ field, fieldState }) => (
               <SettingsTextInput
                 instanceId="caldav-username-connection-form"
+                ignorePasswordManagers
                 label={t`CalDAV Username`}
                 placeholder={t`john.doe`}
                 required={false}
@@ -333,23 +363,20 @@ export const SettingsAccountsConnectionForm = ({
             )}
           />
 
-          <Controller
-            name="CALDAV.password"
+          <SettingsAccountsPasswordController
+            protocol="CALDAV"
+            label={t`CalDAV Password`}
             control={control}
-            render={({ field, fieldState }) => (
-              <SettingsTextInput
-                instanceId="caldav-password-connection-form"
-                label={t`CalDAV Password`}
-                placeholder={t`••••••••`}
-                type="password"
-                value={field.value || ''}
-                onChange={field.onChange}
-                error={fieldState.error?.message}
-              />
-            )}
+            disabled={isPasswordInputDisabled('CALDAV')}
+            onUnlock={() =>
+              setIsProtocolPasswordBeingEdited((prev) => ({
+                ...prev,
+                CALDAV: true,
+              }))
+            }
           />
         </StyledConnectionSection>
       </StyledFormContainer>
-    </Section>
+    </Section.Root>
   );
 };
