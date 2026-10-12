@@ -3,8 +3,7 @@ import { Logger } from '@nestjs/common';
 import { type Request, type Response } from 'express';
 
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
-
-export const TOKEN_PAIR_COOKIE_NAME = 'tokenPair';
+import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 
 const logger = new Logger('ProxyIdentity');
 
@@ -168,12 +167,19 @@ export class CorporateIdError extends Error {
 }
 
 /**
- * Expire the tokenPair cookie. Defensive: in some test harnesses
+ * Expire the session cookie. Defensive: in some test harnesses
  * `response.clearCookie` may not be wired up, so guard with a typeof
- * check before calling.
+ * check before calling. The cookie service is built here rather than
+ * injected because JwtAuthGuard runs in modules that never import
+ * UserSessionModule; it only needs the config service.
  */
-export const clearTokenPairCookie = (response: Response | undefined): void => {
-  if (typeof response?.clearCookie === 'function') {
-    response.clearCookie(TOKEN_PAIR_COOKIE_NAME, { path: '/' });
+export const clearSessionCookie = (
+  response: Response | undefined,
+  configService: TwentyConfigService,
+): void => {
+  if (typeof response?.clearCookie !== 'function') {
+    return;
   }
+
+  new UserSessionCookieService(configService).clearSessionCookie(response);
 };
