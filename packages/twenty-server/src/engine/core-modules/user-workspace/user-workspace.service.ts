@@ -236,12 +236,10 @@ export class UserWorkspaceService {
     // and is invisible to permission checks. Finish the missing assignment
     // here so the next sign-in repairs the orphan instead of bailing early.
     if (existingUserWorkspace) {
-      const hasRoleTarget = await this.roleTargetRepository.exists({
-        where: {
-          userWorkspaceId: existingUserWorkspace.id,
-          workspaceId: workspace.id,
-        },
-      });
+      const hasRoleTarget = await this.roleTargetRepository.exists(
+        workspace.id,
+        { where: { userWorkspaceId: existingUserWorkspace.id } },
+      );
 
       if (hasRoleTarget) {
         return;
