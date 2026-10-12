@@ -42,6 +42,7 @@ describe('McpToolExecutorService', () => {
                 properties: { query: { type: 'string' } },
                 required: ['query'],
               },
+              annotations: { readOnlyHint: false, destructiveHint: true },
             },
           ],
         },
@@ -73,9 +74,35 @@ describe('McpToolExecutorService', () => {
                 type: 'object',
                 properties: { name: { type: 'string' } },
               },
+              annotations: { readOnlyHint: false, destructiveHint: true },
             },
           ],
         },
+      });
+    });
+
+    it('should label the discovery tools as reads and execute_tool as a write', () => {
+      const schema = { type: 'object', properties: {} };
+      const toolSet = {
+        get_tool_catalog: { description: '', inputSchema: schema },
+        learn_tools: { description: '', inputSchema: schema },
+        load_skills: { description: '', inputSchema: schema },
+        search_help_center: { description: '', inputSchema: schema },
+        execute_tool: { description: '', inputSchema: schema },
+      } as any;
+
+      const result = service.handleToolsListing('789', toolSet) as any;
+
+      const annotationsByName = Object.fromEntries(
+        result.result.tools.map((tool: any) => [tool.name, tool.annotations]),
+      );
+
+      expect(annotationsByName).toEqual({
+        get_tool_catalog: { readOnlyHint: true, destructiveHint: false },
+        learn_tools: { readOnlyHint: true, destructiveHint: false },
+        load_skills: { readOnlyHint: true, destructiveHint: false },
+        search_help_center: { readOnlyHint: true, destructiveHint: false },
+        execute_tool: { readOnlyHint: false, destructiveHint: true },
       });
     });
   });
