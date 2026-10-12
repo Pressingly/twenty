@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { FieldActorSource } from 'twenty-shared/types';
+import { canObjectBeManagedByAutomation } from 'twenty-shared/workflow';
 
 import { CommonCreateManyQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-create-many-query-runner/common-create-many-query-runner.service';
 import {
@@ -11,7 +12,6 @@ import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-c
 import { type CreateManyRecordsParams } from 'src/engine/core-modules/record-crud/types/create-many-records-params.type';
 import { getRecordDisplayName } from 'src/engine/core-modules/record-crud/utils/get-record-display-name.util';
 import { removeUndefinedFromRecord } from 'src/engine/core-modules/record-crud/utils/remove-undefined-from-record.util';
-import { canRecordCrudManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -24,7 +24,13 @@ export class CreateManyRecordsService {
   ) {}
 
   async execute(params: CreateManyRecordsParams): Promise<ToolOutput> {
-    const { objectName, objectRecords, authContext } = params;
+    const {
+      objectName,
+      objectRecords,
+      authContext,
+      rolePermissionConfig,
+      shareWith,
+    } = params;
 
     try {
       const {
@@ -35,17 +41,16 @@ export class CreateManyRecordsService {
       } = await this.commonApiContextBuilder.build({
         authContext,
         objectName,
+        rolePermissionConfig,
       });
 
       if (
-        !canRecordCrudManageObject({
+        !canObjectBeManagedByAutomation({
           nameSingular: flatObjectMetadata.nameSingular,
-          isSystem: flatObjectMetadata.isSystem,
-          allowLinkingSystemObjects: params.allowLinkingSystemObjects,
         })
       ) {
         throw new RecordCrudException(
-          'Failed to create: Object cannot be created by workflow',
+          'Failed to create: Object cannot be created by automation',
           RecordCrudExceptionCode.INVALID_REQUEST,
         );
       }
@@ -64,6 +69,7 @@ export class CreateManyRecordsService {
         await this.commonCreateManyRunner.execute(
           {
             data: cleanedRecords,
+            shareWith,
             selectedFields,
           },
           queryRunnerContext,

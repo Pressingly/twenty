@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { FieldActorSource } from 'twenty-shared/types';
+import { canObjectBeManagedByAutomation } from 'twenty-shared/workflow';
 
 import { CommonCreateOneQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-create-one-query-runner.service';
 import {
@@ -11,7 +12,6 @@ import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-c
 import { type CreateRecordParams } from 'src/engine/core-modules/record-crud/types/create-record-params.type';
 import { getRecordDisplayName } from 'src/engine/core-modules/record-crud/utils/get-record-display-name.util';
 import { removeUndefinedFromRecord } from 'src/engine/core-modules/record-crud/utils/remove-undefined-from-record.util';
-import { canRecordCrudManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -24,7 +24,13 @@ export class CreateRecordService {
   ) {}
 
   async execute(params: CreateRecordParams): Promise<ToolOutput> {
-    const { objectName, objectRecord, authContext } = params;
+    const {
+      objectName,
+      objectRecord,
+      authContext,
+      rolePermissionConfig,
+      shareWith,
+    } = params;
 
     try {
       const {
@@ -35,17 +41,16 @@ export class CreateRecordService {
       } = await this.commonApiContextBuilder.build({
         authContext,
         objectName,
+        rolePermissionConfig,
       });
 
       if (
-        !canRecordCrudManageObject({
+        !canObjectBeManagedByAutomation({
           nameSingular: flatObjectMetadata.nameSingular,
-          isSystem: flatObjectMetadata.isSystem,
-          allowLinkingSystemObjects: params.allowLinkingSystemObjects,
         })
       ) {
         throw new RecordCrudException(
-          'Failed to create: Object cannot be created by workflow',
+          'Failed to create: Object cannot be created by automation',
           RecordCrudExceptionCode.INVALID_REQUEST,
         );
       }
@@ -57,8 +62,6 @@ export class CreateRecordService {
         name: 'Workflow',
       };
 
-      // Clean undefined values from the record data (including nested composite fields)
-      // This prevents validation errors for partial composite field inputs
       const cleanedRecord = removeUndefinedFromRecord(objectRecord);
       const dataWithActor = { ...cleanedRecord, createdBy: actorMetadata };
 
@@ -66,6 +69,7 @@ export class CreateRecordService {
         await this.commonCreateOneRunner.execute(
           {
             data: dataWithActor,
+            shareWith,
             selectedFields,
           },
           queryRunnerContext,

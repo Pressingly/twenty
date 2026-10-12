@@ -1,11 +1,13 @@
 import { styled } from '@linaria/react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 
-import { useIsSettingsDrawer } from '@/navigation/hooks/useIsSettingsDrawer';
-import { tableWidthResizeIsActiveState } from '@/object-record/record-table/states/tableWidthResizeIsActivedState';
-import { ResizablePanelEdge } from '@/ui/layout/resizable-panel/components/ResizablePanelEdge';
-import { NAVIGATION_DRAWER_COLLAPSED_WIDTH } from '@/ui/layout/resizable-panel/constants/NavigationDrawerCollapsedWidth';
-import { NAVIGATION_DRAWER_CONSTRAINTS } from '@/ui/layout/resizable-panel/constants/NavigationDrawerConstraints';
+import { useNavigationDrawerExpanded } from '@/ui/navigation/navigation-drawer/hooks/useNavigationDrawerExpanded';
+import { isResizablePanelDraggingState } from '@/ui/layout/resizable-panel/states/isResizablePanelDraggingState';
+import { ResizeHandle } from 'twenty-ui/primitives/layout';
+import { useLingui } from '@lingui/react/macro';
+import { getUiZoom } from '@/ui/theme/utils/getUiZoom';
+import { NAVIGATION_DRAWER_COLLAPSED_WIDTH } from '@/ui/navigation/navigation-drawer/constants/NavigationDrawerCollapsedWidth';
+import { NAVIGATION_DRAWER_CONSTRAINTS } from '@/ui/navigation/navigation-drawer/constants/NavigationDrawerConstraints';
 import { NavigationDrawerWidthEffect } from '@/ui/navigation/components/NavigationDrawerWidthEffect';
 import { NAVIGATION_DRAWER_CLICK_OUTSIDE_ID } from '@/ui/navigation/navigation-drawer/constants/NavigationDrawerClickOutsideId';
 import { isNavigationDrawerExpandedState } from '@/ui/navigation/states/isNavigationDrawerExpanded';
@@ -15,17 +17,16 @@ import {
   NAVIGATION_DRAWER_WIDTH_VAR,
   navigationDrawerWidthState,
 } from '@/ui/navigation/states/navigationDrawerWidthState';
-import { useIsMobile } from '@/ui/utilities/responsive/hooks/useIsMobile';
+import { shouldFocusNavigationDrawerExpandButtonState } from '@/ui/navigation/navigation-drawer/states/shouldFocusNavigationDrawerExpandButtonState';
+import { useIsMobile } from 'twenty-ui/utilities';
 import { useAtomState } from '@/ui/utilities/state/jotai/hooks/useAtomState';
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
-import { MOBILE_VIEWPORT, themeCssVariables } from 'twenty-ui/theme-constants';
-import { NavigationDrawerBackButton } from './NavigationDrawerBackButton';
-import { NavigationDrawerHeader } from './NavigationDrawerHeader';
+import { MOBILE_VIEWPORT, themeCssVariables } from 'twenty-ui/theme';
 
 export type NavigationDrawerProps = {
   children?: ReactNode;
   className?: string;
-  title: string;
+  header?: ReactNode;
 };
 
 const StyledAnimatedContainer = styled.div<{
@@ -34,7 +35,7 @@ const StyledAnimatedContainer = styled.div<{
 }>`
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
+  overflow: clip;
   position: relative;
   transition: ${({ isResizing }) =>
     isResizing
@@ -46,43 +47,51 @@ const StyledAnimatedContainer = styled.div<{
       : `${NAVIGATION_DRAWER_COLLAPSED_WIDTH}px`};
 
   @media (max-width: ${MOBILE_VIEWPORT}px) {
-    width: ${({ isExpanded }) => (isExpanded ? '100%' : '0')};
+    width: ${({ isExpanded }) =>
+      isExpanded ? 'calc(100vw / var(--t-zoom, 1))' : '0'};
   }
 `;
 
 const StyledContainer = styled.div<{
-  isSettings?: boolean;
-  isMobile?: boolean;
   isExpanded?: boolean;
 }>`
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: ${themeCssVariables.spacing[3]};
   height: 100%;
-  padding: ${({ isSettings, isMobile }) =>
-    isSettings
-      ? isMobile
-        ? `${themeCssVariables.spacing[3]} 0 0 ${themeCssVariables.spacing[8]}`
-        : `${themeCssVariables.spacing[3]} 0 ${themeCssVariables.spacing[4]} 0`
-      : `${themeCssVariables.spacing[3]} 0 ${themeCssVariables.spacing[4]} ${themeCssVariables.spacing[2]}`};
+  padding-bottom: ${themeCssVariables.spacing[4]};
   width: ${({ isExpanded }) =>
     isExpanded ? `var(${NAVIGATION_DRAWER_WIDTH_VAR})` : '100%'};
   @media (max-width: ${MOBILE_VIEWPORT}px) {
     width: 100%;
-    padding-left: ${themeCssVariables.spacing[5]};
-    padding-right: ${themeCssVariables.spacing[5]};
+  }
+`;
+
+const StyledContent = styled.div`
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: ${themeCssVariables.spacing[2]};
+  min-height: 0;
+  padding-left: ${themeCssVariables.spacing[2]};
+
+  @media (max-width: ${MOBILE_VIEWPORT}px) {
+    gap: ${themeCssVariables.spacing[4]};
+    padding-right: ${themeCssVariables.spacing[2]};
   }
 `;
 
 export const NavigationDrawer = ({
   children,
   className,
-  title,
+  header,
 }: NavigationDrawerProps) => {
+  const { t } = useLingui();
+  const resizeHandleRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [liveWidth, setLiveWidth] = useState<number | null>(null);
   const isMobile = useIsMobile();
-  const isSettingsDrawer = useIsSettingsDrawer();
+  const isExpanded = useNavigationDrawerExpanded();
 
   const [isNavigationDrawerExpanded, setIsNavigationDrawerExpanded] =
     useAtomState(isNavigationDrawerExpandedState);
@@ -92,26 +101,48 @@ export const NavigationDrawer = ({
   const setNavigationDrawerActiveTab = useSetAtomState(
     navigationDrawerActiveTabState,
   );
-  const setTableWidthResizeIsActive = useSetAtomState(
-    tableWidthResizeIsActiveState,
+  const setIsResizablePanelDragging = useSetAtomState(
+    isResizablePanelDraggingState,
+  );
+  const setShouldFocusNavigationDrawerExpandButton = useSetAtomState(
+    shouldFocusNavigationDrawerExpandButtonState,
   );
 
   const handleCollapse = () => {
+    setShouldFocusNavigationDrawerExpandButton(
+      resizeHandleRef.current === document.activeElement,
+    );
     setIsNavigationDrawerExpanded(false);
+    setLiveWidth(null);
     setNavigationDrawerActiveTab(NAVIGATION_DRAWER_TABS.NAVIGATION_MENU);
     setIsResizing(false);
-    setTableWidthResizeIsActive(true);
+    setIsResizablePanelDragging(false);
   };
 
   const handleWidthChange = (width: number) => {
     setNavigationDrawerWidth(width);
+    setLiveWidth(null);
     setIsResizing(false);
-    setTableWidthResizeIsActive(true);
+    setIsResizablePanelDragging(false);
+  };
+
+  const handleWidthPreview = (width: number) => {
+    setLiveWidth(width);
+    document.documentElement.style.setProperty(
+      NAVIGATION_DRAWER_WIDTH_VAR,
+      `${width}px`,
+    );
+  };
+
+  const handleResizeEnd = () => {
+    setLiveWidth(null);
+    setIsResizing(false);
+    setIsResizablePanelDragging(false);
   };
 
   const handleResizeStart = () => {
     setIsResizing(true);
-    setTableWidthResizeIsActive(false);
+    setIsResizablePanelDragging(true);
   };
 
   return (
@@ -120,31 +151,28 @@ export const NavigationDrawer = ({
       <StyledAnimatedContainer
         className={className}
         data-click-outside-id={NAVIGATION_DRAWER_CLICK_OUTSIDE_ID}
-        isExpanded={isNavigationDrawerExpanded}
+        isExpanded={isExpanded}
         isResizing={isResizing}
       >
-        <StyledContainer
-          isSettings={isSettingsDrawer}
-          isMobile={isMobile}
-          isExpanded={isNavigationDrawerExpanded}
-        >
-          {isSettingsDrawer && title ? (
-            <NavigationDrawerBackButton title={title} />
-          ) : (
-            <NavigationDrawerHeader showCollapseButton />
-          )}
-          {children}
+        <StyledContainer isExpanded={isExpanded}>
+          {header}
+          <StyledContent>{children}</StyledContent>
         </StyledContainer>
 
-        {isNavigationDrawerExpanded && !isMobile && !isSettingsDrawer && (
-          <ResizablePanelEdge
-            side="right"
-            constraints={NAVIGATION_DRAWER_CONSTRAINTS}
-            currentWidth={navigationDrawerWidth}
-            onWidthChange={handleWidthChange}
-            onCollapse={handleCollapse}
-            showHandle={false}
-            cssVariableName={NAVIGATION_DRAWER_WIDTH_VAR}
+        {isNavigationDrawerExpanded && !isMobile && (
+          <ResizeHandle
+            ref={resizeHandleRef}
+            edge="right"
+            min={NAVIGATION_DRAWER_CONSTRAINTS.min}
+            max={NAVIGATION_DRAWER_CONSTRAINTS.max}
+            value={liveWidth ?? navigationDrawerWidth}
+            onValueChange={handleWidthPreview}
+            onValueCommitted={handleWidthChange}
+            onActivate={handleCollapse}
+            children={null}
+            aria-label={t`Resize navigation drawer`}
+            scale={getUiZoom}
+            onResizeEnd={handleResizeEnd}
             onResizeStart={handleResizeStart}
           />
         )}

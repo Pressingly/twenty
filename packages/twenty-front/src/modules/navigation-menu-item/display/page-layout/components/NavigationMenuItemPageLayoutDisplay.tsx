@@ -1,3 +1,5 @@
+import { useLocation } from 'react-router-dom';
+
 import { isLayoutCustomizationModeEnabledState } from '@/layout-customization/states/isLayoutCustomizationModeEnabledState';
 import { NavigationMenuItemIcon } from '@/navigation-menu-item/display/components/NavigationMenuItemIcon';
 import { getPageLayoutNavigationMenuItemComputedLink } from '@/navigation-menu-item/display/page-layout/utils/getPageLayoutNavigationMenuItemComputedLink';
@@ -18,8 +20,12 @@ export const NavigationMenuItemPageLayoutDisplay = ({
     isLayoutCustomizationModeEnabledState,
   );
 
+  const location = useLocation();
+
   const label = item.name ?? '';
   const computedLink = getPageLayoutNavigationMenuItemComputedLink(item);
+
+  const isActive = computedLink !== '' && location.pathname === computedLink;
 
   return (
     <NavigationDrawerItem
@@ -35,7 +41,7 @@ export const NavigationMenuItemPageLayoutDisplay = ({
           : undefined
       }
       Icon={() => <NavigationMenuItemIcon navigationMenuItem={item} />}
-      active={false}
+      active={isActive}
       isSelectedInEditMode={editModeProps?.isSelectedInEditMode}
       isDragging={isDragging}
       triggerEvent="CLICK"

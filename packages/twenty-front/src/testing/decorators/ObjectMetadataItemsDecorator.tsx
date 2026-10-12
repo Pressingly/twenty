@@ -7,14 +7,17 @@ import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMembe
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { PreComputedChipGeneratorsProvider } from '@/object-metadata/components/PreComputedChipGeneratorsProvider';
-import { useLoadMockedMetadata } from '@/metadata-store/hooks/useLoadMockedMetadata';
+import { useLoadMockedMetadata } from '~/testing/hooks/useLoadMockedMetadata';
 import { objectMetadataItemsSelector } from '@/object-metadata/states/objectMetadataItemsSelector';
 import { getRecordFromRecordNode } from '@/object-record/cache/utils/getRecordFromRecordNode';
 import { type WorkspaceMember } from '@/workspace-member/types/WorkspaceMember';
 import { mockedUserData } from '~/testing/mock-data/users';
 import { mockedWorkspaceMemberRecords } from '~/testing/mock-data/generated/data/workspaceMembers/mock-workspaceMembers-data';
 
-export const ObjectMetadataItemsDecorator: Decorator = (Story) => {
+export const ObjectMetadataItemsDecorator: Decorator = (
+  Story,
+  { parameters },
+) => {
   const objectMetadataItems = useAtomStateValue(objectMetadataItemsSelector);
   const setCurrentWorkspaceMember = useSetAtomState(
     currentWorkspaceMemberState,
@@ -31,12 +34,15 @@ export const ObjectMetadataItemsDecorator: Decorator = (Story) => {
       }),
     );
     setCurrentUser(mockedUserData);
-    setCurrentUserWorkspace(mockedUserData.currentUserWorkspace);
+    setCurrentUserWorkspace(
+      parameters.currentUserWorkspace ?? mockedUserData.currentUserWorkspace,
+    );
     loadMockedMetadataAtomic();
   }, [
     setCurrentUser,
     setCurrentWorkspaceMember,
     setCurrentUserWorkspace,
+    parameters.currentUserWorkspace,
     loadMockedMetadataAtomic,
   ]);
 

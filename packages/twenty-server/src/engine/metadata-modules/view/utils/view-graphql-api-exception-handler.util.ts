@@ -1,4 +1,3 @@
-import { type I18n } from '@lingui/core';
 import { assertUnreachable } from 'twenty-shared/utils';
 
 import {
@@ -36,11 +35,11 @@ import {
   ViewExceptionCode,
 } from 'src/engine/metadata-modules/view/exceptions/view.exception';
 import { WorkspaceMigrationBuilderException } from 'src/engine/workspace-manager/workspace-migration/exceptions/workspace-migration-builder-exception';
-import { workspaceMigrationBuilderExceptionFormatter } from 'src/engine/workspace-manager/workspace-migration/interceptors/workspace-migration-builder-exception-formatter';
+import { workspaceMigrationBuilderGraphqlApiExceptionHandler } from 'src/engine/workspace-manager/workspace-migration/interceptors/utils/workspace-migration-builder-graphql-api-exception-handler.util';
 
-export const viewGraphqlApiExceptionHandler = (error: Error, i18n: I18n) => {
+export const viewGraphqlApiExceptionHandler = (error: Error) => {
   if (error instanceof WorkspaceMigrationBuilderException) {
-    return workspaceMigrationBuilderExceptionFormatter(error, i18n);
+    return workspaceMigrationBuilderGraphqlApiExceptionHandler(error);
   }
 
   if (error instanceof ViewException) {
@@ -61,6 +60,10 @@ export const viewGraphqlApiExceptionHandler = (error: Error, i18n: I18n) => {
         });
       case ViewExceptionCode.VIEW_WIDGET_NOT_FOUND:
         throw new NotFoundError(error.message);
+      case ViewExceptionCode.INTERNAL_SERVER_ERROR:
+        throw new InternalServerError(error.message, {
+          userFriendlyMessage: error.userFriendlyMessage,
+        });
       default: {
         return assertUnreachable(error.code);
       }

@@ -2,6 +2,7 @@ import { CommandFactory } from 'nest-commander';
 
 import { ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { LoggerService } from 'src/engine/core-modules/logger/logger.service';
+import { MetadataEventEmitter } from 'src/engine/subscriptions/metadata-event/metadata-event-emitter';
 import { shouldCaptureException } from 'src/engine/utils/global-exception-handler.util';
 
 import { CommandModule } from './command.module';
@@ -13,6 +14,8 @@ async function bootstrap() {
     if (shouldCaptureException(err)) {
       exceptionHandlerService.captureExceptions([err]);
     }
+
+    process.exitCode = 1;
   };
 
   const app = await CommandFactory.createWithoutRunning(CommandModule, {
@@ -24,11 +27,14 @@ async function bootstrap() {
   const loggerService = app.get(LoggerService);
   const exceptionHandlerService = app.get(ExceptionHandlerService);
 
-  // Inject our logger
   app.useLogger(loggerService);
 
-  await CommandFactory.runApplication(app);
-
-  app.close();
+  try {
+    await CommandFactory.runApplication(app);
+  } finally {
+    // Redis and queues close in onModuleDestroy, before shutdown hooks run.
+    await app.get(MetadataEventEmitter).drain();
+    await app.close();
+  }
 }
-bootstrap();
+void bootstrap();

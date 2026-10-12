@@ -7,6 +7,7 @@ import {
   type OrchestratorStateEntityInfo,
 } from '@/cli/utilities/dev/orchestrator/dev-mode-orchestrator-state';
 import { SyncableEntity } from 'twenty-shared/application';
+import { isDefined } from 'twenty-shared/utils';
 
 export type DevUiStatus =
   | 'idle'
@@ -77,33 +78,28 @@ export const SYNC_STATUS_LABELS: Record<OrchestratorStateSyncStatus, string> = {
   error: 'Error',
 };
 
-export const SPINNER_FRAMES = [
-  '⠋',
-  '⠙',
-  '⠹',
-  '⠸',
-  '⠼',
-  '⠴',
-  '⠦',
-  '⠧',
-  '⠇',
-  '⠏',
-];
+export const SPINNER_FRAMES = ['◐', '◓', '◑', '◒'];
 
-export const UPLOAD_FRAMES = ['↑', '⇡', '↟', '⤒'];
+export const UPLOAD_FRAMES = ['↑', '⇡', '↑', '⇡'];
 
 export const ENTITY_LABELS: Record<SyncableEntity, string> = {
   [SyncableEntity.Object]: 'Objects',
   [SyncableEntity.Field]: 'Fields',
   [SyncableEntity.LogicFunction]: 'Logic functions',
   [SyncableEntity.FrontComponent]: 'Front components',
+  [SyncableEntity.CommandMenuItem]: 'Command menu items',
   [SyncableEntity.Role]: 'Roles',
   [SyncableEntity.Skill]: 'Skills',
   [SyncableEntity.View]: 'Views',
+  [SyncableEntity.ViewField]: 'View fields',
   [SyncableEntity.NavigationMenuItem]: 'Navigation menu items',
   [SyncableEntity.PageLayout]: 'Page layouts',
   [SyncableEntity.PageLayoutTab]: 'Page layout tabs',
+  [SyncableEntity.PageLayoutWidget]: 'Page layout widgets',
   [SyncableEntity.Agent]: 'Agents',
+  [SyncableEntity.ConnectionProvider]: 'Connection providers',
+  [SyncableEntity.TimelineActivityType]: 'Timeline activity types',
+  [SyncableEntity.SettingsMenuItem]: 'Settings menu items',
 };
 
 export const ENTITY_ORDER = Object.keys(ENTITY_LABELS) as SyncableEntity[];
@@ -154,15 +150,51 @@ export const groupEntitiesByType = (
   return grouped;
 };
 
+export type DevUiEntityStatusSummaryPart = {
+  status: OrchestratorStateFileStatus;
+  count: number;
+  label: string;
+};
+
+const ENTITY_STATUS_SUMMARY_ORDER: {
+  status: OrchestratorStateFileStatus;
+  label: string;
+}[] = [
+  { status: 'success', label: 'synced' },
+  { status: 'building', label: 'building' },
+  { status: 'uploading', label: 'uploading' },
+  { status: 'pending', label: 'pending' },
+  { status: 'error', label: 'error' },
+];
+
+export const summarizeEntityStatuses = (
+  entities: OrchestratorStateEntityInfo[],
+): DevUiEntityStatusSummaryPart[] => {
+  const counts: Record<OrchestratorStateFileStatus, number> = {
+    pending: 0,
+    building: 0,
+    uploading: 0,
+    success: 0,
+    error: 0,
+  };
+
+  for (const entity of entities) {
+    counts[entity.status] += 1;
+  }
+
+  return ENTITY_STATUS_SUMMARY_ORDER.filter(
+    ({ status }) => counts[status] > 0,
+  ).map(({ status, label }) => ({ status, count: counts[status], label }));
+};
+
 export const getApplicationUrl = (state: OrchestratorState): string | null => {
-  if (
-    !state.frontendUrl ||
-    !state.steps.resolveApplication.output.universalIdentifier
-  ) {
+  const applicationId = state.steps.resolveApplication.output.applicationId;
+
+  if (!isDefined(state.frontendUrl) || !isDefined(applicationId)) {
     return null;
   }
 
-  return `${state.frontendUrl}/settings/applications`;
+  return `${state.frontendUrl}/settings/applications/${applicationId}`;
 };
 
 export const mergeStepStatuses = (

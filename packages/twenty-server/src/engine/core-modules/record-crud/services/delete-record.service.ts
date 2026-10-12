@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { isDefined, isValidUuid } from 'twenty-shared/utils';
+import { canObjectBeManagedByAutomation } from 'twenty-shared/workflow';
 
 import { CommonDeleteOneQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-delete-one-query-runner.service';
 import { CommonDestroyOneQueryRunnerService } from 'src/engine/api/common/common-query-runners/common-destroy-one-query-runner.service';
@@ -10,7 +11,6 @@ import {
 } from 'src/engine/core-modules/record-crud/exceptions/record-crud.exception';
 import { CommonApiContextBuilderService } from 'src/engine/core-modules/record-crud/services/common-api-context-builder.service';
 import { type DeleteRecordParams } from 'src/engine/core-modules/record-crud/types/delete-record-params.type';
-import { canRecordCrudManageObject } from 'src/engine/core-modules/record-crud/utils/can-record-crud-manage-object.util';
 import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.type';
 
 @Injectable()
@@ -24,7 +24,13 @@ export class DeleteRecordService {
   ) {}
 
   async execute(params: DeleteRecordParams): Promise<ToolOutput> {
-    const { objectName, objectRecordId, authContext, soft = true } = params;
+    const {
+      objectName,
+      objectRecordId,
+      authContext,
+      rolePermissionConfig,
+      soft = true,
+    } = params;
 
     if (!isDefined(objectRecordId) || !isValidUuid(objectRecordId)) {
       return {
@@ -39,17 +45,16 @@ export class DeleteRecordService {
         await this.commonApiContextBuilder.build({
           authContext,
           objectName,
+          rolePermissionConfig,
         });
 
       if (
-        !canRecordCrudManageObject({
+        !canObjectBeManagedByAutomation({
           nameSingular: flatObjectMetadata.nameSingular,
-          isSystem: flatObjectMetadata.isSystem,
-          allowLinkingSystemObjects: params.allowLinkingSystemObjects,
         })
       ) {
         throw new RecordCrudException(
-          'Failed to delete: Object cannot be deleted by workflow',
+          'Failed to delete: Object cannot be deleted by automation',
           RecordCrudExceptionCode.INVALID_REQUEST,
         );
       }

@@ -1,7 +1,11 @@
+import { WorkflowVersionEntity } from 'src/engine/core-modules/workflow/entities/workflow-version.entity';
+import { WorkflowEntity } from 'src/engine/core-modules/workflow/entities/workflow.entity';
 import { type AllMetadataName } from 'twenty-shared/metadata';
 import { type EntityTarget, type ObjectLiteral } from 'typeorm';
 
+import { ConnectionProviderEntity } from 'src/engine/core-modules/application/connection-provider/connection-provider.entity';
 import { AgentEntity } from 'src/engine/metadata-modules/ai/ai-agent/entities/agent.entity';
+import { ApplicationVariableEntity } from 'src/engine/core-modules/application/application-variable/application-variable.entity';
 import { CommandMenuItemEntity } from 'src/engine/metadata-modules/command-menu-item/entities/command-menu-item.entity';
 import { FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 import { FrontComponentEntity } from 'src/engine/metadata-modules/front-component/entities/front-component.entity';
@@ -15,6 +19,7 @@ import { PageLayoutTabEntity } from 'src/engine/metadata-modules/page-layout-tab
 import { PageLayoutWidgetEntity } from 'src/engine/metadata-modules/page-layout-widget/entities/page-layout-widget.entity';
 import { PageLayoutEntity } from 'src/engine/metadata-modules/page-layout/entities/page-layout.entity';
 import { PermissionFlagEntity } from 'src/engine/metadata-modules/permission-flag/permission-flag.entity';
+import { RolePermissionFlagEntity } from 'src/engine/metadata-modules/role-permission-flag/role-permission-flag.entity';
 import { RoleTargetEntity } from 'src/engine/metadata-modules/role-target/role-target.entity';
 import { RoleEntity } from 'src/engine/metadata-modules/role/role.entity';
 import { RowLevelPermissionPredicateGroupEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate-group.entity';
@@ -28,6 +33,10 @@ import { ViewFilterEntity } from 'src/engine/metadata-modules/view-filter/entiti
 import { ViewGroupEntity } from 'src/engine/metadata-modules/view-group/entities/view-group.entity';
 import { ViewEntity } from 'src/engine/metadata-modules/view/entities/view.entity';
 import { ViewSortEntity } from 'src/engine/metadata-modules/view-sort/entities/view-sort.entity';
+import { SearchFieldMetadataEntity } from 'src/engine/metadata-modules/search-field-metadata/search-field-metadata.entity';
+import { ValidationRuleEntity } from 'src/engine/metadata-modules/validation-rule/entities/validation-rule.entity';
+import { TimelineActivityTypeEntity } from 'src/engine/metadata-modules/timeline-activity-type/entities/timeline-activity-type.entity';
+import { SettingsMenuItemEntity } from 'src/engine/metadata-modules/settings-menu-item/entities/settings-menu-item.entity';
 
 export const ALL_METADATA_ENTITY_BY_METADATA_NAME = {
   viewField: ViewFieldEntity,
@@ -54,7 +63,16 @@ export const ALL_METADATA_ENTITY_BY_METADATA_NAME = {
   agent: AgentEntity,
   commandMenuItem: CommandMenuItemEntity,
   navigationMenuItem: NavigationMenuItemEntity,
+  rolePermissionFlag: RolePermissionFlagEntity,
   permissionFlag: PermissionFlagEntity,
   webhook: WebhookEntity,
+  applicationVariable: ApplicationVariableEntity,
   viewSort: ViewSortEntity,
+  connectionProvider: ConnectionProviderEntity,
+  searchFieldMetadata: SearchFieldMetadataEntity,
+  timelineActivityType: TimelineActivityTypeEntity,
+  settingsMenuItem: SettingsMenuItemEntity,
+  validationRule: ValidationRuleEntity,
+  workflow: WorkflowEntity,
+  workflowVersion: WorkflowVersionEntity,
 } as const satisfies Record<AllMetadataName, EntityTarget<ObjectLiteral>>;

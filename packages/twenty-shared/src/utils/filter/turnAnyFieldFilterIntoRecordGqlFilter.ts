@@ -82,6 +82,17 @@ export const turnAnyFieldFilterIntoRecordGqlFilter = ({
         } satisfies RecordFilter);
         break;
       }
+      case FieldMetadataType.ACTOR: {
+        anyFieldRecordFilters.push({
+          ...createAnyFieldRecordFilterBaseProperties({
+            filterValue,
+            fieldMetadataItem: field,
+          }),
+          operand: ViewFilterOperand.CONTAINS,
+          type: 'ACTOR',
+        } satisfies RecordFilter);
+        break;
+      }
       case FieldMetadataType.ARRAY: {
         anyFieldRecordFilters.push({
           ...createAnyFieldRecordFilterBaseProperties({
@@ -221,11 +232,15 @@ export const turnAnyFieldFilterIntoRecordGqlFilter = ({
     }
   }
 
+  const fieldMetadataItemById = new Map(
+    fields.map((field) => [field.id, field]),
+  );
+
   const baseRecordGqlOperationFilters = anyFieldRecordFilters
     .map((recordFilter) =>
       turnRecordFilterIntoRecordGqlOperationFilter({
         filterValueDependencies: {},
-        fieldMetadataItems: fields,
+        fieldMetadataItemById,
         recordFilter,
       }),
     )

@@ -1,6 +1,7 @@
 import { type ApolloCache, type StoreObject } from '@apollo/client';
 import { isNonEmptyString } from '@sniptt/guards';
 
+import { buildSortedConnectionEdges } from '@/apollo/optimistic-effect/utils/buildSortedConnectionEdges';
 import { triggerUpdateRelationsOptimisticEffect } from '@/apollo/optimistic-effect/utils/triggerUpdateRelationsOptimisticEffect';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { type RecordGqlRefEdge } from '@/object-record/cache/types/RecordGqlRefEdge';
@@ -17,11 +18,8 @@ import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { isRecordMatchingFilter } from '@/object-record/record-filter/utils/isRecordMatchingFilter';
 import { parseApolloStoreFieldName } from '~/utils/parseApolloStoreFieldName';
 
-/*
-  TODO: for now new records are added to all cached record lists, no matter what the variables (filters, orderBy, etc.) are.
-  We need to refactor how the record creation works in the RecordTable so the created record row is temporarily displayed with a local state,
-  then we'll be able to uncomment the code below so the cached lists are updated coherently with the variables.
-*/
+// TODO: new records join every cached list regardless of its variables unless shouldMatchRootQueryFilter;
+// make matching the default once RecordTable keeps a created row in local state.
 type TriggerCreateRecordsOptimisticEffectArgs = {
   cache: ApolloCache;
   objectMetadataItem: EnrichedObjectMetadataItem;
@@ -119,120 +117,79 @@ export const triggerCreateRecordsOptimisticEffect = ({
           hasPreviousPage?: boolean;
         }>('pageInfo', rootQueryCachedObjectRecordConnection);
 
-        const nextRootQueryCachedRecordEdges = rootQueryCachedRecordEdges
-          ? [...rootQueryCachedRecordEdges]
-          : [];
+        const newEntries = recordsToCreate.flatMap<{
+          edge: RecordGqlRefEdge;
+          record: RecordGqlNode;
+        }>((recordToCreate) => {
+          if (!isNonEmptyString(recordToCreate.id)) {
+            return [];
+          }
 
-        const nextQueryCachedPageInfo = isDefined(rootQueryCachedPageInfo)
-          ? { ...rootQueryCachedPageInfo }
-          : {};
+          if (
+            isDefined(rootQueryFilter) &&
+            shouldMatchRootQueryFilter === true &&
+            !isRecordMatchingFilter({
+              record: recordToCreate,
+              filter: rootQueryFilter,
+              objectMetadataItem,
+              objectMetadataItems,
+            })
+          ) {
+            return [];
+          }
 
-        const hasAddedRecords = recordsToCreate
-          .map((recordToCreate) => {
-            if (isNonEmptyString(recordToCreate.id)) {
-              if (
-                isDefined(rootQueryFilter) &&
-                shouldMatchRootQueryFilter === true
-              ) {
-                const recordToCreateMatchesThisRootQueryFilter =
-                  isRecordMatchingFilter({
-                    record: recordToCreate,
-                    filter: rootQueryFilter,
-                    objectMetadataItem,
-                  });
+          const node = toReference(recordToCreate);
 
-                if (!recordToCreateMatchesThisRootQueryFilter) {
-                  return false;
-                }
-              }
+          if (!isDefined(node)) {
+            return [];
+          }
 
-              const recordToCreateReference = toReference(recordToCreate);
+          const recordAlreadyInCache = rootQueryCachedRecordEdges?.some(
+            (cachedEdge) =>
+              cache.identify(node) === cache.identify(cachedEdge.node),
+          );
 
-              if (!recordToCreateReference) {
-                throw new Error(
-                  `Failed to create reference for record with id: ${recordToCreate.id}`,
-                );
-              }
+          if (recordAlreadyInCache === true) {
+            return [];
+          }
 
-              const recordAlreadyInCache = rootQueryCachedRecordEdges?.some(
-                (cachedEdge) => {
-                  return (
-                    cache.identify(recordToCreateReference) ===
-                    cache.identify(cachedEdge.node)
-                  );
-                },
-              );
+          return [
+            {
+              edge: {
+                __typename: getEdgeTypename(objectMetadataItem.nameSingular),
+                node,
+                cursor: encodeCursor(recordToCreate),
+              },
+              record: recordToCreate,
+            },
+          ];
+        });
 
-              if (isDefined(recordToCreateReference) && !recordAlreadyInCache) {
-                const cursor = encodeCursor(recordToCreate);
-
-                const edge = {
-                  __typename: getEdgeTypename(objectMetadataItem.nameSingular),
-                  node: recordToCreateReference,
-                  cursor,
-                };
-
-                if (
-                  !isDefined(recordToCreate.position) ||
-                  recordToCreate.position === 'first'
-                ) {
-                  nextRootQueryCachedRecordEdges.unshift(edge);
-                  nextQueryCachedPageInfo.startCursor = cursor;
-                } else if (recordToCreate.position === 'last') {
-                  nextRootQueryCachedRecordEdges.push(edge);
-                  nextQueryCachedPageInfo.endCursor = cursor;
-                } else if (typeof recordToCreate.position === 'number') {
-                  let index = Math.round(
-                    nextRootQueryCachedRecordEdges.length *
-                      recordToCreate.position,
-                  );
-
-                  if (recordToCreate.position < 0) {
-                    index = Math.max(
-                      0,
-                      nextRootQueryCachedRecordEdges.length +
-                        Math.round(recordToCreate.position),
-                    );
-                  } else if (recordToCreate.position > 1) {
-                    index = nextRootQueryCachedRecordEdges.length;
-                  }
-
-                  index = Math.max(
-                    0,
-                    Math.min(index, nextRootQueryCachedRecordEdges.length),
-                  );
-
-                  nextRootQueryCachedRecordEdges.splice(index, 0, edge);
-
-                  if (index === 0) {
-                    nextQueryCachedPageInfo.startCursor = cursor;
-                  } else if (
-                    index ===
-                    nextRootQueryCachedRecordEdges.length - 1
-                  ) {
-                    nextQueryCachedPageInfo.endCursor = cursor;
-                  }
-                }
-
-                return true;
-              }
-            }
-
-            return false;
-          })
-          .some((hasAddedRecord) => hasAddedRecord);
-
-        if (!hasAddedRecords) {
+        if (newEntries.length === 0) {
           return rootQueryCachedObjectRecordConnection;
         }
 
+        const sortedEdges = buildSortedConnectionEdges({
+          currentEdges: rootQueryCachedRecordEdges ?? [],
+          newEntries,
+          orderBy: rootQueryVariables?.orderBy,
+          readField,
+        });
+
         return {
           ...rootQueryCachedObjectRecordConnection,
-          edges: nextRootQueryCachedRecordEdges,
+          edges: sortedEdges,
           totalCount: isDefined(rootQueryCachedRecordTotalCount)
-            ? rootQueryCachedRecordTotalCount + 1
+            ? rootQueryCachedRecordTotalCount + newEntries.length
             : undefined,
-          pageInfo: nextQueryCachedPageInfo,
+          pageInfo: {
+            ...(rootQueryCachedPageInfo ?? {}),
+            startCursor:
+              sortedEdges[0]?.cursor ?? rootQueryCachedPageInfo?.startCursor,
+            endCursor:
+              sortedEdges[sortedEdges.length - 1]?.cursor ??
+              rootQueryCachedPageInfo?.endCursor,
+          },
         };
       },
     },
@@ -241,6 +198,7 @@ export const triggerCreateRecordsOptimisticEffect = ({
   triggerUpdateGroupByQueriesOptimisticEffect({
     cache,
     objectMetadataItem,
+    objectMetadataItems,
     operation: 'create',
     records: recordsToCreate,
     shouldMatchRootQueryFilter,

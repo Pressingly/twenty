@@ -2,18 +2,27 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ApplicationPackageFetcherService } from 'src/engine/core-modules/application/application-package/application-package-fetcher.service';
+import { ApplicationVersionValidationService } from 'src/engine/core-modules/application/application-package/application-version-validation.service';
 import { ApplicationEntity } from 'src/engine/core-modules/application/application.entity';
-import { FileStorageModule } from 'src/engine/core-modules/file-storage/file-storage.module';
 import { FileEntity } from 'src/engine/core-modules/file/entities/file.entity';
-import { TwentyConfigModule } from 'src/engine/core-modules/twenty-config/twenty-config.module';
+import { SecureHttpClientModule } from 'src/engine/core-modules/secure-http-client/secure-http-client.module';
+import { UpgradeStatusModule } from 'src/engine/core-modules/upgrade/upgrade-status.module';
+import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/provide-workspace-scoped-repository';
 
 @Module({
   imports: [
-    FileStorageModule,
-    TwentyConfigModule,
+    SecureHttpClientModule,
+    UpgradeStatusModule,
     TypeOrmModule.forFeature([FileEntity, ApplicationEntity]),
   ],
-  providers: [ApplicationPackageFetcherService],
-  exports: [ApplicationPackageFetcherService],
+  providers: [
+    ApplicationPackageFetcherService,
+    ApplicationVersionValidationService,
+    provideWorkspaceScopedRepository(ApplicationEntity),
+  ],
+  exports: [
+    ApplicationPackageFetcherService,
+    ApplicationVersionValidationService,
+  ],
 })
 export class ApplicationPackageModule {}

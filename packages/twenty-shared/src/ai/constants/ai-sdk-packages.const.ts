@@ -6,6 +6,8 @@ export const AI_SDK_PACKAGES = [
   '@ai-sdk/xai',
   '@ai-sdk/amazon-bedrock',
   '@ai-sdk/openai-compatible',
+  '@ai-sdk/azure',
+  '@ai-sdk/typesafe-ai',
 ] as const;
 
 export type AiSdkPackage = (typeof AI_SDK_PACKAGES)[number];

@@ -10,7 +10,11 @@ import {
   type ObjectPermissions,
   RelationType,
 } from 'twenty-shared/types';
-import { computeMorphRelationFieldName, isDefined } from 'twenty-shared/utils';
+import {
+  computeMorphRelationGqlFieldName,
+  computeRelationGqlFieldJoinColumnName,
+  isDefined,
+} from 'twenty-shared/utils';
 
 type MapFieldMetadataToGraphQLQueryArgs = {
   objectMetadataItems: EnrichedObjectMetadataItem[];
@@ -52,7 +56,7 @@ export const mapFieldMetadataToGraphQLQuery = ({
   ) {
     let gqlMorphField = '';
     for (const morphRelation of fieldMetadata.morphRelations ?? []) {
-      const relationFieldName = computeMorphRelationFieldName({
+      const relationFieldName = computeMorphRelationGqlFieldName({
         fieldName: fieldMetadata.name,
         relationType: fieldMetadata.settings?.relationType,
         targetObjectMetadataNameSingular:
@@ -168,7 +172,10 @@ ${mapObjectMetadataToGraphQLQuery({
       }
     }
 
-    if (gqlField === fieldMetadata.settings?.joinColumnName) {
+    if (
+      gqlField ===
+      computeRelationGqlFieldJoinColumnName({ name: fieldMetadata.name })
+    ) {
       return `${gqlField}`;
     }
 
@@ -237,7 +244,10 @@ ${mapObjectMetadataToGraphQLQuery({
 {
   primaryLinkUrl
   primaryLinkLabel
-  secondaryLinks
+  secondaryLinks {
+    label
+    url
+  }
 }`;
   }
 
@@ -278,7 +288,9 @@ ${mapObjectMetadataToGraphQLQuery({
     source
     workspaceMemberId
     name
-    context
+    context {
+      provider
+    }
 }`;
   }
 
@@ -296,7 +308,11 @@ ${mapObjectMetadataToGraphQLQuery({
       primaryPhoneNumber
       primaryPhoneCountryCode
       primaryPhoneCallingCode
-      additionalPhones
+      additionalPhones {
+        number
+        callingCode
+        countryCode
+      }
     }`;
   }
 

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
+import { isNonEmptyString } from '@sniptt/guards';
 import { assertIsDefinedOrThrow, isDefined } from 'twenty-shared/utils';
 import { Repository } from 'typeorm';
 
@@ -11,6 +12,7 @@ import { PublicDomainEntity } from 'src/engine/core-modules/public-domain/public
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
+import { SEED_APPLE_WORKSPACE_ID } from 'src/engine/workspace-manager/dev-seeder/core/constants/seeder-workspaces.constant';
 
 @Injectable()
 export class WorkspaceDomainsService {
@@ -19,6 +21,8 @@ export class WorkspaceDomainsService {
     private readonly twentyConfigService: TwentyConfigService,
     @InjectRepository(WorkspaceEntity)
     private readonly workspaceRepository: Repository<WorkspaceEntity>,
+    // Request routing resolves workspace via the public domain registry.
+    // eslint-disable-next-line twenty/prefer-workspace-scoped-repository
     @InjectRepository(PublicDomainEntity)
     private readonly publicDomainRepository: Repository<PublicDomainEntity>,
   ) {}
@@ -27,10 +31,12 @@ export class WorkspaceDomainsService {
     workspace,
     pathname,
     searchParams,
+    hash,
   }: {
     workspace: WorkspaceDomainConfig;
     pathname?: string;
     searchParams?: Record<string, string | number | boolean>;
+    hash?: string;
   }) {
     const workspaceUrls = this.getWorkspaceUrls(workspace);
 
@@ -38,6 +44,7 @@ export class WorkspaceDomainsService {
       baseUrl: new URL(workspaceUrls.customUrl ?? workspaceUrls.subdomainUrl),
       pathname,
       searchParams,
+      hash,
     });
 
     return url;
@@ -68,16 +75,19 @@ export class WorkspaceDomainsService {
       order: {
         createdAt: 'DESC',
       },
-      relations: ['workspaceSSOIdentityProviders'],
+      relations: ['workspaceSsoIdentityProviders'],
     });
 
     if (workspaces.length > 1) {
       Logger.warn(
-        ` ${workspaces.length} workspaces found in database. In single-workspace mode, there should be only one workspace. Apple seed workspace will be used as fallback if it found.`,
+        `${workspaces.length} workspaces found in database. In single-workspace mode, there should be only one workspace. The Apple seed workspace will be used as fallback if present.`,
       );
     }
 
-    const foundWorkspace = workspaces[0];
+    const foundWorkspace =
+      workspaces.find(
+        (workspace) => workspace.id === SEED_APPLE_WORKSPACE_ID,
+      ) ?? workspaces[0];
 
     assertIsDefinedOrThrow(foundWorkspace, WorkspaceNotFoundDefaultError);
 
@@ -85,36 +95,142 @@ export class WorkspaceDomainsService {
   }
 
   async getWorkspaceByOriginOrDefaultWorkspace(origin: string) {
+    const { workspace } = await this.resolveWorkspaceAndPublicDomain(origin);
+
+    return workspace;
+  }
+
+  async resolveWorkspaceAndPublicDomain(origin: string): Promise<{
+    workspace: WorkspaceEntity | undefined;
+    publicDomain: PublicDomainEntity | null;
+    isPublicDomain: boolean;
+  }> {
+    const { subdomain, customDomain, isUnderPublicDomainUrl } =
+      this.domainServerConfigService.getSubdomainAndCustomDomainFromUrl(origin);
+
     if (!this.twentyConfigService.get('IS_MULTIWORKSPACE_ENABLED')) {
-      return this.getDefaultWorkspace();
+      // Still resolve the public domain so route triggers can scope by application.
+      const publicDomain = isDefined(customDomain)
+        ? await this.publicDomainRepository.findOne({
+            where: { domain: customDomain },
+          })
+        : null;
+
+      return {
+        workspace: await this.getDefaultWorkspace(),
+        publicDomain: publicDomain ?? null,
+        isPublicDomain: isUnderPublicDomainUrl || isDefined(publicDomain),
+      };
     }
 
-    const { subdomain, domain } =
-      this.domainServerConfigService.getSubdomainAndDomainFromUrl(origin);
+    if (isUnderPublicDomainUrl) {
+      const hostname = new URL(origin).hostname;
 
-    if (!domain && !subdomain) return;
+      const registeredPublicDomain = await this.publicDomainRepository.findOne({
+        where: { domain: hostname },
+        relations: ['workspace', 'workspace.workspaceSsoIdentityProviders'],
+      });
 
-    const where = isDefined(domain) ? { customDomain: domain } : { subdomain };
+      if (isDefined(registeredPublicDomain)) {
+        return {
+          workspace: registeredPublicDomain.workspace ?? undefined,
+          publicDomain: registeredPublicDomain,
+          isPublicDomain: true,
+        };
+      }
+
+      const workspaceFromSubdomain = isDefined(subdomain)
+        ? ((await this.workspaceRepository.findOne({
+            where: { subdomain },
+            relations: ['workspaceSsoIdentityProviders'],
+          })) ?? undefined)
+        : undefined;
+
+      return {
+        workspace: workspaceFromSubdomain,
+        publicDomain: null,
+        isPublicDomain: true,
+      };
+    }
+
+    if (!customDomain && !subdomain) {
+      return {
+        workspace: undefined,
+        publicDomain: null,
+        isPublicDomain: false,
+      };
+    }
+
+    const where = isDefined(customDomain) ? { customDomain } : { subdomain };
 
     const workspaceFromCustomDomainOrSubdomain =
       (await this.workspaceRepository.findOne({
         where,
-        relations: ['workspaceSSOIdentityProviders'],
+        relations: ['workspaceSsoIdentityProviders'],
       })) ?? undefined;
 
-    if (isDefined(workspaceFromCustomDomainOrSubdomain) || !isDefined(domain)) {
-      return workspaceFromCustomDomainOrSubdomain;
+    if (
+      isDefined(workspaceFromCustomDomainOrSubdomain) ||
+      !isDefined(customDomain)
+    ) {
+      return {
+        workspace: workspaceFromCustomDomainOrSubdomain,
+        publicDomain: null,
+        isPublicDomain: false,
+      };
     }
 
-    const publicDomainFromCustomDomain =
-      await this.publicDomainRepository.findOne({
-        where: {
-          domain,
-        },
-        relations: ['workspace', 'workspace.workspaceSSOIdentityProviders'],
-      });
+    const publicDomain = await this.publicDomainRepository.findOne({
+      where: { domain: customDomain },
+      relations: ['workspace', 'workspace.workspaceSsoIdentityProviders'],
+    });
 
-    return publicDomainFromCustomDomain?.workspace;
+    return {
+      workspace: publicDomain?.workspace ?? undefined,
+      publicDomain: publicDomain ?? null,
+      isPublicDomain: isDefined(publicDomain),
+    };
+  }
+
+  buildPublicFunctionBaseUrl({
+    workspace,
+    primaryPublicDomain,
+  }: {
+    workspace: Pick<WorkspaceEntity, 'subdomain'>;
+    primaryPublicDomain?: string | null;
+  }): string | undefined {
+    if (isNonEmptyString(primaryPublicDomain)) {
+      return `https://${primaryPublicDomain}`;
+    }
+
+    const publicBaseHostname =
+      this.domainServerConfigService.getPublicBaseHostnameOrUndefined();
+
+    if (!isNonEmptyString(publicBaseHostname)) {
+      return undefined;
+    }
+
+    const url = this.domainServerConfigService.getPublicDomainUrl();
+
+    url.hostname = `${workspace.subdomain}.${publicBaseHostname}`;
+
+    return url.origin;
+  }
+
+  buildPublicFunctionUrl({
+    workspace,
+    path,
+  }: {
+    workspace: Pick<WorkspaceEntity, 'subdomain'>;
+    path: string;
+  }): string | undefined {
+    const baseUrl = this.buildPublicFunctionBaseUrl({ workspace });
+
+    if (!isDefined(baseUrl)) {
+      return undefined;
+    }
+
+    return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
   }
 
   private getCustomWorkspaceUrl(customDomain: string) {

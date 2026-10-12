@@ -1,36 +1,15 @@
-import { UnauthorizedException } from '@nestjs/common';
-import { Field, Float, HideField, Int, ObjectType } from '@nestjs/graphql';
-
-import {
-  Authorize,
-  FilterableField,
-  IDField,
-} from '@ptc-org/nestjs-query-graphql';
-import { isDefined } from 'twenty-shared/utils';
-
-import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
-import { type AuthenticatedRequest } from 'src/engine/api/rest/types/authenticated-request';
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType('AgentChatThread')
-@Authorize({
-  authorize: (context: { req?: AuthenticatedRequest }) => {
-    const userWorkspaceId = context?.req?.userWorkspaceId;
-
-    if (!isDefined(userWorkspaceId)) {
-      throw new UnauthorizedException(
-        'userWorkspaceId is required to query chat threads',
-      );
-    }
-
-    return { userWorkspaceId: { eq: userWorkspaceId } };
-  },
-})
 export class AgentChatThreadDTO {
-  @IDField(() => UUIDScalarType)
+  @Field(() => ID)
   id: string;
 
   @Field({ nullable: true })
   title: string;
+
+  @Field(() => Int)
+  totalCacheReadTokens: number;
 
   @Field(() => Int)
   totalInputTokens: number;
@@ -44,8 +23,7 @@ export class AgentChatThreadDTO {
   @Field(() => Int)
   conversationSize: number;
 
-  // Credits are converted from internal precision to display precision
-  // (internal / 1000) at the resolver level
+  // In display credits; the resolver converts from the stored internal credits
   @Field(() => Float)
   totalInputCredits: number;
 
@@ -55,10 +33,9 @@ export class AgentChatThreadDTO {
   @Field()
   createdAt: Date;
 
-  @FilterableField()
   @Field()
   updatedAt: Date;
 
-  @HideField()
-  userWorkspaceId: string;
+  @Field(() => Date, { nullable: true })
+  deletedAt: Date | null;
 }

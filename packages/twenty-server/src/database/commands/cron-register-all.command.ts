@@ -1,18 +1,29 @@
 import { Logger } from '@nestjs/common';
 
-import { Command, CommandRunner, Option } from 'nest-commander';
+import { Command, CommandRunner } from 'nest-commander';
+import { isDefined } from 'twenty-shared/utils';
 
 import { MarketplaceCatalogSyncCronCommand } from 'src/engine/core-modules/application/application-marketplace/crons/commands/marketplace-catalog-sync.cron.command';
 import { StaleRegistrationCleanupCronCommand } from 'src/engine/core-modules/application/application-oauth/stale-registration-cleanup/commands/stale-registration-cleanup.cron.command';
-import { ApplicationVersionCheckCronCommand } from 'src/engine/core-modules/application/application-upgrade/crons/commands/application-version-check.cron.command';
-import { EnforceUsageCapCronCommand } from 'src/engine/core-modules/billing/crons/commands/enforce-usage-cap.cron.command';
-import { EnterpriseKeyValidationCronCommand } from 'src/engine/core-modules/enterprise/cron/command/enterprise-key-validation.cron.command';
+import { ApplicationRecurringChargeCronCommand } from 'src/engine/core-modules/billing/app-billing/crons/commands/application-recurring-charge.cron.command';
+import { BillingReminderCronCommand } from 'src/engine/core-modules/billing/reminders/crons/commands/billing-reminder.cron.command';
+import { CheckEmailingDomainVerificationCronCommand } from 'src/engine/core-modules/emailing-domain/crons/commands/check-emailing-domain-verification.cron.command';
+import { EnterpriseKeyValidationCronCommand } from 'src/engine/core-modules/enterprise/cron/command/organization-key-validation.cron.command';
 import { EventLogCleanupCronCommand } from 'src/engine/core-modules/event-logs/cleanup/commands/event-log-cleanup.cron.command';
+import { PendingFileCleanupCronCommand } from 'src/engine/core-modules/file/file-upload/crons/commands/pending-file-cleanup.cron.command';
+import { RotateSigningKeysCronCommand } from 'src/engine/core-modules/jwt/crons/commands/rotate-signing-keys.cron.command';
 import { CronTriggerCronCommand } from 'src/engine/core-modules/logic-function/logic-function-trigger/triggers/cron/cron-trigger.cron.command';
+import { PendingWakeUpSweepCronCommand } from 'src/engine/core-modules/pending-wake-up/crons/commands/pending-wake-up-sweep.cron.command';
+import { AgentCronTriggerCronCommand } from 'src/engine/metadata-modules/ai/ai-agent-trigger/crons/agent-cron-trigger.cron.command';
 import { CheckPublicDomainsValidRecordsCronCommand } from 'src/engine/core-modules/public-domain/crons/commands/check-public-domains-valid-records.cron.command';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { UserSessionCleanupCronCommand } from 'src/engine/core-modules/user-session/crons/commands/user-session-cleanup.cron.command';
 import { CheckCustomDomainValidRecordsCronCommand } from 'src/engine/core-modules/workspace/crons/commands/check-custom-domain-valid-records.cron.command';
+import { WebhookSubscriptionRenewalCronCommand } from 'src/modules/connected-account/webhook-subscription-manager/crons/commands/webhook-subscription-renewal.cron.command';
+import { EmailingOngoingStaleCronCommand } from 'src/modules/emailing/crons/commands/emailing-ongoing-stale.cron.command';
+import { ReconcileCampaignStatsCronCommand } from 'src/modules/emailing/crons/commands/reconcile-campaign-stats.cron.command';
 import { TrashCleanupCronCommand } from 'src/engine/trash-cleanup/commands/trash-cleanup.cron.command';
+import { DeferredWorkspaceMigrationActionRecoveryCronCommand } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/crons/commands/deferred-workspace-migration-action-recovery.cron.command';
 import { CleanOnboardingWorkspacesCronCommand } from 'src/engine/workspace-manager/workspace-cleaner/commands/clean-onboarding-workspaces.cron.command';
 import { CleanSuspendedWorkspacesCronCommand } from 'src/engine/workspace-manager/workspace-cleaner/commands/clean-suspended-workspaces.cron.command';
 import { CalendarEventListFetchCronCommand } from 'src/modules/calendar/calendar-event-import-manager/crons/commands/calendar-event-list-fetch.cron.command';
@@ -23,6 +34,7 @@ import { MessagingMessageListFetchCronCommand } from 'src/modules/messaging/mess
 import { MessagingMessagesImportCronCommand } from 'src/modules/messaging/message-import-manager/crons/commands/messaging-messages-import.cron.command';
 import { MessagingOngoingStaleCronCommand } from 'src/modules/messaging/message-import-manager/crons/commands/messaging-ongoing-stale.cron.command';
 import { MessagingRelaunchFailedMessageChannelsCronCommand } from 'src/modules/messaging/message-import-manager/crons/commands/messaging-relaunch-failed-message-channels.cron.command';
+import { WorkflowCoreConsistencyCronCommand } from 'src/modules/workflow/workflow-core-consistency/crons/commands/workflow-core-consistency-cron.command';
 import { WorkflowCleanWorkflowRunsCronCommand } from 'src/modules/workflow/workflow-runner/workflow-run-queue/cron/command/workflow-clean-workflow-runs.cron.command';
 import { WorkflowHandleStaledRunsCronCommand } from 'src/modules/workflow/workflow-runner/workflow-run-queue/cron/command/workflow-handle-staled-runs.cron.command';
 import { WorkflowRunEnqueueCronCommand } from 'src/modules/workflow/workflow-runner/workflow-run-queue/cron/command/workflow-run-enqueue.cron.command';
@@ -46,55 +58,53 @@ export class CronRegisterAllCommand extends CommandRunner {
     private readonly calendarOngoingStaleCronCommand: CalendarOngoingStaleCronCommand,
     private readonly calendarRelaunchFailedCalendarChannelsCronCommand: CalendarRelaunchFailedCalendarChannelsCronCommand,
 
+    private readonly webhookSubscriptionRenewalCronCommand: WebhookSubscriptionRenewalCronCommand,
+
+    private readonly emailingOngoingStaleCronCommand: EmailingOngoingStaleCronCommand,
+    private readonly reconcileCampaignStatsCronCommand: ReconcileCampaignStatsCronCommand,
+
     private readonly workflowCronTriggerCronCommand: WorkflowCronTriggerCronCommand,
     private readonly workflowRunEnqueueCronCommand: WorkflowRunEnqueueCronCommand,
     private readonly workflowHandleStaledRunsCronCommand: WorkflowHandleStaledRunsCronCommand,
     private readonly workflowCleanWorkflowRunsCronCommand: WorkflowCleanWorkflowRunsCronCommand,
+    private readonly workflowCoreConsistencyCronCommand: WorkflowCoreConsistencyCronCommand,
+    private readonly pendingWakeUpSweepCronCommand: PendingWakeUpSweepCronCommand,
 
     private readonly checkCustomDomainValidRecordsCronCommand: CheckCustomDomainValidRecordsCronCommand,
     private readonly checkPublicDomainsValidRecordsCronCommand: CheckPublicDomainsValidRecordsCronCommand,
+    private readonly checkEmailingDomainVerificationCronCommand: CheckEmailingDomainVerificationCronCommand,
     private readonly cronTriggerCronCommand: CronTriggerCronCommand,
+    private readonly agentCronTriggerCronCommand: AgentCronTriggerCronCommand,
     private readonly cleanSuspendedWorkspacesCronCommand: CleanSuspendedWorkspacesCronCommand,
     private readonly cleanOnboardingWorkspacesCronCommand: CleanOnboardingWorkspacesCronCommand,
     private readonly trashCleanupCronCommand: TrashCleanupCronCommand,
     private readonly eventLogCleanupCronCommand: EventLogCleanupCronCommand,
     private readonly enterpriseKeyValidationCronCommand: EnterpriseKeyValidationCronCommand,
-    private readonly twentyConfigService: TwentyConfigService,
+    private readonly rotateSigningKeysCronCommand: RotateSigningKeysCronCommand,
     private readonly marketplaceCatalogSyncCronCommand: MarketplaceCatalogSyncCronCommand,
-    private readonly applicationVersionCheckCronCommand: ApplicationVersionCheckCronCommand,
     private readonly staleRegistrationCleanupCronCommand: StaleRegistrationCleanupCronCommand,
-    private readonly enforceUsageCapCronCommand: EnforceUsageCapCronCommand,
+    private readonly pendingFileCleanupCronCommand: PendingFileCleanupCronCommand,
+    private readonly deferredWorkspaceMigrationActionRecoveryCronCommand: DeferredWorkspaceMigrationActionRecoveryCronCommand,
+    private readonly billingReminderCronCommand: BillingReminderCronCommand,
+    private readonly applicationRecurringChargeCronCommand: ApplicationRecurringChargeCronCommand,
+    private readonly userSessionCleanupCronCommand: UserSessionCleanupCronCommand,
+    private readonly twentyConfigService: TwentyConfigService,
   ) {
     super();
   }
 
-  private devMode = false;
-
-  @Option({
-    flags: '--dev-mode',
-    description:
-      'Only register cron jobs relevant to app development (cron triggers, marketplace sync, version check, stale cleanup)',
-    required: false,
-  })
-  parseDevMode(): boolean {
-    this.devMode = true;
-
-    return true;
-  }
-
-  private static readonly DEV_MODE_COMMANDS = new Set([
-    'CronTrigger',
-    'MarketplaceCatalogSync',
-    'ApplicationVersionCheck',
-    'StaleRegistrationCleanup',
-  ]);
-
   async run(): Promise<void> {
-    this.logger.log(
-      this.devMode
-        ? 'Registering app-dev cron jobs...'
-        : 'Registering all background sync cron jobs...',
+    this.logger.log('Registering all background sync cron jobs...');
+
+    const isSigningKeyAutoRotationEnabled = isDefined(
+      this.twentyConfigService.get('SIGNING_KEY_ROTATION_DAYS'),
     );
+
+    const isMarketplaceCatalogSyncEnabled = this.twentyConfigService.get(
+      'MARKETPLACE_CATALOG_SYNC_CRON_ENABLED',
+    );
+
+    const isBillingEnabled = this.twentyConfigService.get('IS_BILLING_ENABLED');
 
     const allCommands = [
       {
@@ -130,12 +140,28 @@ export class CronRegisterAllCommand extends CommandRunner {
         command: this.calendarRelaunchFailedCalendarChannelsCronCommand,
       },
       {
+        name: 'WebhookSubscriptionRenewal',
+        command: this.webhookSubscriptionRenewalCronCommand,
+      },
+      {
+        name: 'EmailingOngoingStale',
+        command: this.emailingOngoingStaleCronCommand,
+      },
+      {
+        name: 'ReconcileCampaignStats',
+        command: this.reconcileCampaignStatsCronCommand,
+      },
+      {
         name: 'CheckCustomDomainValidRecords',
         command: this.checkCustomDomainValidRecordsCronCommand,
       },
       {
         name: 'CheckPublicDomainsValidRecords',
         command: this.checkPublicDomainsValidRecordsCronCommand,
+      },
+      {
+        name: 'CheckEmailingDomainVerification',
+        command: this.checkEmailingDomainVerificationCronCommand,
       },
       {
         name: 'WorkflowCronTrigger',
@@ -154,8 +180,20 @@ export class CronRegisterAllCommand extends CommandRunner {
         command: this.workflowCleanWorkflowRunsCronCommand,
       },
       {
+        name: 'WorkflowCoreConsistency',
+        command: this.workflowCoreConsistencyCronCommand,
+      },
+      {
+        name: 'PendingWakeUpSweep',
+        command: this.pendingWakeUpSweepCronCommand,
+      },
+      {
         name: 'CronTrigger',
         command: this.cronTriggerCronCommand,
+      },
+      {
+        name: 'AgentCronTrigger',
+        command: this.agentCronTriggerCronCommand,
       },
       {
         name: 'CleanSuspendedWorkspaces',
@@ -176,37 +214,58 @@ export class CronRegisterAllCommand extends CommandRunner {
       {
         name: 'MarketplaceCatalogSync',
         command: this.marketplaceCatalogSyncCronCommand,
-      },
-      {
-        name: 'ApplicationVersionCheck',
-        command: this.applicationVersionCheckCronCommand,
+        isEnabled: isMarketplaceCatalogSyncEnabled,
       },
       {
         name: 'EnterpriseKeyValidation',
         command: this.enterpriseKeyValidationCronCommand,
       },
       {
+        name: 'RotateSigningKeys',
+        command: this.rotateSigningKeysCronCommand,
+        isEnabled: isSigningKeyAutoRotationEnabled,
+      },
+      {
         name: 'StaleRegistrationCleanup',
         command: this.staleRegistrationCleanupCronCommand,
       },
       {
-        name: 'EnforceUsageCap',
-        command: this.enforceUsageCapCronCommand,
+        name: 'PendingFileCleanup',
+        command: this.pendingFileCleanupCronCommand,
+      },
+      {
+        name: 'DeferredWorkspaceMigrationActionRecovery',
+        command: this.deferredWorkspaceMigrationActionRecoveryCronCommand,
+      },
+      {
+        name: 'BillingReminder',
+        command: this.billingReminderCronCommand,
+        isEnabled: isBillingEnabled,
+      },
+      {
+        name: 'ApplicationRecurringCharge',
+        command: this.applicationRecurringChargeCronCommand,
+        isEnabled: isBillingEnabled,
+      },
+      {
+        name: 'UserSessionCleanup',
+        command: this.userSessionCleanupCronCommand,
       },
     ];
-
-    const commands = this.devMode
-      ? allCommands.filter(({ name }) =>
-          CronRegisterAllCommand.DEV_MODE_COMMANDS.has(name),
-        )
-      : allCommands;
 
     let successCount = 0;
     let failureCount = 0;
     const failures: string[] = [];
     const successes: string[] = [];
+    const skipped: string[] = [];
 
-    for (const { name, command } of commands) {
+    for (const { name, command, isEnabled = true } of allCommands) {
+      if (!isEnabled) {
+        this.logger.log(`Skipping ${name} cron job (disabled by config)`);
+        skipped.push(name);
+        continue;
+      }
+
       try {
         this.logger.log(`Registering ${name} cron job...`);
         await command.run();
@@ -221,7 +280,7 @@ export class CronRegisterAllCommand extends CommandRunner {
     }
 
     this.logger.log(
-      `Cron job registration completed: ${successCount} successful, ${failureCount} failed`,
+      `Cron job registration completed: ${successCount} successful, ${failureCount} failed, ${skipped.length} skipped`,
     );
 
     if (failures.length > 0) {
@@ -230,6 +289,10 @@ export class CronRegisterAllCommand extends CommandRunner {
 
     if (successCount > 0) {
       this.logger.log(`Successful commands: ${successes.join(', ')}`);
+    }
+
+    if (skipped.length > 0) {
+      this.logger.log(`Skipped commands: ${skipped.join(', ')}`);
     }
   }
 }

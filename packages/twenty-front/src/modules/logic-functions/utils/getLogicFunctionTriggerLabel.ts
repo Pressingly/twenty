@@ -3,10 +3,11 @@ import { isDefined } from 'twenty-shared/utils';
 
 type LogicFunctionLike = {
   universalIdentifier?: string | null;
-  isTool?: boolean;
   cronTriggerSettings?: unknown;
   httpRouteTriggerSettings?: unknown;
   databaseEventTriggerSettings?: { eventName?: string } | null;
+  toolTriggerSettings?: unknown;
+  workflowActionTriggerSettings?: unknown;
 };
 
 export const getLogicFunctionTriggerLabel = (
@@ -14,6 +15,7 @@ export const getLogicFunctionTriggerLabel = (
   options: {
     postInstallUniversalIdentifier?: string;
     preInstallUniversalIdentifier?: string;
+    uninstallUniversalIdentifier?: string;
   } = {},
 ): string => {
   if (
@@ -28,7 +30,14 @@ export const getLogicFunctionTriggerLabel = (
   ) {
     return t`Pre-install`;
   }
-  if (lf.isTool) return t`AI tool`;
+  if (
+    isDefined(lf.universalIdentifier) &&
+    lf.universalIdentifier === options.uninstallUniversalIdentifier
+  ) {
+    return t`Uninstall`;
+  }
+  if (isDefined(lf.toolTriggerSettings)) return t`AI tool`;
+  if (isDefined(lf.workflowActionTriggerSettings)) return t`Workflow action`;
   if (lf.cronTriggerSettings) return t`Cron`;
   if (lf.httpRouteTriggerSettings) return t`HTTP`;
   if (lf.databaseEventTriggerSettings) {
