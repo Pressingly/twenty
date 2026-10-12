@@ -34,6 +34,7 @@ import { SignInUpTwoFactorAuthenticationProvision } from '@/auth/sign-in-up/comp
 import { SignInUpTwoFactorAuthenticationRecovery } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationRecovery';
 import { SignInUpTOTPVerification } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationVerification';
 import { useWorkspaceFromInviteHash } from '@/auth/sign-in-up/hooks/useWorkspaceFromInviteHash';
+import { getSsoProxyLoginReturnToPath } from '@/auth/utils/getSsoProxyLoginReturnToPath';
 import { clientConfigApiStatusState } from '@/client-config/states/clientConfigApiStatusState';
 import { REACT_APP_SERVER_BASE_URL } from '~/config';
 import { useLingui } from '@lingui/react/macro';
@@ -69,17 +70,15 @@ export const SignInUp = () => {
 
   useEffect(() => {
     if (isSsoEnabled) {
-      // returnToPath brings MCP OAuth consent (/authorize) back after the proxy login.
-      const returnToPath =
-        window.location.pathname +
-        window.location.search +
-        window.location.hash;
+      // Forward the target this page was sent with (MCP OAuth /authorize), not
+      // /welcome itself: /verify drops any returnToPath pointing at sign-in.
+      const returnToPath = getSsoProxyLoginReturnToPath(window.location.search);
       const proxyUrl = new URL(
         '/auth/sso/proxy-login',
         REACT_APP_SERVER_BASE_URL || window.location.origin,
       );
 
-      if (returnToPath && returnToPath !== '/') {
+      if (isDefined(returnToPath)) {
         proxyUrl.searchParams.set('returnToPath', returnToPath);
       }
 
