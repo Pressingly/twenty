@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Readable } from 'stream';
 import { type ReadableStream } from 'stream/web';
 
+import { isNonEmptyString } from '@sniptt/guards';
 import { type NextFunction, type Request, type Response } from 'express';
 import { isDefined, normalizeAllowedIframeOrigin } from 'twenty-shared/utils';
 
@@ -29,7 +30,7 @@ export class FrontendService {
     private readonly clientConfigService: ClientConfigService,
     private readonly workspaceDomainsService: WorkspaceDomainsService,
     @Inject('FRONTEND_PATH') readonly frontPath: string,
-    twentyConfigService: TwentyConfigService,
+    private readonly twentyConfigService: TwentyConfigService,
   ) {
     this.indexUrl = twentyConfigService.get('FRONTEND_INDEX_URL');
 
@@ -48,6 +49,14 @@ export class FrontendService {
 
   get isEnabled(): boolean {
     return isDefined(this.template) || isDefined(this.indexUrl);
+  }
+
+  // The SPA reads AUTH_TYPE before /client-config resolves, to route SSO
+  // sign-in through the oauth2-proxy login instead of Twenty's own form.
+  private getRuntimeEnv(): Record<string, string> {
+    const authType = this.twentyConfigService.get('AUTH_TYPE');
+
+    return isNonEmptyString(authType) ? { AUTH_TYPE: authType } : {};
   }
 
   private validateTemplate(template: string): void {
@@ -146,7 +155,9 @@ export class FrontendService {
         response.removeHeader('X-Frame-Options');
       }
 
-      response.type('html').end(renderFrontendHtml(template, clientConfig));
+      response
+        .type('html')
+        .end(renderFrontendHtml(template, clientConfig, this.getRuntimeEnv()));
     } catch (error) {
       this.logger.error('Unable to serve frontend document', error);
       response
