@@ -8,6 +8,7 @@ import {
   MCP_PROGRESS_NOTIFICATION_METHOD,
   TOOL_CALL_PROGRESS_TOKEN_PREFIX,
 } from 'src/engine/api/mcp/constants/mcp-progress-notification.const';
+import { getMcpToolAnnotations } from 'src/engine/api/mcp/utils/get-mcp-tool-annotations.util';
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 
 @Injectable()
@@ -90,6 +91,7 @@ export class McpToolExecutorService {
           name,
           description: def.description,
           inputSchema: unwrappedSchema,
+          annotations: getMcpToolAnnotations(name),
         };
       });
 
