@@ -504,6 +504,7 @@ exports[`endpoint permission declarations should match the AuthPrincipalGuard an
   "SsoAuthController.oidcAuthCallback {"applicationTarget":null,"authPrincipalGuards":[]}",
   "SsoAuthController.samlAuth {"applicationTarget":null,"authPrincipalGuards":[]}",
   "SsoAuthController.samlAuthCallback {"applicationTarget":null,"authPrincipalGuards":[]}",
+  "SsoProxyLoginController.proxyLogin {"applicationTarget":null,"authPrincipalGuards":[]}",
   "SsoResolver.createOIDCIdentityProvider {"applicationTarget":null,"authPrincipalGuards":[{"apiKey":true,"application":true,"oauthClient":true,"userSession":{"impersonated":true,"playground":true,"standard":true,"workspaceAgnostic":false}}]}",
   "SsoResolver.createSAMLIdentityProvider {"applicationTarget":null,"authPrincipalGuards":[{"apiKey":true,"application":true,"oauthClient":true,"userSession":{"impersonated":true,"playground":true,"standard":true,"workspaceAgnostic":false}}]}",
   "SsoResolver.deleteSSOIdentityProvider {"applicationTarget":null,"authPrincipalGuards":[{"apiKey":true,"application":true,"oauthClient":true,"userSession":{"impersonated":true,"playground":true,"standard":true,"workspaceAgnostic":false}}]}",
