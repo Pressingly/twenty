@@ -3,6 +3,10 @@ import {
   MCP_PROGRESS_NOTIFICATION_METHOD,
   TOOL_CALL_PROGRESS_TOKEN_PREFIX,
 } from 'src/engine/api/mcp/constants/mcp-progress-notification.const';
+import { EXECUTE_TOOL_TOOL_NAME } from 'src/engine/core-modules/tool-provider/tools/execute-tool.tool';
+import { GET_TOOL_CATALOG_TOOL_NAME } from 'src/engine/core-modules/tool-provider/tools/get-tool-catalog.tool';
+import { LEARN_TOOLS_TOOL_NAME } from 'src/engine/core-modules/tool-provider/tools/learn-tools.tool';
+import { LOAD_SKILL_TOOL_NAME } from 'src/engine/core-modules/tool-provider/tools/load-skill.tool';
 import { McpToolExecutorService } from 'src/engine/api/mcp/services/mcp-tool-executor.service';
 
 describe('McpToolExecutorService', () => {
@@ -42,6 +46,10 @@ describe('McpToolExecutorService', () => {
                 properties: { query: { type: 'string' } },
                 required: ['query'],
               },
+              annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+              },
             },
           ],
         },
@@ -73,9 +81,71 @@ describe('McpToolExecutorService', () => {
                 type: 'object',
                 properties: { name: { type: 'string' } },
               },
+              annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+              },
             },
           ],
         },
+      });
+    });
+  });
+
+  describe('handleToolsListing annotations', () => {
+    const listedTools = (names: string[]) => {
+      const toolSet = Object.fromEntries(
+        names.map((name) => [
+          name,
+          { description: name, inputSchema: { type: 'object' } },
+        ]),
+      ) as any;
+
+      return (service.handleToolsListing('1', toolSet) as any).result.tools;
+    };
+
+    const annotationsOf = (name: string) => listedTools([name])[0].annotations;
+
+    it('should give every listed tool both hints as booleans', () => {
+      const tools = listedTools([
+        GET_TOOL_CATALOG_TOOL_NAME,
+        LEARN_TOOLS_TOOL_NAME,
+        LOAD_SKILL_TOOL_NAME,
+        'search_help_center',
+        EXECUTE_TOOL_TOOL_NAME,
+      ]);
+
+      expect(tools).toHaveLength(5);
+
+      for (const tool of tools) {
+        expect(typeof tool.annotations.readOnlyHint).toBe('boolean');
+        expect(typeof tool.annotations.destructiveHint).toBe('boolean');
+      }
+    });
+
+    it.each([
+      GET_TOOL_CATALOG_TOOL_NAME,
+      LEARN_TOOLS_TOOL_NAME,
+      LOAD_SKILL_TOOL_NAME,
+      'search_help_center',
+    ])('should publish %s as a read', (name) => {
+      expect(annotationsOf(name)).toEqual({
+        readOnlyHint: true,
+        destructiveHint: false,
+      });
+    });
+
+    it('should publish execute_tool as a destructive write', () => {
+      expect(annotationsOf(EXECUTE_TOOL_TOOL_NAME)).toEqual({
+        readOnlyHint: false,
+        destructiveHint: true,
+      });
+    });
+
+    it('should publish an unclassified tool as a destructive write', () => {
+      expect(annotationsOf('some_future_tool')).toEqual({
+        readOnlyHint: false,
+        destructiveHint: true,
       });
     });
   });
