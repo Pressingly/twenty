@@ -16,6 +16,16 @@ describe('resolveSsoReturnPath', () => {
     },
   );
 
+  it('keeps the original path and query for deep links', () => {
+    expect(resolveSsoReturnPath('/Authorize?client_id=Abc%20d')).toBe(
+      '/Authorize?client_id=Abc%20d',
+    );
+  });
+
+  it('does not throw on malformed percent encoding and keeps the path', () => {
+    expect(resolveSsoReturnPath('/objects/%E0%A4%A')).toBe('/objects/%E0%A4%A');
+  });
+
   it('keeps paths that only share the sign-in prefix', () => {
     expect(resolveSsoReturnPath('/welcome-back')).toBe('/welcome-back');
   });
