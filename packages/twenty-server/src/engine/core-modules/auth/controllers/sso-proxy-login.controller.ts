@@ -20,6 +20,7 @@ import { JwtTokenTypeEnum } from 'src/engine/core-modules/auth/types/auth-contex
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
 import { RefreshTokenService } from 'src/engine/core-modules/auth/token/services/refresh-token.service';
 import { SsoUserProvisioningService } from 'src/engine/core-modules/auth/services/sso-user-provisioning.service';
+import { resolveSsoReturnPath } from 'src/engine/core-modules/auth/utils/resolve-sso-return-path.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
@@ -133,15 +134,7 @@ export class SsoProxyLoginController {
       },
     });
 
-    // Honour returnToPath so callers like the MCP OAuth /authorize page
-    // can survive the SSO round-trip. Validate that the value is a
-    // same-origin path (starts with exactly one `/`) to prevent open
-    // redirect attacks via protocol-relative URLs (`//evil.com`).
-    const returnToPath = req.query.returnToPath as string | undefined;
-    const destination =
-      returnToPath?.startsWith('/') && !returnToPath.startsWith('//')
-        ? returnToPath
-        : '/';
+    const destination = resolveSsoReturnPath(req.query.returnToPath);
 
     return res.redirect(HttpStatus.FOUND, destination);
   }
