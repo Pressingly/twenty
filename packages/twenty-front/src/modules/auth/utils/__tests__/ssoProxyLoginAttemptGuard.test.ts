@@ -59,6 +59,23 @@ describe('ssoProxyLoginAttemptGuard', () => {
     ).toBe(true);
   });
 
+  it('stops counting attempts just inside the window and drops them just outside', () => {
+    const storage = createStorage();
+
+    recordAttempts(storage, SSO_PROXY_LOGIN_MAX_ATTEMPTS, now);
+
+    expect(canAttemptSsoProxyLogin(storage, now + 59_000)).toBe(false);
+    expect(canAttemptSsoProxyLogin(storage, now + 61_000)).toBe(true);
+  });
+
+  it('treats attempts stored in the future as stale after the clock moves back', () => {
+    const storage = createStorage();
+
+    recordAttempts(storage, SSO_PROXY_LOGIN_MAX_ATTEMPTS, now);
+
+    expect(canAttemptSsoProxyLogin(storage, now - 3_600_000)).toBe(true);
+  });
+
   it('treats corrupted storage content as no attempts', () => {
     const storage = createStorage({ ssoProxyLoginAttempts: '{not json' });
 

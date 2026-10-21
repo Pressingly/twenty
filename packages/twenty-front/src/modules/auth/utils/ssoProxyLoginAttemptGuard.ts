@@ -22,14 +22,15 @@ export const getSsoProxyLoginAttemptStorage = (): AttemptStorage => {
 const isTimestamp = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
+const isWithinWindow = (at: number, now: number) =>
+  at <= now && now - at < SSO_PROXY_LOGIN_ATTEMPT_WINDOW_MS;
+
 const readRecentAttempts = (storage: AttemptStorage, now: number): number[] => {
   try {
     const parsed: unknown = JSON.parse(storage.getItem(STORAGE_KEY) ?? '[]');
 
     return Array.isArray(parsed)
-      ? parsed
-          .filter(isTimestamp)
-          .filter((at) => now - at < SSO_PROXY_LOGIN_ATTEMPT_WINDOW_MS)
+      ? parsed.filter(isTimestamp).filter((at) => isWithinWindow(at, now))
       : [];
   } catch {
     return [];
