@@ -15,6 +15,7 @@ import {
 import { type Request, Response } from 'express';
 import ms from 'ms';
 
+import { resolveSsoReturnPath } from 'src/engine/core-modules/auth/utils/resolve-sso-return-path.util';
 import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
 import { JwtTokenTypeEnum } from 'src/engine/core-modules/auth/types/auth-context.type';
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
@@ -133,15 +134,7 @@ export class SsoProxyLoginController {
       },
     });
 
-    // Honour returnToPath so callers like the MCP OAuth /authorize page
-    // can survive the SSO round-trip. Validate that the value is a
-    // same-origin path (starts with exactly one `/`) to prevent open
-    // redirect attacks via protocol-relative URLs (`//evil.com`).
-    const returnToPath = req.query.returnToPath as string | undefined;
-    const destination =
-      returnToPath?.startsWith('/') && !returnToPath.startsWith('//')
-        ? returnToPath
-        : '/';
+    const destination = resolveSsoReturnPath(req.query.returnToPath);
 
     return res.redirect(HttpStatus.FOUND, destination);
   }

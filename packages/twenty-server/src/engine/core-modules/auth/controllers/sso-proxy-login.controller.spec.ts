@@ -7,7 +7,8 @@ type ConfigKey =
   | 'DEFAULT_EMAIL_DOMAIN'
   | 'ACCESS_TOKEN_EXPIRES_IN'
   | 'REFRESH_TOKEN_EXPIRES_IN'
-  | 'SERVER_URL';
+  | 'SERVER_URL'
+  | 'SMB_CORPORATE_ID';
 
 type Headers = string | string[] | undefined;
 
@@ -20,6 +21,7 @@ const buildController = (
     ACCESS_TOKEN_EXPIRES_IN: '30m',
     REFRESH_TOKEN_EXPIRES_IN: '60d',
     SERVER_URL: 'https://twenty.example.com',
+    SMB_CORPORATE_ID: '',
     ...configOverrides,
   };
 
@@ -62,7 +64,12 @@ const buildController = (
   const proxyLogin = (
     headerEmail: Headers = undefined,
     headerUser: Headers = undefined,
-  ) => controller.proxyLogin(headerEmail, headerUser, res);
+    query: Record<string, unknown> = {},
+  ) => {
+    const req: any = { query, get: jest.fn() };
+
+    return controller.proxyLogin(req, headerEmail, headerUser, res);
+  };
 
   return {
     controller,
@@ -222,5 +229,40 @@ describe('SsoProxyLoginController', () => {
         authProvider: 'sso',
       }),
     );
+  });
+
+  describe('returnToPath', () => {
+    it('should redirect to a valid same-origin returnToPath', async () => {
+      const { res, proxyLogin } = buildController();
+
+      await proxyLogin('someone@askii.ai', undefined, {
+        returnToPath: '/authorize?client_id=abc',
+      });
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        302,
+        '/authorize?client_id=abc',
+      );
+    });
+
+    it('should redirect to / when returnToPath is the sign-in page', async () => {
+      const { res, proxyLogin } = buildController();
+
+      await proxyLogin('someone@askii.ai', undefined, {
+        returnToPath: '/welcome',
+      });
+
+      expect(res.redirect).toHaveBeenCalledWith(302, '/');
+    });
+
+    it('should redirect to / when returnToPath is protocol-relative', async () => {
+      const { res, proxyLogin } = buildController();
+
+      await proxyLogin('someone@askii.ai', undefined, {
+        returnToPath: '//evil.com',
+      });
+
+      expect(res.redirect).toHaveBeenCalledWith(302, '/');
+    });
   });
 });
