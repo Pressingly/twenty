@@ -3,15 +3,15 @@ import { subscribeToSignOutFromOtherTabs } from '@/auth/utils/crossTabSignOut';
 import { useEffect } from 'react';
 
 export const SignOutOnOtherTabSignOutEffect = () => {
-  const { clearSession } = useAuth();
+  const { endSessionLocally } = useAuth();
 
   useEffect(() => {
     const unsubscribe = subscribeToSignOutFromOtherTabs(() => {
-      clearSession();
+      endSessionLocally();
     });
 
     return unsubscribe;
-  }, [clearSession]);
+  }, [endSessionLocally]);
 
   return null;
 };

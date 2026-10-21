@@ -1,4 +1,5 @@
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
+import { useSsoProxyLoginRedirect } from '@/auth/hooks/useSsoProxyLoginRedirect';
 import { useSignInUp } from '@/auth/sign-in-up/hooks/useSignInUp';
 import { useSignInUpForm } from '@/auth/sign-in-up/hooks/useSignInUpForm';
 import {
@@ -14,6 +15,7 @@ import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomStat
 import { Logo } from '@/auth/components/Logo';
 import { Title } from '@/auth/components/Title';
 import { EmailVerificationSent } from '@/auth/sign-in-up/components/EmailVerificationSent';
+import { SsoLoginRecovery } from '@/auth/sign-in-up/components/SsoLoginRecovery';
 import { FooterNote } from '@/auth/sign-in-up/components/FooterNote';
 import { SignInUpGlobalScopeForm } from '@/auth/sign-in-up/components/SignInUpGlobalScopeForm';
 import { SignInUpWorkspaceScopeForm } from '@/auth/sign-in-up/components/SignInUpWorkspaceScopeForm';
@@ -23,14 +25,13 @@ import { isMultiWorkspaceEnabledState } from '@/client-config/states/isMultiWork
 import { useGetPublicWorkspaceDataByDomain } from '@/domain-manager/hooks/useGetPublicWorkspaceDataByDomain';
 import { useIsCurrentLocationOnAWorkspace } from '@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace';
 import { useIsCurrentLocationOnDefaultDomain } from '@/domain-manager/hooks/useIsCurrentLocationOnDefaultDomain';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { SignInUpGlobalScopeFormEffect } from '@/auth/sign-in-up/components/internal/SignInUpGlobalScopeFormEffect';
 import { SignInUpTwoFactorAuthenticationProvision } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationProvision';
 import { SignInUpTOTPVerification } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationVerification';
 import { useWorkspaceFromInviteHash } from '@/auth/sign-in-up/hooks/useWorkspaceFromInviteHash';
 import { clientConfigApiStatusState } from '@/client-config/states/clientConfigApiStatusState';
-import { REACT_APP_SERVER_BASE_URL } from '~/config';
 import { ModalContent } from 'twenty-ui/layout';
 import { useLingui } from '@lingui/react/macro';
 import { useSearchParams } from 'react-router-dom';
@@ -89,31 +90,7 @@ export const SignInUp = () => {
   const clientConfigApiStatus = useAtomStateValue(clientConfigApiStatusState);
   const isSsoEnabled = useIsSsoEnabled();
 
-  useEffect(() => {
-    if (isSsoEnabled) {
-      // Use the API origin so the redirect still works when the SPA is
-      // served separately from the backend. In the unified-image setup
-      // both share an origin and the absolute URL collapses to the same
-      // path; in split-deploy mode it correctly hits the API.
-      //
-      // Thread returnToPath so the server can redirect back after setting
-      // the JWT cookie -- without this, navigating to /authorize (MCP
-      // OAuth consent) would land the user on the dashboard instead of
-      // returning to the consent screen after SSO.
-      const returnToPath =
-        window.location.pathname + window.location.search + window.location.hash;
-      const proxyUrl = new URL(
-        '/auth/sso/proxy-login',
-        REACT_APP_SERVER_BASE_URL || window.location.origin,
-      );
-
-      if (returnToPath && returnToPath !== '/') {
-        proxyUrl.searchParams.set('returnToPath', returnToPath);
-      }
-
-      window.location.replace(proxyUrl.toString());
-    }
-  }, [isSsoEnabled]);
+  const { needsRecovery, retry } = useSsoProxyLoginRedirect();
 
   const { form } = useSignInUpForm();
   const { signInUpStep } = useSignInUp(form);
@@ -231,6 +208,10 @@ export const SignInUp = () => {
     signInUpStep,
     workspacePublicData,
   ]);
+
+  if (isSsoEnabled && needsRecovery) {
+    return <SsoLoginRecovery onRetry={retry} />;
+  }
 
   if (isSsoEnabled) {
     return (
