@@ -15,6 +15,7 @@ import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomStat
 import { Logo } from '@/auth/components/Logo';
 import { Title } from '@/auth/components/Title';
 import { EmailVerificationSent } from '@/auth/sign-in-up/components/EmailVerificationSent';
+import { SsoLoginRecovery } from '@/auth/sign-in-up/components/SsoLoginRecovery';
 import { FooterNote } from '@/auth/sign-in-up/components/FooterNote';
 import { SignInUpGlobalScopeForm } from '@/auth/sign-in-up/components/SignInUpGlobalScopeForm';
 import { SignInUpWorkspaceScopeForm } from '@/auth/sign-in-up/components/SignInUpWorkspaceScopeForm';
@@ -89,7 +90,7 @@ export const SignInUp = () => {
   const clientConfigApiStatus = useAtomStateValue(clientConfigApiStatusState);
   const isSsoEnabled = useIsSsoEnabled();
 
-  useSsoProxyLoginRedirect();
+  const { needsRecovery, retry } = useSsoProxyLoginRedirect();
 
   const { form } = useSignInUpForm();
   const { signInUpStep } = useSignInUp(form);
@@ -207,6 +208,10 @@ export const SignInUp = () => {
     signInUpStep,
     workspacePublicData,
   ]);
+
+  if (isSsoEnabled && needsRecovery) {
+    return <SsoLoginRecovery onRetry={retry} />;
+  }
 
   if (isSsoEnabled) {
     return (

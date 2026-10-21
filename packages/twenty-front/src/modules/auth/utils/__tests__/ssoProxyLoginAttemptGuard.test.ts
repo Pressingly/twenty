@@ -1,7 +1,10 @@
+import { clearSessionLocalStorageKeys } from '@/auth/utils/clearSessionLocalStorageKeys';
 import {
   SSO_PROXY_LOGIN_ATTEMPT_WINDOW_MS,
   SSO_PROXY_LOGIN_MAX_ATTEMPTS,
   canAttemptSsoProxyLogin,
+  clearSsoProxyLoginAttempts,
+  getSsoProxyLoginAttemptStorage,
   recordSsoProxyLoginAttempt,
 } from '@/auth/utils/ssoProxyLoginAttemptGuard';
 
@@ -12,6 +15,9 @@ const createStorage = (initial: Record<string, string> = {}) => {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => {
       data.set(key, value);
+    },
+    removeItem: (key: string) => {
+      data.delete(key);
     },
   };
 };
@@ -75,6 +81,7 @@ describe('ssoProxyLoginAttemptGuard', () => {
       setItem: () => {
         throw new Error('quota');
       },
+      removeItem: () => undefined,
     };
 
     expect(() => recordSsoProxyLoginAttempt(storage, now)).not.toThrow();
@@ -88,5 +95,36 @@ describe('ssoProxyLoginAttemptGuard', () => {
     canAttemptSsoProxyLogin(storage, now);
 
     expect(storage.getItem('ssoProxyLoginAttempts')).toBe(before);
+  });
+
+  it('allows attempts again after the attempts are cleared', () => {
+    const storage = createStorage();
+
+    recordAttempts(storage, SSO_PROXY_LOGIN_MAX_ATTEMPTS, now);
+    clearSsoProxyLoginAttempts(storage);
+
+    expect(canAttemptSsoProxyLogin(storage, now)).toBe(true);
+  });
+
+  describe('against the browser storage', () => {
+    beforeEach(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+
+    it('keeps the cap tripped across the clearSession cleanup', () => {
+      const storage = getSsoProxyLoginAttemptStorage();
+
+      recordAttempts(storage, SSO_PROXY_LOGIN_MAX_ATTEMPTS - 1, now);
+
+      window.sessionStorage.clear();
+      clearSessionLocalStorageKeys();
+
+      recordAttempts(storage, 1, now);
+      window.sessionStorage.clear();
+      clearSessionLocalStorageKeys();
+
+      expect(canAttemptSsoProxyLogin(storage, now)).toBe(false);
+    });
   });
 });

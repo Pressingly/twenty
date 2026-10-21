@@ -2,8 +2,22 @@ import { AppPath } from 'twenty-shared/types';
 
 type BrowserLocation = Pick<Location, 'pathname' | 'search' | 'hash'>;
 
-const isSignInUpPath = (pathname: string) =>
-  pathname === AppPath.SignInUp || pathname.startsWith(`${AppPath.SignInUp}/`);
+const normalizePathname = (pathname: string) => {
+  try {
+    return decodeURIComponent(pathname).toLowerCase();
+  } catch {
+    return pathname.toLowerCase();
+  }
+};
+
+const isSignInUpPath = (pathname: string) => {
+  const normalized = normalizePathname(pathname);
+
+  return (
+    normalized === AppPath.SignInUp ||
+    normalized.startsWith(`${AppPath.SignInUp}/`)
+  );
+};
 
 const shouldCarryReturnToPath = (pathname: string) =>
   pathname !== '/' && !isSignInUpPath(pathname);

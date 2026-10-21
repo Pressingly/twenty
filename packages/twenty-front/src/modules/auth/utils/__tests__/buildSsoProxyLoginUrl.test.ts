@@ -23,16 +23,32 @@ describe('buildSsoProxyLoginUrl', () => {
     );
   });
 
-  it.each(['/welcome', '/welcome/', '/welcome/sub'])(
-    'never carries the sign-in page %s as returnToPath',
-    (pathname) => {
-      const url = new URL(
-        buildSsoProxyLoginUrl(base, { pathname, search: '?x=1', hash: '' }),
-      );
+  it.each([
+    '/welcome',
+    '/welcome/',
+    '/welcome/sub',
+    '/Welcome',
+    '/%77elcome',
+    '/%57ELCOME/x',
+  ])('never carries the sign-in page %s as returnToPath', (pathname) => {
+    const url = new URL(
+      buildSsoProxyLoginUrl(base, { pathname, search: '?x=1', hash: '' }),
+    );
 
-      expect(url.searchParams.has('returnToPath')).toBe(false);
-    },
-  );
+    expect(url.searchParams.has('returnToPath')).toBe(false);
+  });
+
+  it('keeps the original path when percent encoding is malformed', () => {
+    const url = new URL(
+      buildSsoProxyLoginUrl(base, {
+        pathname: '/objects/%E0%A4%A',
+        search: '',
+        hash: '',
+      }),
+    );
+
+    expect(url.searchParams.get('returnToPath')).toBe('/objects/%E0%A4%A');
+  });
 
   it('keeps paths that only share the sign-in prefix', () => {
     const url = new URL(

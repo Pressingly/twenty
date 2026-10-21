@@ -208,5 +208,35 @@ describe('useAuth', () => {
       );
       expect(result.current.isSignOutInProgress).toBe(true);
     });
+
+    it('endSessionLocally leaves for the portal and marks the sign-out in progress', async () => {
+      const { result } = renderHook(
+        () => ({
+          auth: useAuth(),
+          isSignOutInProgress: useAtomStateValue(isSsoSignOutInProgressState),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      await act(async () => {
+        result.current.auth.endSessionLocally();
+      });
+
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith(
+        `${window.location.protocol}//${window.location.host}/`,
+      );
+      expect(result.current.isSignOutInProgress).toBe(true);
+    });
+
+    it('endSessionLocally keeps the non-SSO behaviour', async () => {
+      jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'PASSWORD' });
+      const { result } = renderHooks();
+
+      await act(async () => {
+        result.current.endSessionLocally();
+      });
+
+      expect(navigateBrowserToSpy).not.toHaveBeenCalled();
+    });
   });
 });
