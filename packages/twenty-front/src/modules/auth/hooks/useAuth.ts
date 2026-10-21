@@ -19,6 +19,8 @@ import {
 
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { tokenPairState } from '@/auth/states/tokenPairState';
+import { isSsoSignOutInProgressState } from '@/auth/states/isSsoSignOutInProgressState';
+import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
 import { buildPortalUrl } from '@/auth/utils/buildPortalUrl';
 import { clearSessionLocalStorageKeys } from '@/auth/utils/clearSessionLocalStorageKeys';
 import { broadcastSignOutToOtherTabs } from '@/auth/utils/crossTabSignOut';
@@ -423,14 +425,14 @@ export const useAuth = () => {
       // We replicate clearSession's cleanup inline (skipping its terminal
       // window.location.assign(AppPath.SignInUp)) so we can navigate to the
       // portal host instead.
+      store.set(isSsoSignOutInProgressState.atom, true);
       sessionStorage.clear();
       clearSessionLocalStorageKeys();
       store.set(tokenPairState.atom, null);
       setLastAuthenticateWorkspaceDomain(null);
 
-      window.location.href = buildPortalUrl(
-        window.location.host,
-        window.location.protocol,
+      navigateBrowserTo(
+        buildPortalUrl(window.location.host, window.location.protocol),
       );
       return;
     }

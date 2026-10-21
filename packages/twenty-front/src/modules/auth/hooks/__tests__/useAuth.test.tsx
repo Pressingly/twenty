@@ -12,9 +12,19 @@ import {
   token,
 } from '@/auth/hooks/__mocks__/useAuth';
 import { SnackBarComponentInstanceContext } from '@/ui/feedback/snack-bar-manager/contexts/SnackBarComponentInstanceContext';
+import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
+import { isSsoSignOutInProgressState } from '@/auth/states/isSsoSignOutInProgressState';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { renderHook } from '@testing-library/react';
 
 const redirectSpy = jest.fn();
+
+jest.mock('@/auth/utils/browserNavigation', () => ({
+  navigateBrowserTo: jest.fn(),
+  replaceBrowserLocation: jest.fn(),
+}));
+
+const navigateBrowserToSpy = jest.mocked(navigateBrowserTo);
 
 jest.mock('@/domain-manager/hooks/useRedirect', () => ({
   useRedirect: jest.fn().mockImplementation(() => ({
@@ -161,5 +171,42 @@ describe('useAuth', () => {
     });
 
     expect(mocks.signUpInWorkspace.result).toHaveBeenCalled();
+  });
+
+  describe('SSO sign-out', () => {
+    beforeAll(() => {
+      if (!Object.prototype.hasOwnProperty.call(window, '_env_')) {
+        Object.defineProperty(window, '_env_', {
+          value: {},
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    beforeEach(() => {
+      jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'SSO' });
+    });
+
+    it('navigates to the portal and marks the sign-out in progress', async () => {
+      const { result } = renderHook(
+        () => ({
+          auth: useAuth(),
+          isSignOutInProgress: useAtomStateValue(isSsoSignOutInProgressState),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      expect(result.current.isSignOutInProgress).toBe(false);
+
+      await act(async () => {
+        result.current.auth.signOut();
+      });
+
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith(
+        `${window.location.protocol}//${window.location.host}/`,
+      );
+      expect(result.current.isSignOutInProgress).toBe(true);
+    });
   });
 });
