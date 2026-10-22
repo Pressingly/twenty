@@ -1,10 +1,12 @@
 import { SubTitle } from '@/auth/components/SubTitle';
 import { Title } from '@/auth/components/Title';
+import { type SsoLoginRecoveryReason } from '@/auth/types/SsoLoginRecoveryReason';
 import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
 import { buildPortalUrl } from '@/auth/utils/buildPortalUrl';
 import { styled } from '@linaria/react';
 import { useLingui } from '@lingui/react/macro';
 import { MainButton } from 'twenty-ui/components/input';
+import { isDefined } from 'twenty-shared/utils';
 import { themeCssVariables } from 'twenty-ui/theme';
 
 const StyledContainer = styled.div`
@@ -24,7 +26,8 @@ const StyledButtonsContainer = styled.div`
 `;
 
 type SsoLoginRecoveryProps = {
-  onRetry: () => void;
+  reason: SsoLoginRecoveryReason;
+  onRetry?: () => void;
 };
 
 const goToPortal = () =>
@@ -32,19 +35,32 @@ const goToPortal = () =>
     buildPortalUrl(window.location.host, window.location.protocol),
   );
 
-export const SsoLoginRecovery = ({ onRetry }: SsoLoginRecoveryProps) => {
+export const SsoLoginRecovery = ({
+  reason,
+  onRetry,
+}: SsoLoginRecoveryProps) => {
   const { t } = useLingui();
+
+  const isSignOut = reason === 'signOutStalled';
 
   return (
     <StyledContainer>
       <div>
-        <Title noMarginTop>{t`We could not sign you in`}</Title>
+        <Title noMarginTop>
+          {isSignOut
+            ? t`Signing out is taking longer than expected`
+            : t`We could not sign you in`}
+        </Title>
         <SubTitle>
-          {t`The sign-in redirect did not complete. Try again or go back to the portal.`}
+          {isSignOut
+            ? t`Go back to the portal to finish signing out.`
+            : t`The sign-in redirect did not complete. Try again or go back to the portal.`}
         </SubTitle>
       </div>
       <StyledButtonsContainer>
-        <MainButton onClick={onRetry} fullWidth>{t`Try again`}</MainButton>
+        {isDefined(onRetry) && (
+          <MainButton onClick={onRetry} fullWidth>{t`Try again`}</MainButton>
+        )}
         <MainButton
           onClick={goToPortal}
           variant="outline"

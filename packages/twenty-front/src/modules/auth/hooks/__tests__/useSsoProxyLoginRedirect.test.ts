@@ -3,7 +3,7 @@ import { getDefaultStore } from 'jotai';
 import { StrictMode } from 'react';
 
 import {
-  SSO_SIGN_OUT_STALLED_AFTER_MS,
+  SSO_REDIRECT_STALLED_AFTER_MS,
   useSsoProxyLoginRedirect,
 } from '@/auth/hooks/useSsoProxyLoginRedirect';
 import { isSsoProxyLoginRedirectRequestedState } from '@/auth/states/isSsoProxyLoginRedirectRequestedState';
@@ -168,7 +168,7 @@ describe('useSsoProxyLoginRedirect', () => {
     simulatePageLoad();
     const { result } = renderRedirect();
 
-    expect(result.current.needsRecovery).toBe(true);
+    expect(result.current.recoveryReason).toBe('signInFailed');
   });
 
   it('keeps the cap after the clearSession cleanup between attempts', () => {
@@ -196,39 +196,101 @@ describe('useSsoProxyLoginRedirect', () => {
     const { result } = renderRedirect();
 
     await act(async () => {
-      result.current.retry();
+      result.current.retry?.();
     });
 
     expect(replaceSpy).toHaveBeenCalledTimes(1);
-    expect(result.current.needsRecovery).toBe(false);
+    expect(result.current.recoveryReason).toBeNull();
   });
 
-  describe('stalled sign-out', () => {
+  describe('stalled redirect', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    it('needs recovery when the sign-out stays in progress, and retry resumes the redirect', async () => {
+    const fillAttemptCap = () =>
+      Array.from({ length: SSO_PROXY_LOGIN_MAX_ATTEMPTS }).forEach(() => {
+        simulatePageLoad();
+        renderRedirect().unmount();
+      });
+
+    it('offers only the portal when a sign-out stays in progress', async () => {
       const { result } = renderRedirect();
 
       await act(async () => {
         result.current.setSignOutInProgress(true);
       });
 
-      expect(result.current.needsRecovery).toBe(false);
+      expect(result.current.recoveryReason).toBeNull();
 
-      await act(async () => {
-        jest.advanceTimersByTime(SSO_SIGN_OUT_STALLED_AFTER_MS);
-      });
-
-      expect(result.current.needsRecovery).toBe(true);
       replaceSpy.mockClear();
 
       await act(async () => {
-        result.current.retry();
+        jest.advanceTimersByTime(SSO_REDIRECT_STALLED_AFTER_MS);
+      });
+
+      expect(result.current.recoveryReason).toBe('signOutStalled');
+      expect(result.current.retry).toBeUndefined();
+      expect(replaceSpy).not.toHaveBeenCalled();
+    });
+
+    it('needs recovery when a stale session keeps the sign-in page waiting', async () => {
+      const { result } = renderRedirect();
+
+      await act(async () => {
+        result.current.setIsCookieAuthActive(true);
+      });
+
+      expect(result.current.recoveryReason).toBeNull();
+
+      await act(async () => {
+        jest.advanceTimersByTime(SSO_REDIRECT_STALLED_AFTER_MS);
+      });
+
+      expect(result.current.recoveryReason).toBe('signInStalled');
+    });
+
+    it('retry after a stalled session redirects through the attempt cap', async () => {
+      const { result } = renderRedirect();
+
+      await act(async () => {
+        result.current.setIsCookieAuthActive(true);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(SSO_REDIRECT_STALLED_AFTER_MS);
+      });
+      replaceSpy.mockClear();
+      simulatePageLoad();
+
+      await act(async () => {
+        result.current.retry?.();
       });
 
       expect(replaceSpy).toHaveBeenCalledTimes(1);
-      expect(result.current.needsRecovery).toBe(false);
+      expect(getDefaultStore().get(isCookieAuthActiveState.atom)).toBe(false);
+    });
+
+    it('retry after a stalled session does not bypass a full attempt cap', async () => {
+      fillAttemptCap();
+      replaceSpy.mockClear();
+      simulatePageLoad();
+
+      const { result } = renderRedirect();
+
+      await act(async () => {
+        result.current.setIsCookieAuthActive(true);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(SSO_REDIRECT_STALLED_AFTER_MS);
+      });
+
+      expect(result.current.recoveryReason).toBe('signInStalled');
+
+      await act(async () => {
+        result.current.retry?.();
+      });
+
+      expect(replaceSpy).not.toHaveBeenCalled();
+      expect(result.current.recoveryReason).toBe('signInFailed');
     });
   });
 });

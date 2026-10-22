@@ -68,7 +68,7 @@ export const SignInUp = () => {
   const isCreatingWorkspace = useAtomStateValue(isCreatingWorkspaceState);
   const isSsoEnabled = useIsSsoEnabled();
 
-  const { needsRecovery, retry } = useSsoProxyLoginRedirect();
+  const { recoveryReason, retry } = useSsoProxyLoginRedirect();
 
   const { form } = useSignInUpForm();
   const { signInUpStep } = useSignInUp(form);
@@ -220,8 +220,8 @@ export const SignInUp = () => {
     return (
       <StyledBackground>
         <StyledAuthContent>
-          {needsRecovery ? (
-            <SsoLoginRecovery onRetry={retry} />
+          {isDefined(recoveryReason) ? (
+            <SsoLoginRecovery reason={recoveryReason} onRetry={retry} />
           ) : (
             <StyledLoaderContainer>
               <Loader color="gray" />
