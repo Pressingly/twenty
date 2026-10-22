@@ -1,3 +1,5 @@
+import { AppChip } from '@/applications/components/AppChip';
+import { type ApplicationContentRow } from '@/settings/applications/types/ApplicationContentRow';
 import {
   StyledActionTableCell,
   StyledNameTableCell,
@@ -5,24 +7,10 @@ import {
 import { TableCell } from '@/ui/layout/table/components/TableCell';
 import { TableRow } from '@/ui/layout/table/components/TableRow';
 import { TableSection } from '@/ui/layout/table/components/TableSection';
-import { useContext } from 'react';
 import { isDefined } from 'twenty-shared/utils';
-import {
-  IconChevronRight,
-  OverflowingTextWithTooltip,
-  useIcons,
-} from 'twenty-ui/display';
-import { ThemeContext, themeCssVariables } from 'twenty-ui/theme-constants';
-import { AppChip } from '@/applications/components/AppChip';
-
-export type ApplicationContentRow = {
-  key: string;
-  name: string;
-  applicationId?: string;
-  icon?: string;
-  secondary?: string;
-  link?: string;
-};
+import { OverflowingTextWithTooltip } from 'twenty-ui/primitives/typography';
+import { IconChevronRight, useIcons } from 'twenty-ui/icon';
+import { useTheme, themeCssVariables } from 'twenty-ui/theme';
 
 const GRID_TEMPLATE_COLUMNS = '200px 1fr 160px 32px';
 
@@ -36,11 +24,11 @@ export const SettingsApplicationContentSubtable = ({
   rows: ApplicationContentRow[];
   applicationId?: string;
   fallbackApplicationData?: {
-    logo?: string | null;
+    logoUrl?: string | null;
     name?: string | null;
   };
 }) => {
-  const { theme } = useContext(ThemeContext);
+  const theme = useTheme();
   const { getIcon } = useIcons();
 
   if (rows.length === 0) {

@@ -4,28 +4,31 @@ import chalk from 'chalk';
 import { Command, CommandRunner, Option } from 'nest-commander';
 
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { UpgradeHealthEnum } from 'twenty-shared/types';
+import { formatUpgradeCommandName } from 'twenty-shared/utils';
 import {
-  type MigrationCursorStatus,
-  UpgradeHealth,
+  type InstanceUpgradeStatus,
   UpgradeStatusService,
-  type WorkspaceStatus,
+  type WorkspaceUpgradeStatus,
 } from 'src/engine/core-modules/upgrade/services/upgrade-status.service';
+import { formatWorkspaceUpgradeStatusLabel } from 'src/engine/core-modules/upgrade/utils/format-workspace-upgrade-status-label.util';
 
 type UpgradeStatusOptions = {
   workspaceId?: Set<string>;
   failedOnly?: boolean;
+  showFullIdentifiers?: boolean;
 };
 
-type GroupedWorkspaceStatuses = {
-  upToDate: WorkspaceStatus[];
-  behind: WorkspaceStatus[];
-  failed: WorkspaceStatus[];
+type GroupedWorkspaceUpgradeStatuses = {
+  upToDate: WorkspaceUpgradeStatus[];
+  behind: WorkspaceUpgradeStatus[];
+  failed: WorkspaceUpgradeStatus[];
 };
 
-const HEALTH_LABELS: Record<UpgradeHealth, string> = {
-  'up-to-date': chalk.green('Up to date'),
-  behind: chalk.yellow('Behind'),
-  failed: chalk.red('Failed'),
+const HEALTH_LABELS: Record<UpgradeHealthEnum, string> = {
+  [UpgradeHealthEnum.UP_TO_DATE]: chalk.green('Up to date'),
+  [UpgradeHealthEnum.BEHIND]: chalk.yellow('Behind'),
+  [UpgradeHealthEnum.FAILED]: chalk.red('Failed'),
 };
 
 @Command({
@@ -54,6 +57,15 @@ export class UpgradeStatusCommand extends CommandRunner {
       'Hide up-to-date entries, only display failed and behind commands',
   })
   parseFailedOnly(): boolean {
+    return true;
+  }
+
+  @Option({
+    flags: '--show-full-identifiers',
+    description:
+      'Display full workspace names and IDs instead of the anonymized default',
+  })
+  parseShowFullIdentifiers(): boolean {
     return true;
   }
 
@@ -87,20 +99,24 @@ export class UpgradeStatusCommand extends CommandRunner {
           requestedWorkspaceIds,
         );
 
-      const groupedWorkspaceStatuses =
-        this.groupWorkspaceStatusesByHealth(workspaceStatuses);
+      const groupedWorkspaceUpgradeStatuses =
+        this.groupWorkspaceUpgradeStatusesByHealth(workspaceStatuses);
 
       lines.push(
-        ...this.formatWorkspaceStatuses(
-          groupedWorkspaceStatuses,
-          options.failedOnly,
+        ...this.formatWorkspaceUpgradeStatuses(
+          groupedWorkspaceUpgradeStatuses,
+          {
+            failedOnly: options.failedOnly ?? false,
+            anonymize: !options.showFullIdentifiers,
+          },
         ),
       );
 
       lines.push(
-        ...this.formatSummary(instanceStatus, groupedWorkspaceStatuses),
+        ...this.formatSummary(instanceStatus, groupedWorkspaceUpgradeStatuses),
       );
 
+      // oxlint-disable-next-line no-console
       console.log(lines.join('\n'));
     } catch (error) {
       this.logger.error(
@@ -115,7 +131,7 @@ export class UpgradeStatusCommand extends CommandRunner {
     return ['', chalk.bold(`APP_VERSION: ${appVersion}`), ''];
   }
 
-  private formatInstanceStatus(status: MigrationCursorStatus): string[] {
+  private formatInstanceStatus(status: InstanceUpgradeStatus): string[] {
     return [
       chalk.bold.underline('Instance'),
       ...this.formatCursorStatus(status),
@@ -123,33 +139,40 @@ export class UpgradeStatusCommand extends CommandRunner {
     ];
   }
 
-  private formatWorkspaceStatuses(
-    { upToDate, behind, failed }: GroupedWorkspaceStatuses,
-    failedOnly?: boolean,
+  private formatWorkspaceUpgradeStatuses(
+    { upToDate, behind, failed }: GroupedWorkspaceUpgradeStatuses,
+    { failedOnly, anonymize }: { failedOnly: boolean; anonymize: boolean },
   ): string[] {
     const lines: string[] = [chalk.bold.underline('Workspace')];
 
     if (upToDate.length === 0 && behind.length === 0 && failed.length === 0) {
-      lines.push(chalk.dim('  No active/suspended workspaces found'));
+      lines.push(chalk.dim('  No provisioned workspaces found'));
 
       return lines;
     }
 
     if (!failedOnly) {
       for (const workspaceStatus of upToDate) {
-        lines.push(...this.formatWorkspaceStatus(workspaceStatus));
+        lines.push(
+          ...this.formatWorkspaceUpgradeStatus(workspaceStatus, { anonymize }),
+        );
       }
     }
 
     for (const workspaceStatus of behind) {
-      lines.push(...this.formatWorkspaceStatus(workspaceStatus));
+      lines.push(
+        ...this.formatWorkspaceUpgradeStatus(workspaceStatus, { anonymize }),
+      );
     }
 
     if (failed.length > 0) {
-      const groupedByCommand = new Map<string, WorkspaceStatus[]>();
+      const groupedByCommand = new Map<
+        string | null,
+        WorkspaceUpgradeStatus[]
+      >();
 
       for (const workspaceStatus of failed) {
-        const commandName = workspaceStatus.latestCommand?.name ?? 'unknown';
+        const commandName = workspaceStatus.latestCommand?.name ?? null;
 
         if (!groupedByCommand.has(commandName)) {
           groupedByCommand.set(commandName, []);
@@ -159,10 +182,19 @@ export class UpgradeStatusCommand extends CommandRunner {
       }
 
       for (const [commandName, statuses] of groupedByCommand) {
-        lines.push(chalk.red.bold(`  Failed at: ${commandName}`));
+        const formattedCommandName = commandName
+          ? formatUpgradeCommandName(commandName)
+          : 'unknown';
+
+        lines.push(chalk.red.bold(`  Failed at: ${formattedCommandName}`));
 
         for (const workspaceStatus of statuses) {
-          lines.push(...this.formatWorkspaceStatus(workspaceStatus, true));
+          lines.push(
+            ...this.formatWorkspaceUpgradeStatus(workspaceStatus, {
+              anonymize,
+              nested: true,
+            }),
+          );
         }
       }
     }
@@ -170,15 +202,17 @@ export class UpgradeStatusCommand extends CommandRunner {
     return lines;
   }
 
-  private formatWorkspaceStatus(
-    status: WorkspaceStatus,
-    nested = false,
+  private formatWorkspaceUpgradeStatus(
+    status: WorkspaceUpgradeStatus,
+    { anonymize, nested = false }: { anonymize: boolean; nested?: boolean },
   ): string[] {
     const baseIndent = nested ? '    ' : '  ';
     const detailIndent = nested ? '      ' : '    ';
-    const label = status.displayName
-      ? `${status.displayName} (${status.workspaceId})`
-      : status.workspaceId;
+    const label = formatWorkspaceUpgradeStatusLabel({
+      workspaceId: status.workspaceId,
+      displayName: status.displayName,
+      anonymize,
+    });
 
     return [
       chalk.bold(`${baseIndent}${label}`),
@@ -188,7 +222,7 @@ export class UpgradeStatusCommand extends CommandRunner {
   }
 
   private formatCursorStatus(
-    status: MigrationCursorStatus,
+    status: InstanceUpgradeStatus,
     indent = '  ',
   ): string[] {
     if (!status.latestCommand) {
@@ -199,7 +233,7 @@ export class UpgradeStatusCommand extends CommandRunner {
 
     const lines: string[] = [
       `${indent}Inferred version: ${status.inferredVersion ?? chalk.dim('unknown')}`,
-      `${indent}Latest command:   ${latestCommand.name}`,
+      `${indent}Latest command:   ${formatUpgradeCommandName(latestCommand.name)}`,
       `${indent}Status:           ${HEALTH_LABELS[status.health]}`,
       `${indent}Executed by:      ${latestCommand.executedByVersion}`,
       `${indent}At:               ${latestCommand.createdAt.toISOString()}`,
@@ -215,8 +249,8 @@ export class UpgradeStatusCommand extends CommandRunner {
   }
 
   private formatSummary(
-    instanceStatus: MigrationCursorStatus,
-    { upToDate, behind, failed }: GroupedWorkspaceStatuses,
+    instanceStatus: InstanceUpgradeStatus,
+    { upToDate, behind, failed }: GroupedWorkspaceUpgradeStatuses,
   ): string[] {
     const lines: string[] = [chalk.bold.underline('Summary')];
     const totalCount = upToDate.length + behind.length + failed.length;
@@ -238,24 +272,30 @@ export class UpgradeStatusCommand extends CommandRunner {
     lines.push(`  Workspaces: ${parts.join(', ')} (${totalCount} total)`);
 
     if (behind.length > 0) {
-      const behindCounts = new Map<string, number>();
+      const behindCounts = new Map<string | null, number>();
 
       for (const status of behind) {
-        const commandName = status.latestCommand?.name ?? 'no commands';
+        const commandName = status.latestCommand?.name ?? null;
 
         behindCounts.set(commandName, (behindCounts.get(commandName) ?? 0) + 1);
       }
 
       for (const [commandName, count] of behindCounts) {
-        lines.push(chalk.yellow(`    ${count} behind at: ${commandName}`));
+        const formattedCommandName = commandName
+          ? formatUpgradeCommandName(commandName)
+          : 'no commands';
+
+        lines.push(
+          chalk.yellow(`    ${count} behind at: ${formattedCommandName}`),
+        );
       }
     }
 
     if (failed.length > 0) {
-      const failureCounts = new Map<string, number>();
+      const failureCounts = new Map<string | null, number>();
 
       for (const status of failed) {
-        const commandName = status.latestCommand?.name ?? 'unknown';
+        const commandName = status.latestCommand?.name ?? null;
 
         failureCounts.set(
           commandName,
@@ -264,7 +304,13 @@ export class UpgradeStatusCommand extends CommandRunner {
       }
 
       for (const [commandName, count] of failureCounts) {
-        lines.push(chalk.red(`    ${count} failed at: ${commandName}`));
+        const formattedCommandName = commandName
+          ? formatUpgradeCommandName(commandName)
+          : 'unknown';
+
+        lines.push(
+          chalk.red(`    ${count} failed at: ${formattedCommandName}`),
+        );
       }
     }
 
@@ -273,22 +319,22 @@ export class UpgradeStatusCommand extends CommandRunner {
     return lines;
   }
 
-  private groupWorkspaceStatusesByHealth(
-    workspaceStatuses: WorkspaceStatus[],
-  ): GroupedWorkspaceStatuses {
-    const upToDate: WorkspaceStatus[] = [];
-    const behind: WorkspaceStatus[] = [];
-    const failed: WorkspaceStatus[] = [];
+  private groupWorkspaceUpgradeStatusesByHealth(
+    workspaceStatuses: WorkspaceUpgradeStatus[],
+  ): GroupedWorkspaceUpgradeStatuses {
+    const upToDate: WorkspaceUpgradeStatus[] = [];
+    const behind: WorkspaceUpgradeStatus[] = [];
+    const failed: WorkspaceUpgradeStatus[] = [];
 
     for (const status of workspaceStatuses) {
       switch (status.health) {
-        case 'up-to-date':
+        case UpgradeHealthEnum.UP_TO_DATE:
           upToDate.push(status);
           break;
-        case 'behind':
+        case UpgradeHealthEnum.BEHIND:
           behind.push(status);
           break;
-        case 'failed':
+        case UpgradeHealthEnum.FAILED:
           failed.push(status);
           break;
       }

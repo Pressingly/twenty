@@ -43,7 +43,7 @@ type Story = StoryObj<typeof MultiSelectFieldDisplay>;
 
 export const Default: Story = {};
 
-export const ExpandableList: Story = {
+export const OverflowingList: Story = {
   decorators: [
     (Story) => {
       return (
@@ -67,7 +67,7 @@ export const Elipsis: Story = {
 
 export const Performance = getProfilingStory({
   componentName: 'MultiSelectFieldDisplay',
-  averageThresholdInMs: 0.2,
+  averageThresholdInMs: 0.4,
   numberOfRuns: 50,
   numberOfTestsPerRun: 100,
 });

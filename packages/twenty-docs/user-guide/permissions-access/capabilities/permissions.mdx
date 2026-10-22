@@ -3,7 +3,6 @@ title: Permissions
 description: Control access to objects, fields, and settings with role-based permissions.
 ---
 
-
 Twenty's permission system allows you to control access to three main areas:
 - **Objects and Fields**: Control who can view, edit, or delete records and individual fields
 - **Settings**: Manage access to workspace configuration and administrative functions
@@ -13,7 +12,7 @@ Twenty's permission system allows you to control access to three main areas:
 
 To create a new role:
 
-1. Go to **Settings → Roles**
+1. Go to **Settings → Members → Roles**
 2. Under **All Roles**, click on **+ Create Role**
 3. Enter a role name
 4. In the default **Permissions** tab, [configure permissions](#customize-permissions)
@@ -23,24 +22,24 @@ To create a new role:
 
 To delete a role:
 
-1. Go to **Settings → Roles**
+1. Go to **Settings → Members → Roles**
 2. Click on the role you want to remove
 3. Open the **Settings** tab, then click **Delete Role**
 4. Click **Confirm** in the modal
 
 <Note>
-If a role is deleted, any workspace member assigned to it will be automatically reassigned to the default role. All except the **Admin** role can be deleted. There must always be at least one member assigned to the **Admin** role.
+If a role is deleted, any workspace member assigned to it will be automatically reassigned to the default role. All roles except the **Admin** role can be deleted. There must always be at least one member assigned to the **Admin** role.
 </Note>
 
 ## Assign Roles to Members
 
 ### View Current Assignments
-- Go to **Settings → Roles**
+- Go to **Settings → Members → Roles**
 - See all roles and how many members are assigned to each
 - View which members have which roles
 
 ### Assign a Role to a Member
-1. Go to **Settings → Roles**
+1. Go to **Settings → Members → Roles**
 2. Click on the role you want to assign
 3. Open the **Assignment** tab
 4. Click **+ Assign to member**
@@ -48,7 +47,7 @@ If a role is deleted, any workspace member assigned to it will be automatically 
 6. Confirm the assignment
 
 ### Set Default Role
-1. Go to **Settings → Roles**
+1. Go to **Settings → Members → Roles**
 2. In the **Options** section, find **Default Role**
 3. Select which role new members should automatically receive
 4. New workspace members will be assigned this role when they join
@@ -59,7 +58,7 @@ You can only assign roles to existing workspace members. To invite new members, 
 
 ## Customize Permissions
 
-Permissions determine what each role can access or modify within your workspace, including workspace objects records, settings, and actions.
+Permissions determine what each role can access or modify within your workspace, including workspace objects, records, settings, and actions.
 
 ### Object Permissions
 
@@ -94,6 +93,21 @@ Click **+ Add rule** and select an object to create an exception.
 |------|--------|
 | Opportunities → disable "See Records" | Intern cannot see the Opportunities object at all |
 | People → enable "Edit Records" | Intern can edit People records (but not other objects) |
+
+### Row-Level Permissions
+
+<Note>
+Row-level permissions are a **Premium feature** available on the **Organization** plan (Cloud and Self-Hosted).
+</Note>
+
+Row-level permissions let you restrict which individual records a role can see or edit, based on dynamic criteria. Unlike object permissions (which apply to an entire object type), row-level permissions evaluate each record independently.
+
+**Example use cases:**
+- Sales reps can only see their own opportunities
+- Managers can see all records in their region
+- Support agents can only view tickets assigned to them
+
+To configure row-level permissions, open a role, navigate to the **Objects** tab, and use the **Row-Level** section to define filter conditions for a specific object.
 
 ### Field Permissions
 
@@ -151,7 +165,7 @@ Control access to general workspace actions:
 - Toggle **Application All Access** to grant full permissions
 - Or enable individual actions such as **Send Email**, **Import CSV**, and **Export CSV**
 
-## Assigning Roles to API Keys and AI Agents
+## Assign Roles to API Keys and AI Agents
 
 Beyond workspace members, roles can also be assigned to **API Keys** and **AI Agents**. This is particularly helpful for teams who want to control exactly "who" can do what in their workspace—including automated processes and integrations.
 
@@ -164,7 +178,7 @@ Beyond workspace members, roles can also be assigned to **API Keys** and **AI Ag
 
 ### Assign a Role to an API Key
 
-1. Go to **Settings → Roles**
+1. Go to **Settings → Members → Roles**
 2. Click on the role you want to assign
 3. Open the **Assignment** tab
 4. Under **API Keys**, click **+ Assign to API key**
@@ -179,7 +193,7 @@ API keys without an assigned role use default permissions. For tighter security,
 
 ### Assign a Role to an AI Agent
 
-1. Go to **Settings → Roles**
+1. Go to **Settings → Members → Roles**
 2. Click on the role you want to assign
 3. Open the **Assignment** tab
 4. Under **AI Agents**, click **+ Assign to AI agent**

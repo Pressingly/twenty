@@ -16,7 +16,7 @@ import {
   type WorkspaceMemberTimeFormatEnum,
   type WorkspaceMemberWorkspaceEntity,
 } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
-import { FileFolder } from 'twenty-shared/types';
+import { FileFolder, OpenRecordIn } from 'twenty-shared/types';
 
 export type ToWorkspaceMemberDtoArgs = {
   workspaceMemberEntity: WorkspaceMemberWorkspaceEntity;
@@ -28,13 +28,13 @@ export type ToWorkspaceMemberDtoArgs = {
 export class WorkspaceMemberTranspiler {
   constructor(private readonly fileUrlService: FileUrlService) {}
 
-  generateSignedAvatarUrl({
+  async generateSignedAvatarUrl({
     workspaceId,
     workspaceMember,
   }: {
     workspaceMember: Pick<WorkspaceMemberWorkspaceEntity, 'avatarUrl' | 'id'>;
     workspaceId: string;
-  }): string {
+  }): Promise<string> {
     if (
       !isDefined(workspaceMember.avatarUrl) ||
       !isNonEmptyString(workspaceMember.avatarUrl)
@@ -58,26 +58,29 @@ export class WorkspaceMemberTranspiler {
     });
   }
 
-  toWorkspaceMemberDto({
+  async toWorkspaceMemberDto({
     userWorkspace,
     workspaceMemberEntity,
     userWorkspaceRoles,
-  }: ToWorkspaceMemberDtoArgs): WorkspaceMemberDTO {
+  }: ToWorkspaceMemberDtoArgs): Promise<WorkspaceMemberDTO> {
     const {
       avatarUrl: avatarUrlFromEntity,
       id,
       name,
       userEmail,
       colorScheme,
+      uiScale,
+      openRecordIn,
       locale,
       timeFormat,
       timeZone,
       dateFormat,
       calendarStartDay,
       numberFormat,
+      userId,
     } = workspaceMemberEntity;
 
-    const avatarUrl = this.generateSignedAvatarUrl({
+    const avatarUrl = await this.generateSignedAvatarUrl({
       workspaceId: userWorkspace.workspaceId,
       workspaceMember: {
         avatarUrl: avatarUrlFromEntity,
@@ -96,8 +99,11 @@ export class WorkspaceMemberTranspiler {
       name,
       userEmail,
       avatarUrl,
+      userId,
       userWorkspaceId: userWorkspace.id,
       colorScheme,
+      openRecordIn: openRecordIn as OpenRecordIn,
+      uiScale,
       dateFormat: dateFormat as WorkspaceMemberDateFormatEnum,
       locale,
       timeFormat: timeFormat as WorkspaceMemberTimeFormatEnum,
@@ -108,18 +114,20 @@ export class WorkspaceMemberTranspiler {
     } satisfies WorkspaceMemberDTO;
   }
 
-  toWorkspaceMemberDtos(
+  async toWorkspaceMemberDtos(
     allWorkspaceEntitiesBundles: ToWorkspaceMemberDtoArgs[],
-  ) {
-    return allWorkspaceEntitiesBundles.map((bundle) =>
-      this.toWorkspaceMemberDto(bundle),
+  ): Promise<WorkspaceMemberDTO[]> {
+    return Promise.all(
+      allWorkspaceEntitiesBundles.map((bundle) =>
+        this.toWorkspaceMemberDto(bundle),
+      ),
     );
   }
 
-  toDeletedWorkspaceMemberDto(
+  async toDeletedWorkspaceMemberDto(
     workspaceMember: WorkspaceMemberWorkspaceEntity,
     userWorkspaceId?: string,
-  ): DeletedWorkspaceMemberDTO {
+  ): Promise<DeletedWorkspaceMemberDTO> {
     const {
       avatarUrl: avatarUrlFromEntity,
       id,
@@ -132,7 +140,7 @@ export class WorkspaceMemberTranspiler {
     }
 
     const avatarUrl = userWorkspaceId
-      ? this.generateSignedAvatarUrl({
+      ? await this.generateSignedAvatarUrl({
           workspaceId: userWorkspaceId,
           workspaceMember: {
             avatarUrl: avatarUrlFromEntity,
@@ -150,12 +158,14 @@ export class WorkspaceMemberTranspiler {
     } satisfies DeletedWorkspaceMemberDTO;
   }
 
-  toDeletedWorkspaceMemberDtos(
+  async toDeletedWorkspaceMemberDtos(
     workspaceMembers: WorkspaceMemberWorkspaceEntity[],
     userWorkspaceId?: string,
-  ): DeletedWorkspaceMemberDTO[] {
-    return workspaceMembers.map((workspaceMember) =>
-      this.toDeletedWorkspaceMemberDto(workspaceMember, userWorkspaceId),
+  ): Promise<DeletedWorkspaceMemberDTO[]> {
+    return Promise.all(
+      workspaceMembers.map((workspaceMember) =>
+        this.toDeletedWorkspaceMemberDto(workspaceMember, userWorkspaceId),
+      ),
     );
   }
 }

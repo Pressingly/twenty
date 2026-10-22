@@ -5,15 +5,11 @@ import {
   type RecordGqlOperationOrderBy,
 } from 'twenty-shared/types';
 import { mapArrayToObject } from '~/utils/array/mapArrayToObject';
-import { isUndefinedOrNull } from '~/utils/isUndefinedOrNull';
 
-import {
-  getOrderByForFieldMetadataType,
-  getOrderByForRelationField,
-} from '@/object-metadata/utils/getOrderByForFieldMetadataType';
+import { getOrderByForRelationField } from '@/object-metadata/utils/getOrderByForRelationField';
 import { hasObjectMetadataItemPositionField } from '@/object-metadata/utils/hasObjectMetadataItemPositionField';
 import { type RecordSort } from '@/object-record/record-sort/types/RecordSort';
-import { isDefined } from 'twenty-shared/utils';
+import { getOrderByForFieldMetadataType, isDefined } from 'twenty-shared/utils';
 import {
   FieldMetadataType,
   ViewSortDirection,
@@ -32,16 +28,16 @@ export const turnSortsIntoOrderBy = (
     .map((sort) => {
       const correspondingField = fieldsById[sort.fieldMetadataId];
 
-      if (isUndefinedOrNull(correspondingField)) {
+      if (!isDefined(correspondingField)) {
         return undefined;
       }
 
+      // Nulls last in both directions so a sparse column doesn't open with a wall of empty rows
       const direction: OrderBy =
         sort.direction === ViewSortDirection.ASC
-          ? 'AscNullsFirst'
+          ? 'AscNullsLast'
           : 'DescNullsLast';
 
-      // Handle RELATION fields by looking up related object metadata
       if (correspondingField.type === FieldMetadataType.RELATION) {
         const relatedObjectName =
           correspondingField.relation?.targetObjectMetadata?.nameSingular;
@@ -50,17 +46,20 @@ export const turnSortsIntoOrderBy = (
         );
 
         if (isDefined(relatedObjectMetadata)) {
-          return getOrderByForRelationField(
-            correspondingField,
-            relatedObjectMetadata,
-            direction,
-          );
+          return getOrderByForRelationField({
+            field: correspondingField,
+            relatedObjectMetadataItem: relatedObjectMetadata,
+            orderByDirection: direction,
+          });
         }
-        // Fallback if related object not found - sort by FK
         return [{ [`${correspondingField.name}Id`]: direction }];
       }
 
-      return getOrderByForFieldMetadataType(correspondingField, direction);
+      return getOrderByForFieldMetadataType({
+        field: correspondingField,
+        orderByDirection: direction,
+        primaryCompositeSubField: sort.subFieldName,
+      });
     })
     .filter(isDefined);
 

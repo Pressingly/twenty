@@ -27,6 +27,8 @@ const buildContext = (
   permissionFlags: {},
   targetObjectReadPermissions: {},
   targetObjectWritePermissions: {},
+  canImpersonate: false,
+  canAccessFullAdminPanel: false,
   objectMetadataItem: {},
   objectMetadataLabel: '',
   ...overrides,
@@ -506,6 +508,143 @@ describe('evaluateConditionalAvailabilityExpression', () => {
       expect(
         evaluateConditionalAvailabilityExpression(
           'not hasAnySoftDeleteFilterOnView and permissionFlags.IMPORT_CSV',
+          context,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  describe('pageType gating for index-only commands', () => {
+    it('should hide createNewView on a record page', () => {
+      const context = buildContext({
+        pageType: ContextStorePageType.Record,
+        hasAnySoftDeleteFilterOnView: false,
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          'pageType == "INDEX_PAGE" and not hasAnySoftDeleteFilterOnView',
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('should show createNewView on the index page', () => {
+      const context = buildContext({
+        pageType: ContextStorePageType.Index,
+        hasAnySoftDeleteFilterOnView: false,
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          'pageType == "INDEX_PAGE" and not hasAnySoftDeleteFilterOnView',
+          context,
+        ),
+      ).toBe(true);
+    });
+
+    it('should hide importRecords on a record page even with IMPORT_CSV permission', () => {
+      const context = buildContext({
+        pageType: ContextStorePageType.Record,
+        hasAnySoftDeleteFilterOnView: false,
+        permissionFlags: { IMPORT_CSV: true },
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          'pageType == "INDEX_PAGE" and not hasAnySoftDeleteFilterOnView and permissionFlags.IMPORT_CSV',
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('should hide exportView on a record page even with EXPORT_CSV permission', () => {
+      const context = buildContext({
+        pageType: ContextStorePageType.Record,
+        permissionFlags: { EXPORT_CSV: true },
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          'pageType == "INDEX_PAGE" and permissionFlags.EXPORT_CSV',
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('should hide seeDeletedRecords on a record page', () => {
+      const context = buildContext({
+        pageType: ContextStorePageType.Record,
+        hasAnySoftDeleteFilterOnView: false,
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          'pageType == "INDEX_PAGE" and not hasAnySoftDeleteFilterOnView',
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('should hide hideDeletedRecords on a record page', () => {
+      const context = buildContext({
+        pageType: ContextStorePageType.Record,
+        hasAnySoftDeleteFilterOnView: true,
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          'pageType == "INDEX_PAGE" and hasAnySoftDeleteFilterOnView',
+          context,
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe('per-record permissions', () => {
+    const DELETE_RECORDS_EXPRESSION =
+      'numberOfSelectedRecords >= 1 and (isSelectAll or noneEquals(selectedRecords, "recordPermissions.canSoftDelete", false))';
+
+    it('hides deletion of a record shared without delete access', () => {
+      const context = buildContext({
+        numberOfSelectedRecords: 1,
+        selectedRecords: [
+          { id: 'chat-1', recordPermissions: { canSoftDelete: false } },
+        ],
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          DELETE_RECORDS_EXPRESSION,
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('falls back to object permissions when record permissions are unknown', () => {
+      const context = buildContext({
+        numberOfSelectedRecords: 1,
+        selectedRecords: [{ id: 'company-1' }],
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          DELETE_RECORDS_EXPRESSION,
+          context,
+        ),
+      ).toBe(true);
+    });
+
+    it('keeps deletion available when every record is selected', () => {
+      const context = buildContext({
+        numberOfSelectedRecords: 40,
+        isSelectAll: true,
+        selectedRecords: [],
+      });
+
+      expect(
+        evaluateConditionalAvailabilityExpression(
+          DELETE_RECORDS_EXPRESSION,
           context,
         ),
       ).toBe(true);

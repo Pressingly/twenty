@@ -1,8 +1,6 @@
-import { writeFile } from 'node:fs/promises';
-import * as path from 'path';
 import { beforeAll } from 'vitest';
 
-import { ensureDir } from '@/cli/utilities/file/fs-utils';
+import { writePrivateFile } from '@/cli/utilities/file/fs-utils';
 import { getConfigPath } from '@/cli/utilities/config/get-config-path';
 
 const testConfigPath = getConfigPath(true);
@@ -14,7 +12,7 @@ beforeAll(async () => {
   if (!apiUrl || !token) {
     throw new Error(
       'TWENTY_API_URL and TWENTY_API_KEY must be set.\n' +
-        'Run: twenty server start --test\n' +
+        'Run: twenty docker:start --test\n' +
         'Or set them in vitest env config.',
     );
   }
@@ -24,13 +22,11 @@ beforeAll(async () => {
   if (!response?.ok) {
     throw new Error(
       `Twenty server not reachable at ${apiUrl}. ` +
-        'Run: twenty server start --test',
+        'Run: twenty docker:start --test',
     );
   }
 
-  await ensureDir(path.dirname(testConfigPath));
-
-  await writeFile(
+  await writePrivateFile(
     testConfigPath,
     JSON.stringify(
       {

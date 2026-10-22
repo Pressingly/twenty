@@ -1,20 +1,28 @@
 import { resolveSsoReturnPath } from 'src/engine/core-modules/auth/utils/resolve-sso-return-path.util';
 
 describe('resolveSsoReturnPath', () => {
-  it.each([
-    ['/authorize?client_id=abc', '/authorize?client_id=abc'],
-    ['/objects/people#top', '/objects/people#top'],
-    ['/', '/'],
-  ])('keeps the same-origin path %s', (input, expected) => {
-    expect(resolveSsoReturnPath(input)).toBe(expected);
-  });
-
-  it.each([['/welcome'], ['/welcome?x=1'], ['/welcome#hash'], ['/welcome/']])(
-    'never returns the sign-in page %s',
+  it.each([['/authorize?client_id=abc'], ['/objects/people#top']])(
+    'keeps the same-origin path %s',
     (input) => {
-      expect(resolveSsoReturnPath(input)).toBe('/');
+      expect(resolveSsoReturnPath(input)).toBe(input);
     },
   );
+
+  it('has no return path for the root', () => {
+    expect(resolveSsoReturnPath('/')).toBeNull();
+  });
+
+  it.each([
+    ['/welcome'],
+    ['/welcome?x=1'],
+    ['/welcome#hash'],
+    ['/welcome/'],
+    ['/Welcome'],
+    ['/%77elcome'],
+    ['/%57ELCOME/x'],
+  ])('never returns the sign-in page %s', (input) => {
+    expect(resolveSsoReturnPath(input)).toBeNull();
+  });
 
   it('keeps the original path and query for deep links', () => {
     expect(resolveSsoReturnPath('/Authorize?client_id=Abc%20d')).toBe(
@@ -33,17 +41,20 @@ describe('resolveSsoReturnPath', () => {
   it.each([
     ['//evil.com'],
     ['/\\evil.com'],
+    ['/\t/evil.com'],
+    ['/\n/evil.com'],
+    ['#top'],
     ['https://evil.com'],
     ['evil.com'],
     [''],
-  ])('falls back to / for the unsafe value %p', (input) => {
-    expect(resolveSsoReturnPath(input)).toBe('/');
+  ])('has no return path for the unsafe value %p', (input) => {
+    expect(resolveSsoReturnPath(input)).toBeNull();
   });
 
   it.each([[undefined], [null], [['/a', '/b']], [{ a: 1 }]])(
-    'falls back to / for the non-string value %p',
+    'has no return path for the non-string value %p',
     (input) => {
-      expect(resolveSsoReturnPath(input)).toBe('/');
+      expect(resolveSsoReturnPath(input)).toBeNull();
     },
   );
 });

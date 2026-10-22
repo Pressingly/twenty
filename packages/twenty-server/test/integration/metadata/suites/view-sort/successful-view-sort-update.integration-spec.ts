@@ -8,9 +8,11 @@ import { updateOneViewSort } from 'test/integration/metadata/suites/view-sort/ut
 import { createOneView } from 'test/integration/metadata/suites/view/utils/create-one-view.util';
 import { destroyOneView } from 'test/integration/metadata/suites/view/utils/destroy-one-view.util';
 import { jestExpectToBeDefined } from 'test/utils/jest-expect-to-be-defined.util.test';
-import { FieldMetadataType, ViewType } from 'twenty-shared/types';
-
-import { ViewSortDirection } from 'twenty-shared/types';
+import {
+  FieldMetadataType,
+  ViewSortDirection,
+  ViewType,
+} from 'twenty-shared/types';
 
 describe('View Sort update should succeed', () => {
   let testObjectMetadataId: string;
@@ -151,6 +153,69 @@ describe('View Sort update should succeed', () => {
     expect(data.updateViewSort).toMatchObject({
       id: createdViewSortId,
       direction: ViewSortDirection.ASC,
+    });
+  });
+
+  it('should set subFieldName on a sort that did not have one', async () => {
+    const { data } = await updateOneViewSort({
+      expectToFail: false,
+      input: {
+        id: createdViewSortId,
+        update: {
+          subFieldName: 'lastName',
+        },
+      },
+    });
+
+    expect(data.updateViewSort).toMatchObject({
+      id: createdViewSortId,
+      subFieldName: 'lastName',
+    });
+  });
+
+  it('should overwrite an existing subFieldName', async () => {
+    await updateOneViewSort({
+      expectToFail: false,
+      input: {
+        id: createdViewSortId,
+        update: { subFieldName: 'lastName' },
+      },
+    });
+
+    const { data } = await updateOneViewSort({
+      expectToFail: false,
+      input: {
+        id: createdViewSortId,
+        update: { subFieldName: 'firstName' },
+      },
+    });
+
+    expect(data.updateViewSort).toMatchObject({
+      id: createdViewSortId,
+      subFieldName: 'firstName',
+    });
+  });
+
+  it('should clear subFieldName when set back to null', async () => {
+    await updateOneViewSort({
+      expectToFail: false,
+      input: {
+        id: createdViewSortId,
+        update: { subFieldName: 'lastName' },
+      },
+    });
+
+    const { data } = await updateOneViewSort({
+      expectToFail: false,
+      input: {
+        id: createdViewSortId,
+        update: { subFieldName: null },
+      },
+    });
+
+    expect(data.updateViewSort).toMatchObject({
+      id: createdViewSortId,
+      subFieldName: null,
     });
   });
 });

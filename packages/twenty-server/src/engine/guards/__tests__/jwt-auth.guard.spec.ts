@@ -168,7 +168,7 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
-    it('refuses and clears tokenPair when proxy email differs from JWT user', async () => {
+    it('refuses and clears the session cookie when proxy email differs from JWT user', async () => {
       const request: RequestStub = {
         get: jest.fn((header: string) =>
           header === 'x-auth-request-email' ? 'bob@example.com' : undefined,
@@ -193,9 +193,10 @@ describe('JwtAuthGuard', () => {
       );
 
       expect(result).toBe(false);
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
 
     it('treats case- and whitespace-variant proxy email as matching the JWT user', async () => {
@@ -285,9 +286,10 @@ describe('JwtAuthGuard', () => {
       );
 
       expect(result).toBe(false);
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
 
     it('prefers X-Auth-Request-Email over X-Auth-Request-User when both are present', async () => {
@@ -323,9 +325,10 @@ describe('JwtAuthGuard', () => {
       );
 
       expect(result).toBe(false);
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
 
     it('synthesises bare username against DEFAULT_EMAIL_DOMAIN before comparing', async () => {
@@ -389,7 +392,7 @@ describe('JwtAuthGuard', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
-    it('refuses and clears tokenPair when bare proxy identity arrives without DEFAULT_EMAIL_DOMAIN configured', async () => {
+    it('refuses and clears the session cookie when bare proxy identity arrives without DEFAULT_EMAIL_DOMAIN configured', async () => {
       const request: RequestStub = {
         get: jest.fn((header: string) =>
           header === 'x-auth-request-user' ? 'bare_username' : undefined,
@@ -414,9 +417,10 @@ describe('JwtAuthGuard', () => {
       );
 
       expect(result).toBe(false);
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
   });
 

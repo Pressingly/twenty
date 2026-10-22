@@ -1,15 +1,15 @@
-import { useEffect } from 'react';
-
-import { CoreObjectNameSingular } from 'twenty-shared/types';
+import { useCoreWorkflowForShowPage } from '@/object-core/workflows/hooks/useCoreWorkflowForShowPage';
+import { useCoreWorkflowVersionContent } from '@/object-core/workflows/hooks/useCoreWorkflowVersionContent';
 import { useFindOneRecord } from '@/object-record/hooks/useFindOneRecord';
-import { useAtomFamilyStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilyStateValue';
-import { useSetAtomFamilyState } from '@/ui/utilities/state/jotai/hooks/useSetAtomFamilyState';
-import { shouldWorkflowRefetchRequestFamilyState } from '@/workflow/states/shouldWorkflowRefetchRequestFamilyState';
+import { useEffectiveDraftVersionId } from '@/workflow/hooks/useEffectiveDraftVersionId';
+import { getWorkflowCurrentVersion } from '@/workflow/utils/getWorkflowCurrentVersion';
 import {
   type Workflow,
   type WorkflowVersion,
   type WorkflowWithCurrentVersion,
 } from '@/workflow/types/Workflow';
+import { useIsFeatureEnabled } from '@/workspace/hooks/useIsFeatureEnabled';
+import { CoreObjectNameSingular, FeatureFlagKey } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
 type WorkflowWithAllVersions = Omit<Workflow, 'versions'> & {
@@ -21,16 +21,11 @@ type WorkflowWithAllVersions = Omit<Workflow, 'versions'> & {
 export const useWorkflowWithCurrentVersion = (
   workflowId: string | undefined,
 ): WorkflowWithCurrentVersion | undefined => {
-  const shouldWorkflowRefetchRequest = useAtomFamilyStateValue(
-    shouldWorkflowRefetchRequestFamilyState,
-    workflowId ?? '',
-  );
-  const setShouldWorkflowRefetchRequest = useSetAtomFamilyState(
-    shouldWorkflowRefetchRequestFamilyState,
-    workflowId ?? '',
+  const isWorkflowCoreIndexPageEnabled = useIsFeatureEnabled(
+    FeatureFlagKey.IS_WORKFLOW_CORE_INDEX_PAGE_ENABLED,
   );
 
-  const { record: workflow, refetch: refetchWorkflow } =
+  const { record: workspaceWorkflow } =
     useFindOneRecord<WorkflowWithAllVersions>({
       objectNameSingular: CoreObjectNameSingular.Workflow,
       objectRecordId: workflowId,
@@ -46,46 +41,88 @@ export const useWorkflowWithCurrentVersion = (
           createdAt: true,
         },
       },
-      skip: !isDefined(workflowId),
+      skip: !isDefined(workflowId) || isWorkflowCoreIndexPageEnabled,
     });
 
-  useEffect(() => {
-    if (shouldWorkflowRefetchRequest) {
-      setShouldWorkflowRefetchRequest(false);
-      refetchWorkflow();
-    }
-  }, [
-    shouldWorkflowRefetchRequest,
-    setShouldWorkflowRefetchRequest,
-    refetchWorkflow,
-  ]);
+  const {
+    coreWorkflow,
+    versions: coreVersions,
+    draftVersionIdFromServer,
+  } = useCoreWorkflowForShowPage({
+    coreWorkflowId: workflowId,
+    skip: !isWorkflowCoreIndexPageEnabled,
+  });
 
-  const draftVersion = workflow?.versions.find(
-    (workflowVersion) => workflowVersion.status === 'DRAFT',
+  const workflow = isWorkflowCoreIndexPageEnabled
+    ? coreWorkflow
+    : workspaceWorkflow;
+
+  const allVersions = isWorkflowCoreIndexPageEnabled
+    ? coreVersions
+    : (workspaceWorkflow?.versions ?? []);
+
+  const coreDraftVersion = isDefined(draftVersionIdFromServer)
+    ? { id: draftVersionIdFromServer }
+    : undefined;
+
+  const workspaceDraftVersion = workspaceWorkflow?.versions.find(
+    (version) => version.status === 'DRAFT',
   );
 
-  const workflowVersions = [...(workflow?.versions ?? [])];
+  const draftVersionFromServer = isWorkflowCoreIndexPageEnabled
+    ? coreDraftVersion
+    : workspaceDraftVersion;
 
-  workflowVersions.sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+  const { effectiveDraftId, lastDiscardedDraftId } = useEffectiveDraftVersionId(
+    draftVersionFromServer,
+    isWorkflowCoreIndexPageEnabled,
+  );
 
-  const latestVersion = workflowVersions[0];
+  const workflowVersions = [...allVersions]
+    .filter((version) => version.id !== lastDiscardedDraftId)
+    .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
 
-  const currentVersionWithoutSteps = draftVersion ?? latestVersion;
+  const currentVersionId = isWorkflowCoreIndexPageEnabled
+    ? getWorkflowCurrentVersion({
+        versions: workflowVersions,
+        lastPublishedVersionId: coreWorkflow?.lastPublishedVersionId,
+      })?.id
+    : (effectiveDraftId ?? workflowVersions[0]?.id);
 
-  const { record: currentVersionWithSteps } = useFindOneRecord<WorkflowVersion>(
+  const { record: workspaceCurrentVersion } = useFindOneRecord<WorkflowVersion>(
     {
       objectNameSingular: CoreObjectNameSingular.WorkflowVersion,
-      objectRecordId: currentVersionWithoutSteps?.id,
-      skip: !isDefined(currentVersionWithoutSteps?.id),
+      objectRecordId: currentVersionId,
+      recordGqlFields: {
+        id: true,
+        name: true,
+        status: true,
+        workflowId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      skip: !isDefined(currentVersionId) || isWorkflowCoreIndexPageEnabled,
     },
   );
 
-  if (!isDefined(workflow) || !isDefined(currentVersionWithSteps)) {
+  const coreCurrentVersion = useCoreWorkflowVersionContent({
+    coreWorkflowId: workflowId,
+    coreWorkflowVersionId: currentVersionId,
+    skip: !isWorkflowCoreIndexPageEnabled,
+  });
+
+  const currentVersion = isWorkflowCoreIndexPageEnabled
+    ? coreCurrentVersion
+    : workspaceCurrentVersion;
+
+  if (!isDefined(workflow) || !isDefined(currentVersion)) {
     return undefined;
   }
 
   return {
     ...workflow,
-    currentVersion: currentVersionWithSteps,
+    __typename: 'Workflow',
+    versions: workflowVersions,
+    currentVersion,
   };
 };

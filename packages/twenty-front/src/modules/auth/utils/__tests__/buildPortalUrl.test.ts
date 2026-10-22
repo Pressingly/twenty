@@ -1,7 +1,7 @@
 import { buildPortalUrl } from '@/auth/utils/buildPortalUrl';
 
 describe('buildPortalUrl', () => {
-  it('strips the first label of a 4-label host', () => {
+  it('strips the app label from <app>.<prefix>.<domain>', () => {
     expect(buildPortalUrl('twenty.foss.arbisoft.com', 'https:')).toBe(
       'https://foss.arbisoft.com/',
     );
@@ -13,25 +13,25 @@ describe('buildPortalUrl', () => {
     );
   });
 
-  it('no-ops on `localhost`', () => {
-    expect(buildPortalUrl('localhost', 'http:')).toBe('http://localhost/');
-  });
-
-  it('no-ops on 3-label hosts', () => {
-    expect(buildPortalUrl('foo.example.com', 'https:')).toBe(
-      'https://foo.example.com/',
-    );
-  });
-
-  it('only strips the first label, leaves deeper subdomains alone', () => {
-    expect(buildPortalUrl('twenty.a.b.moneta.dev', 'https:')).toBe(
-      'https://a.b.moneta.dev/',
+  it('only strips the first label on deeper hosts', () => {
+    expect(buildPortalUrl('twenty.foss.staging.moneta.dev', 'https:')).toBe(
+      'https://foss.staging.moneta.dev/',
     );
   });
 
   it('preserves port when present', () => {
-    expect(buildPortalUrl('twenty.local.moneta.dev:8080', 'http:')).toBe(
-      'http://local.moneta.dev:8080/',
+    expect(buildPortalUrl('twenty.foss.local.moneta.dev:8080', 'http:')).toBe(
+      'http://foss.local.moneta.dev:8080/',
+    );
+  });
+
+  it('no-ops on `localhost`', () => {
+    expect(buildPortalUrl('localhost', 'http:')).toBe('http://localhost/');
+  });
+
+  it('no-ops on 3-label hosts so the registrable domain is never stripped', () => {
+    expect(buildPortalUrl('foo.example.com', 'https:')).toBe(
+      'https://foo.example.com/',
     );
   });
 });

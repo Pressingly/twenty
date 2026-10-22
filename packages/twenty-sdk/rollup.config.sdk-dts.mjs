@@ -19,6 +19,12 @@ const plugins = [
 
 export default [
   {
+    input: 'src/application-build/index.ts',
+    output: { file: 'dist/build/index.d.ts', format: 'es' },
+    external,
+    plugins,
+  },
+  {
     input: 'src/sdk/define/index.ts',
     output: { file: 'dist/define/index.d.ts', format: 'es' },
     external,
@@ -39,6 +45,12 @@ export default [
   {
     input: 'src/sdk/logic-function/index.ts',
     output: { file: 'dist/logic-function/index.d.ts', format: 'es' },
+    external,
+    plugins,
+  },
+  {
+    input: 'src/sdk/utils/index.ts',
+    output: { file: 'dist/utils/index.d.ts', format: 'es' },
     external,
     plugins,
   },

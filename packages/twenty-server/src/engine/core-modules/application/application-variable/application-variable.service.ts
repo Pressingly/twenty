@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 
-import { ApplicationVariables } from 'twenty-shared/application';
 import { isDefined } from 'twenty-shared/utils';
-import { In, Not, Repository } from 'typeorm';
 
 import { ApplicationVariableEntity } from 'src/engine/core-modules/application/application-variable/application-variable.entity';
 import {
@@ -11,34 +8,123 @@ import {
   ApplicationVariableEntityExceptionCode,
 } from 'src/engine/core-modules/application/application-variable/application-variable.exception';
 import { SECRET_APPLICATION_VARIABLE_MASK } from 'src/engine/core-modules/application/application-variable/constants/secret-application-variable-mask.constant';
+import { type FlatApplicationVariableMaps } from 'src/engine/metadata-modules/flat-application-variable/types/flat-application-variable-maps.type';
+import { type PlaintextString } from 'src/engine/core-modules/secret-encryption/branded-strings/plaintext-string.type';
 import { SecretEncryptionService } from 'src/engine/core-modules/secret-encryption/secret-encryption.service';
+import { type FlatApplicationVariable } from 'src/engine/metadata-modules/flat-application-variable/types/flat-application-variable.type';
+import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
+import { WorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/workspace-scoped-repository';
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
+
+type GetEnvVariablesArgs = {
+  workspaceId: string;
+  applicationId: string;
+  flatApplicationVariableMaps?: FlatApplicationVariableMaps;
+};
 
 @Injectable()
 export class ApplicationVariableEntityService {
   constructor(
-    @InjectRepository(ApplicationVariableEntity)
-    private readonly applicationVariableRepository: Repository<ApplicationVariableEntity>,
+    @InjectWorkspaceScopedRepository(ApplicationVariableEntity)
+    private readonly applicationVariableRepository: WorkspaceScopedRepository<ApplicationVariableEntity>,
     private readonly workspaceCacheService: WorkspaceCacheService,
     private readonly secretEncryptionService: SecretEncryptionService,
   ) {}
 
-  private encryptSecretValue(value: string, isSecret: boolean): string {
-    if (!isSecret) {
-      return value;
+  getDisplayValue(
+    applicationVariable: Pick<
+      ApplicationVariableEntity,
+      'value' | 'workspaceId' | 'isSecret'
+    >,
+  ): string {
+    const plaintextValue = this.decryptValue(applicationVariable);
+
+    if (plaintextValue === '') {
+      return '';
     }
 
-    return this.secretEncryptionService.encrypt(value);
+    if (applicationVariable.isSecret) {
+      return this.secretEncryptionService.maskDecryptedValue(
+        plaintextValue,
+        SECRET_APPLICATION_VARIABLE_MASK,
+      );
+    }
+
+    return plaintextValue;
   }
 
-  getDisplayValue(applicationVariable: ApplicationVariableEntity): string {
-    if (!applicationVariable.isSecret) {
-      return applicationVariable.value;
+  async getServerEnvVariables(
+    args: GetEnvVariablesArgs,
+  ): Promise<Record<string, string>> {
+    const flatApplicationVariables =
+      await this.findFlatApplicationVariables(args);
+
+    return this.toEnvVariables(flatApplicationVariables);
+  }
+
+  async getPublicEnvVariables(
+    args: GetEnvVariablesArgs,
+  ): Promise<Record<string, string>> {
+    const flatApplicationVariables =
+      await this.findFlatApplicationVariables(args);
+
+    return this.toEnvVariables(
+      flatApplicationVariables.filter(({ isSecret }) => !isSecret),
+    );
+  }
+
+  async findFlatApplicationVariables({
+    workspaceId,
+    applicationId,
+    flatApplicationVariableMaps: preloadedFlatApplicationVariableMaps,
+  }: GetEnvVariablesArgs): Promise<FlatApplicationVariable[]> {
+    const flatApplicationVariableMaps =
+      preloadedFlatApplicationVariableMaps ??
+      (
+        await this.workspaceCacheService.getOrRecompute(workspaceId, [
+          'flatApplicationVariableMaps',
+        ])
+      ).flatApplicationVariableMaps;
+
+    const universalIdentifiers =
+      flatApplicationVariableMaps.universalIdentifiersByApplicationId[
+        applicationId
+      ] ?? [];
+
+    return universalIdentifiers
+      .map(
+        (universalIdentifier) =>
+          flatApplicationVariableMaps.byUniversalIdentifier[
+            universalIdentifier
+          ],
+      )
+      .filter(isDefined);
+  }
+
+  private toEnvVariables(
+    flatApplicationVariables: FlatApplicationVariable[],
+  ): Record<string, string> {
+    return flatApplicationVariables
+      .filter(({ scope }) => scope !== 'USER')
+      .reduce<Record<string, string>>((acc, flatApplicationVariable) => {
+        acc[flatApplicationVariable.key] = this.decryptValue(
+          flatApplicationVariable,
+        );
+
+        return acc;
+      }, {});
+  }
+
+  private decryptValue({
+    value,
+    workspaceId,
+  }: Pick<FlatApplicationVariable, 'value' | 'workspaceId'>): string {
+    if (!isDefined(value)) {
+      return '';
     }
 
-    return this.secretEncryptionService.decryptAndMask({
-      value: applicationVariable.value,
-      mask: SECRET_APPLICATION_VARIABLE_MASK,
+    return this.secretEncryptionService.decryptVersionedOrThrow(value, {
+      workspaceId,
     });
   }
 
@@ -50,11 +136,12 @@ export class ApplicationVariableEntityService {
   }: Pick<ApplicationVariableEntity, 'key'> & {
     applicationId: string;
     workspaceId: string;
-    plainTextValue: string;
+    plainTextValue: PlaintextString;
   }) {
-    const existingVariable = await this.applicationVariableRepository.findOne({
-      where: { key, applicationId },
-    });
+    const existingVariable = await this.applicationVariableRepository.findOne(
+      workspaceId,
+      { where: { key, applicationId } },
+    );
 
     if (!isDefined(existingVariable)) {
       throw new ApplicationVariableEntityException(
@@ -63,95 +150,25 @@ export class ApplicationVariableEntityService {
       );
     }
 
-    const encryptedValue = this.encryptSecretValue(
-      plainTextValue,
-      existingVariable.isSecret,
-    );
+    if (existingVariable.scope === 'USER') {
+      throw new ApplicationVariableEntityException(
+        `Application variable with key ${key} is a user variable`,
+        ApplicationVariableEntityExceptionCode.INVALID_APPLICATION_VARIABLE_INPUT,
+      );
+    }
 
     await this.applicationVariableRepository.update(
+      workspaceId,
       { key, applicationId },
       {
-        value: encryptedValue,
-      },
-    );
-
-    await this.workspaceCacheService.invalidateAndRecompute(workspaceId, [
-      'applicationVariableMaps',
-    ]);
-  }
-
-  async upsertManyApplicationVariableEntities({
-    applicationVariables,
-    applicationId,
-    workspaceId,
-    shouldUpdateValue = false,
-  }: {
-    applicationVariables?: ApplicationVariables;
-    applicationId: string;
-    workspaceId: string;
-    shouldUpdateValue?: boolean;
-  }) {
-    if (!isDefined(applicationVariables)) {
-      return;
-    }
-
-    const keys = Object.keys(applicationVariables);
-
-    const existingVariables = await this.applicationVariableRepository.find({
-      where: {
-        applicationId,
-        key: In(keys),
-      },
-    });
-
-    const existingVariablesByKey = new Map(
-      existingVariables.map((variable) => [variable.key, variable]),
-    );
-
-    const entitiesToSave: Partial<ApplicationVariableEntity>[] = [];
-
-    for (const [key, { value, description, isSecret }] of Object.entries(
-      applicationVariables,
-    )) {
-      const existingVariable = existingVariablesByKey.get(key);
-      const isSecretValue = isSecret ?? false;
-      const encryptedValue = this.encryptSecretValue(
-        value ?? '',
-        isSecretValue,
-      );
-
-      if (isDefined(existingVariable)) {
-        entitiesToSave.push({
-          id: existingVariable.id,
-          description: description ?? '',
-          isSecret: isSecretValue,
-          ...(shouldUpdateValue || existingVariable.isSecret !== isSecretValue
-            ? { value: encryptedValue }
-            : {}),
-        });
-      } else {
-        entitiesToSave.push({
-          key,
-          value: encryptedValue,
-          description: description ?? '',
-          isSecret: isSecretValue,
-          applicationId,
+        value: this.secretEncryptionService.encryptVersioned(plainTextValue, {
           workspaceId,
-        });
-      }
-    }
-
-    if (entitiesToSave.length > 0) {
-      await this.applicationVariableRepository.save(entitiesToSave);
-    }
-
-    await this.applicationVariableRepository.delete({
-      applicationId,
-      key: Not(In(keys)),
-    });
+        }),
+      },
+    );
 
     await this.workspaceCacheService.invalidateAndRecompute(workspaceId, [
-      'applicationVariableMaps',
+      'flatApplicationVariableMaps',
     ]);
   }
 }

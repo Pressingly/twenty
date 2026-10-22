@@ -71,11 +71,23 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
       universalFlatEntityForeignKeyAggregator:
         'calendarViewUniversalIdentifiers',
     },
+    calendarEndViews: {
+      metadataName: 'view',
+      flatEntityForeignKeyAggregator: 'calendarEndViewIds',
+      universalFlatEntityForeignKeyAggregator:
+        'calendarEndViewUniversalIdentifiers',
+    },
     mainGroupByFieldMetadataViews: {
       metadataName: 'view',
       flatEntityForeignKeyAggregator: 'mainGroupByFieldMetadataViewIds',
       universalFlatEntityForeignKeyAggregator:
         'mainGroupByFieldMetadataViewUniversalIdentifiers',
+    },
+    searchFieldMetadatas: {
+      metadataName: 'searchFieldMetadata',
+      flatEntityForeignKeyAggregator: 'searchFieldMetadataIds',
+      universalFlatEntityForeignKeyAggregator:
+        'searchFieldMetadataUniversalIdentifiers',
     },
   },
   objectMetadata: {
@@ -106,6 +118,29 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
       metadataName: 'view',
       flatEntityForeignKeyAggregator: 'viewIds',
       universalFlatEntityForeignKeyAggregator: 'viewUniversalIdentifiers',
+    },
+    searchFieldMetadatas: {
+      metadataName: 'searchFieldMetadata',
+      flatEntityForeignKeyAggregator: 'searchFieldMetadataIds',
+      universalFlatEntityForeignKeyAggregator:
+        'searchFieldMetadataUniversalIdentifiers',
+    },
+    pageLayouts: {
+      metadataName: 'pageLayout',
+      flatEntityForeignKeyAggregator: 'pageLayoutIds',
+      universalFlatEntityForeignKeyAggregator: 'pageLayoutUniversalIdentifiers',
+    },
+    commandMenuItems: {
+      metadataName: 'commandMenuItem',
+      flatEntityForeignKeyAggregator: 'commandMenuItemIds',
+      universalFlatEntityForeignKeyAggregator:
+        'commandMenuItemUniversalIdentifiers',
+    },
+    navigationMenuItems: {
+      metadataName: 'navigationMenuItem',
+      flatEntityForeignKeyAggregator: 'navigationMenuItemIds',
+      universalFlatEntityForeignKeyAggregator:
+        'navigationMenuItemUniversalIdentifiers',
     },
   },
   view: {
@@ -141,6 +176,12 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
       flatEntityForeignKeyAggregator: 'viewSortIds',
       universalFlatEntityForeignKeyAggregator: 'viewSortUniversalIdentifiers',
     },
+    navigationMenuItems: {
+      metadataName: 'navigationMenuItem',
+      flatEntityForeignKeyAggregator: 'navigationMenuItemIds',
+      universalFlatEntityForeignKeyAggregator:
+        'navigationMenuItemUniversalIdentifiers',
+    },
   },
   viewField: {},
   viewFieldGroup: {
@@ -168,11 +209,11 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
       universalFlatEntityForeignKeyAggregator:
         'objectPermissionUniversalIdentifiers',
     },
-    permissionFlags: {
-      metadataName: 'permissionFlag',
-      flatEntityForeignKeyAggregator: 'permissionFlagIds',
+    rolePermissionFlags: {
+      metadataName: 'rolePermissionFlag',
+      flatEntityForeignKeyAggregator: 'rolePermissionFlagIds',
       universalFlatEntityForeignKeyAggregator:
-        'permissionFlagUniversalIdentifiers',
+        'rolePermissionFlagUniversalIdentifiers',
     },
     fieldPermissions: {
       metadataName: 'fieldPermission',
@@ -194,7 +235,15 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
     },
   },
   roleTarget: {},
-  permissionFlag: {},
+  rolePermissionFlag: {},
+  permissionFlag: {
+    rolePermissionFlags: {
+      metadataName: 'rolePermissionFlag',
+      flatEntityForeignKeyAggregator: 'rolePermissionFlagIds',
+      universalFlatEntityForeignKeyAggregator:
+        'rolePermissionFlagUniversalIdentifiers',
+    },
+  },
   objectPermission: {},
   fieldPermission: {},
   pageLayout: {
@@ -202,6 +251,12 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
       metadataName: 'pageLayoutTab',
       flatEntityForeignKeyAggregator: 'tabIds',
       universalFlatEntityForeignKeyAggregator: 'tabUniversalIdentifiers',
+    },
+    navigationMenuItems: {
+      metadataName: 'navigationMenuItem',
+      flatEntityForeignKeyAggregator: 'navigationMenuItemIds',
+      universalFlatEntityForeignKeyAggregator:
+        'navigationMenuItemUniversalIdentifiers',
     },
   },
   pageLayoutTab: {
@@ -243,7 +298,15 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
   },
   frontComponent: {},
   webhook: {},
+  applicationVariable: {},
   viewSort: {},
+  connectionProvider: {},
+  searchFieldMetadata: {},
+  timelineActivityType: {},
+  settingsMenuItem: {},
+  validationRule: {},
+  workflow: {},
+  workflowVersion: {},
 } as const satisfies OneToManyMetadataRelationsProperties;
 
 // satisfies with complex mapped types involving nested generics doesn't always catch missing required keys

@@ -13,12 +13,11 @@ import {
 } from '@nestjs/common';
 
 import { type Request, Response } from 'express';
-import ms from 'ms';
+import { AppPath } from 'twenty-shared/types';
+import { isDefined } from 'twenty-shared/utils';
 
 import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
-import { JwtTokenTypeEnum } from 'src/engine/core-modules/auth/types/auth-context.type';
-import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
-import { RefreshTokenService } from 'src/engine/core-modules/auth/token/services/refresh-token.service';
+import { LoginTokenService } from 'src/engine/core-modules/auth/token/services/login-token.service';
 import { SsoUserProvisioningService } from 'src/engine/core-modules/auth/services/sso-user-provisioning.service';
 import { resolveSsoReturnPath } from 'src/engine/core-modules/auth/utils/resolve-sso-return-path.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
@@ -30,8 +29,6 @@ import {
   assertCorporateId,
 } from 'src/engine/utils/proxy-identity.util';
 
-const TOKEN_PAIR_COOKIE_NAME = 'tokenPair';
-
 @Controller('auth/sso')
 @UseFilters(AuthRestApiExceptionFilter)
 export class SsoProxyLoginController {
@@ -40,8 +37,7 @@ export class SsoProxyLoginController {
   constructor(
     private readonly twentyConfigService: TwentyConfigService,
     private readonly ssoUserProvisioningService: SsoUserProvisioningService,
-    private readonly accessTokenService: AccessTokenService,
-    private readonly refreshTokenService: RefreshTokenService,
+    private readonly loginTokenService: LoginTokenService,
   ) {}
 
   // SECURITY — the trust chain for X-Auth-Request-Email / X-Auth-Request-User:
@@ -75,7 +71,8 @@ export class SsoProxyLoginController {
     // Unlike middleware/guard paths, proxy-login is always behind
     // Traefik ForwardAuth, so a missing header with enforcement on
     // is suspicious and must be rejected.
-    const expectedCorporateId = this.twentyConfigService.get('SMB_CORPORATE_ID');
+    const expectedCorporateId =
+      this.twentyConfigService.get('SMB_CORPORATE_ID');
 
     if (expectedCorporateId && !req.get('x-auth-request-access-token')) {
       this.logger.warn('SSO proxy-login refused: missing access token header');
@@ -110,33 +107,18 @@ export class SsoProxyLoginController {
     const { user, workspace } =
       await this.ssoUserProvisioningService.findOrProvision(email);
 
-    const accessToken = await this.accessTokenService.generateAccessToken({
-      userId: user.id,
-      workspaceId: workspace.id,
-      authProvider: AuthProviderEnum.SSO,
-    });
+    const loginToken = await this.loginTokenService.generateLoginToken(
+      user.email,
+      workspace.id,
+      AuthProviderEnum.SSO,
+    );
 
-    const refreshToken = await this.refreshTokenService.generateRefreshToken({
-      userId: user.id,
-      workspaceId: workspace.id,
-      authProvider: AuthProviderEnum.SSO,
-      targetedTokenType: JwtTokenTypeEnum.ACCESS,
-    });
-
-    this.setTokenPairCookie(res, {
-      accessOrWorkspaceAgnosticToken: {
-        token: accessToken.token,
-        expiresAt: accessToken.expiresAt.toISOString(),
-      },
-      refreshToken: {
-        token: refreshToken.token,
-        expiresAt: refreshToken.expiresAt.toISOString(),
-      },
-    });
-
-    const destination = resolveSsoReturnPath(req.query.returnToPath);
-
-    return res.redirect(HttpStatus.FOUND, destination);
+    // The SPA's /verify page swaps the login token for the httpOnly session
+    // cookie and marks the session active, the same hand-off upstream SSO uses.
+    return res.redirect(
+      HttpStatus.FOUND,
+      this.buildVerifyPath(loginToken.token, req.query.returnToPath),
+    );
   }
 
   private resolveEmail(
@@ -176,34 +158,14 @@ export class SsoProxyLoginController {
     return value ?? '';
   }
 
-  private setTokenPairCookie(
-    res: Response,
-    payload: {
-      accessOrWorkspaceAgnosticToken: { token: string; expiresAt: string };
-      refreshToken: { token: string; expiresAt: string };
-    },
-  ) {
-    // Cookie lifetime tracks the refresh token, not the access token.
-    // The cookie carries both: if it expired with the access token, the
-    // browser would drop the refresh token alongside and force a full
-    // re-auth instead of a silent refresh.
-    const refreshExpiry = this.twentyConfigService.get(
-      'REFRESH_TOKEN_EXPIRES_IN',
-    );
-    const maxAgeMs = ms(refreshExpiry);
+  private buildVerifyPath(loginToken: string, returnToPath: unknown): string {
+    const searchParams = new URLSearchParams({ loginToken });
+    const destination = resolveSsoReturnPath(returnToPath);
 
-    // Match the rest of Twenty's cookie config (e.g. session): only set
-    // the Secure flag when SERVER_URL itself is https. Hardcoding `true`
-    // would block local http:// dev setups from storing the cookie.
-    const serverUrl = this.twentyConfigService.get('SERVER_URL') ?? '';
-    const isSecure = serverUrl.startsWith('https');
+    if (isDefined(destination)) {
+      searchParams.set('returnToPath', destination);
+    }
 
-    res.cookie(TOKEN_PAIR_COOKIE_NAME, JSON.stringify(payload), {
-      path: '/',
-      sameSite: 'lax',
-      secure: isSecure,
-      httpOnly: false,
-      maxAge: maxAgeMs,
-    });
+    return `${AppPath.Verify}?${searchParams.toString()}`;
   }
 }

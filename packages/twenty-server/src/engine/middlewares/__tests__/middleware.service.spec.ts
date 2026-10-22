@@ -2,6 +2,7 @@ import { type AccessTokenService } from 'src/engine/core-modules/auth/token/serv
 import { type ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { type JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { type WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
 import { MiddlewareService } from 'src/engine/middlewares/middleware.service';
 import { type WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
@@ -73,6 +74,7 @@ const buildService = ({
       exceptionHandlerService,
       jwtWrapperService,
       twentyConfigService,
+      new UserSessionCookieService(twentyConfigService),
     ),
     accessTokenService,
   };
@@ -92,7 +94,7 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
-    it('throws AuthException and clears tokenPair when proxy email differs', async () => {
+    it('throws AuthException and clears the session cookie when proxy email differs', async () => {
       const { service } = buildService();
       const request = buildRequest({ email: 'mallory@example.com' });
       const response = buildResponse();
@@ -103,9 +105,10 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
         code: 'UNAUTHENTICATED',
       });
 
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
 
     it('passes through when proxy headers are absent (not a logout signal)', async () => {
@@ -185,9 +188,10 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
         service.hydrateGraphqlRequest(request as never, response as never),
       ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
 
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
   });
 
@@ -204,7 +208,7 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
-    it('throws AuthException and clears tokenPair when proxy email differs', async () => {
+    it('throws AuthException and clears the session cookie when proxy email differs', async () => {
       const { service } = buildService();
       const request = buildRequest({ email: 'mallory@example.com' });
       const response = buildResponse();
@@ -213,9 +217,10 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
         service.hydrateRestRequest(request as never, response as never),
       ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
 
-      expect(response.clearCookie).toHaveBeenCalledWith('tokenPair', {
-        path: '/',
-      });
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        'twenty-session',
+        expect.objectContaining({ path: '/' }),
+      );
     });
 
     it('skips identity check when AUTH_TYPE !== SSO', async () => {

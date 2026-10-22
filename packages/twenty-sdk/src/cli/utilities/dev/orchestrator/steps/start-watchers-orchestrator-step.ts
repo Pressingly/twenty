@@ -1,18 +1,23 @@
 import {
-  createFrontComponentsWatcher,
   createLogicFunctionsWatcher,
   type EsbuildWatcher,
 } from '@/cli/utilities/build/common/esbuild-watcher';
 import { FileUploadWatcher } from '@/cli/utilities/build/common/file-upload-watcher';
+import { validateYarnLockFile } from '@/cli/utilities/build/manifest/utils/validate-yarn-lock';
+import { FrontComponentsWatcher } from '@/cli/utilities/build/common/front-component-build/front-components-watcher';
 import { TscWatcher } from '@/cli/utilities/build/common/tsc-watcher';
 import { type TypecheckError } from '@/cli/utilities/build/common/typecheck-plugin';
 import { type ManifestBuildResult } from '@/cli/utilities/build/manifest/manifest-update-checksums';
 import { ManifestWatcher } from '@/cli/utilities/build/manifest/manifest-watcher';
 import { type OrchestratorState } from '@/cli/utilities/dev/orchestrator/dev-mode-orchestrator-state';
 import type { Location } from 'esbuild';
-import { type EventName } from 'chokidar/handler.js';
-import { ASSETS_DIR } from 'twenty-shared/application';
+import { type ChokidarFsEvent } from '@/cli/types';
+import {
+  ASSETS_DIR,
+  type FrontComponentSharedDependenciesManifest,
+} from 'twenty-shared/application';
 import { FileFolder } from 'twenty-shared/types';
+import { join } from 'node:path';
 
 export type FileBuiltEvent = {
   fileFolder: FileFolder;
@@ -36,7 +41,7 @@ export class StartWatchersOrchestratorStep {
 
   private manifestWatcher: ManifestWatcher | null = null;
   private logicFunctionsWatcher: EsbuildWatcher | null = null;
-  private frontComponentsWatcher: EsbuildWatcher | null = null;
+  private frontComponentsWatcher: FrontComponentsWatcher | null = null;
   private assetWatcher: FileUploadWatcher | null = null;
   private dependencyWatcher: FileUploadWatcher | null = null;
   private tscWatcher: TscWatcher | null = null;
@@ -72,11 +77,17 @@ export class StartWatchersOrchestratorStep {
 
   async handleWatcherRestarts(result: ManifestBuildResult): Promise<void> {
     const { logicFunctions, frontComponents } = result.filePaths;
+    const sharedDependencies =
+      result.manifest?.application.frontComponentSharedDependencies;
 
     if (!this.state.steps.startWatchers.output.watchersStarted) {
       this.state.steps.startWatchers.output.watchersStarted = true;
       this.state.steps.startWatchers.status = 'done';
-      await this.startFileWatchers(logicFunctions, frontComponents);
+      await this.startFileWatchers(
+        logicFunctions,
+        frontComponents,
+        sharedDependencies,
+      );
 
       return;
     }
@@ -85,8 +96,16 @@ export class StartWatchersOrchestratorStep {
       await this.logicFunctionsWatcher.restart(logicFunctions);
     }
 
-    if (this.frontComponentsWatcher?.shouldRestart(frontComponents)) {
-      await this.frontComponentsWatcher.restart(frontComponents);
+    if (
+      this.frontComponentsWatcher?.shouldRestart(
+        frontComponents,
+        sharedDependencies,
+      )
+    ) {
+      await this.frontComponentsWatcher.restart(
+        frontComponents,
+        sharedDependencies,
+      );
     }
   }
 
@@ -102,10 +121,14 @@ export class StartWatchersOrchestratorStep {
     ]);
   }
 
-  private handleChangeDetected(sourcePath: string, event: EventName): void {
+  private handleChangeDetected(
+    sourcePath: string,
+    event: ChokidarFsEvent,
+  ): void {
     this.state.addEvent({
       message: `Change detected: ${sourcePath}`,
       status: 'info',
+      spacingBefore: true,
     });
 
     if (event === 'unlink') {
@@ -161,11 +184,12 @@ export class StartWatchersOrchestratorStep {
   private async startFileWatchers(
     logicFunctions: string[],
     frontComponents: string[],
+    sharedDependencies: FrontComponentSharedDependenciesManifest | undefined,
   ): Promise<void> {
     await Promise.all([
       this.startTscWatcher(),
       this.startLogicFunctionsWatcher(logicFunctions),
-      this.startFrontComponentsWatcher(frontComponents),
+      this.startFrontComponentsWatcher(frontComponents, sharedDependencies),
       this.startAssetWatcher(),
       this.startDependencyWatcher(),
     ]);
@@ -187,10 +211,12 @@ export class StartWatchersOrchestratorStep {
 
   private async startFrontComponentsWatcher(
     sourcePaths: string[],
+    sharedDependencies: FrontComponentSharedDependenciesManifest | undefined,
   ): Promise<void> {
-    this.frontComponentsWatcher = createFrontComponentsWatcher({
+    this.frontComponentsWatcher = new FrontComponentsWatcher({
       appPath: this.state.appPath,
       sourcePaths,
+      sharedDependencies,
       shouldSkipTypecheck: this.shouldSkipTypecheck,
       handleBuildError: this.handleFileBuildError.bind(this),
       handleFileBuilt: this.handleFileBuilt.bind(this),
@@ -215,10 +241,27 @@ export class StartWatchersOrchestratorStep {
       appPath: this.state.appPath,
       fileFolder: FileFolder.Dependencies,
       watchPaths: ['package.json', 'yarn.lock'],
-      handleFileBuilt: this.handleFileBuilt.bind(this),
+      handleFileBuilt: (event) => {
+        void this.handleDependencyFileBuilt(event);
+      },
     });
 
     this.dependencyWatcher.start();
+  }
+
+  private async handleDependencyFileBuilt(
+    event: FileBuiltEvent,
+  ): Promise<void> {
+    const isEmptyLockfileCopy =
+      event.sourcePath === 'yarn.lock' &&
+      (await validateYarnLockFile(join(this.state.appPath, event.builtPath)))
+        .length > 0;
+
+    if (isEmptyLockfileCopy) {
+      return;
+    }
+
+    this.handleFileBuilt(event);
   }
 
   private async startTscWatcher(): Promise<void> {

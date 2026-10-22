@@ -6,7 +6,7 @@ import { type MetadataFlatEntity } from 'src/engine/metadata-modules/flat-entity
 import { findFlatEntityByIdInFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps-or-throw.util';
 import { getMetadataFlatEntityMapsKey } from 'src/engine/metadata-modules/flat-entity/utils/get-metadata-flat-entity-maps-key.util';
 import { type MetadataUniversalFlatEntityPropertiesToCompare } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/metadata-universal-flat-entity-properties-to-compare.type';
-import { type AllFlatWorkspaceMigrationAction } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-builder/types/workspace-migration-action-common';
+import { type AllFlatWorkspaceMigrationAction } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-builder/types/workspace-migration-action-common.type';
 import { METADATA_EVENTS_TO_EMIT } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/constants/metadata-event-to-emit.constant';
 import {
   type CreateMetadataEvent,
@@ -14,7 +14,7 @@ import {
   type MetadataEvent,
   type UpdateMetadataEvent,
   type UpdateMetadataEventDiff,
-} from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/types/metadata-event';
+} from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/types/metadata-event.type';
 import { flatEntityToScalarFlatEntity } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/utils/flat-entity-to-scalar-flat-entity.util';
 
 export type DeriveMetadataEventsFromUpdateActionArgs = {
@@ -110,6 +110,9 @@ const deriveAllMetadataEventsFromUpdateAction = ({
 
       return [deleteIndexMetadataEvent, createIndexMetadataEvent];
     }
+    case 'applicationVariable': {
+      return [];
+    }
     case 'fieldMetadata':
     case 'objectMetadata':
     case 'view':
@@ -131,11 +134,19 @@ const deriveAllMetadataEventsFromUpdateAction = ({
     case 'commandMenuItem':
     case 'frontComponent':
     case 'navigationMenuItem':
+    case 'rolePermissionFlag':
     case 'permissionFlag':
     case 'objectPermission':
     case 'fieldPermission':
     case 'viewSort':
-    case 'webhook': {
+    case 'webhook':
+    case 'workflow':
+    case 'workflowVersion':
+    case 'connectionProvider':
+    case 'timelineActivityType':
+    case 'settingsMenuItem':
+    case 'validationRule':
+    case 'searchFieldMetadata': {
       const flatEntityMapsKey = getMetadataFlatEntityMapsKey(
         flatAction.metadataName,
       );

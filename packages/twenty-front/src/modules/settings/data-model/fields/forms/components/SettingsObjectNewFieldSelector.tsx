@@ -10,18 +10,18 @@ import { useSelectSettingsFormInitialValues } from '@/settings/data-model/fields
 import { type FieldType } from '@/settings/data-model/types/FieldType';
 import { type SettingsFieldType } from '@/settings/data-model/types/SettingsFieldType';
 import { SettingsTextInput } from '@/ui/input/components/SettingsTextInput';
+import { UndecoratedLink } from '@/ui/navigation/link/components/UndecoratedLink/UndecoratedLink';
 import { styled } from '@linaria/react';
 import { t } from '@lingui/core/macro';
-import { Section } from '@react-email/components';
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { SettingsPath } from 'twenty-shared/types';
 import { getSettingsPath } from 'twenty-shared/utils';
-import { H2Title, IconSearch } from 'twenty-ui/display';
-import { UndecoratedLink } from 'twenty-ui/navigation';
-import { ThemeContext, themeCssVariables } from 'twenty-ui/theme-constants';
+import { Section } from 'twenty-ui/components/layout';
+import { IconSearch } from 'twenty-ui/icon';
+import { useTheme, themeCssVariables } from 'twenty-ui/theme';
 import { FieldMetadataType } from '~/generated-metadata/graphql';
-import { type SettingsDataModelFieldTypeFormValues } from '~/pages/settings/data-model/new-field/SettingsObjectNewFieldSelect';
+import { type SettingsDataModelFieldTypeFormValues } from '@/settings/data-model/fields/forms/validation-schemas/settingsDataModelFieldTypeFormSchema';
 
 type SettingsObjectNewFieldSelectorProps = {
   className?: string;
@@ -60,11 +60,16 @@ const StyledSearchInputContainer = styled.div`
   width: 100%;
 `;
 
+const StyledFieldTypeIconContainer = styled.span`
+  display: flex;
+  opacity: 0.64;
+`;
+
 export const SettingsObjectNewFieldSelector = ({
   excludedFieldTypes = [],
   objectNamePlural,
 }: SettingsObjectNewFieldSelectorProps) => {
-  const { theme } = useContext(ThemeContext);
+  const theme = useTheme();
   const { control, setValue } =
     useFormContext<SettingsDataModelFieldTypeFormValues>();
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,7 +112,7 @@ export const SettingsObjectNewFieldSelector = ({
   return (
     <>
       {' '}
-      <Section>
+      <Section.Root>
         <StyledSearchInputContainer>
           <SettingsTextInput
             instanceId="new-field-type-search"
@@ -117,15 +122,15 @@ export const SettingsObjectNewFieldSelector = ({
             onChange={setSearchQuery}
           />
         </StyledSearchInputContainer>
-      </Section>
+      </Section.Root>
       <Controller
         name="type"
         control={control}
         render={() => (
           <StyledTypeSelectContainer>
             {SETTINGS_FIELD_TYPE_CATEGORIES.map((category) => (
-              <Section key={category}>
-                <H2Title
+              <Section.Root key={category}>
+                <Section.Header
                   title={category}
                   description={
                     SETTINGS_FIELD_TYPE_CATEGORY_DESCRIPTIONS[category]
@@ -161,10 +166,12 @@ export const SettingsObjectNewFieldSelector = ({
                           <SettingsCard
                             key={key}
                             Icon={
-                              <config.Icon
-                                size={theme.icon.size.xl}
-                                stroke={theme.icon.stroke.sm}
-                              />
+                              <StyledFieldTypeIconContainer>
+                                <config.Icon
+                                  size={theme.icon.size.xl}
+                                  stroke={theme.icon.stroke.sm}
+                                />
+                              </StyledFieldTypeIconContainer>
                             }
                             title={config.label}
                           />
@@ -172,7 +179,7 @@ export const SettingsObjectNewFieldSelector = ({
                       </StyledCardContainer>
                     ))}
                 </StyledContainer>
-              </Section>
+              </Section.Root>
             ))}
           </StyledTypeSelectContainer>
         )}

@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
+import chunk from 'lodash.chunk';
 import { isDefined } from 'twenty-shared/utils';
 import { In, IsNull, type QueryRunner, Repository } from 'typeorm';
 
 import {
   UpgradeMigrationEntity,
-  type UpgradeMigrationStatus,
+  UpgradeMigrationStatus,
 } from 'src/engine/core-modules/upgrade/upgrade-migration.entity';
 import { formatUpgradeErrorForStorage } from 'src/engine/core-modules/upgrade/utils/format-upgrade-error-for-storage.util';
 
@@ -19,6 +20,8 @@ export type WorkspaceLastAttemptedCommand = {
   createdAt: Date;
   isInitial: boolean;
 };
+
+const UPGRADE_MIGRATION_SAVE_BATCH_SIZE = 1000;
 
 @Injectable()
 export class UpgradeMigrationService {
@@ -82,7 +85,7 @@ export class UpgradeMigrationService {
         where: { name, workspaceId: IsNull() },
       });
 
-      await repository.save([
+      const instanceRows = [
         {
           name,
           status,
@@ -99,7 +102,14 @@ export class UpgradeMigrationService {
           workspaceId,
           errorMessage,
         })),
-      ]);
+      ];
+
+      for (const batch of chunk(
+        instanceRows,
+        UPGRADE_MIGRATION_SAVE_BATCH_SIZE,
+      )) {
+        await repository.save(batch);
+      }
 
       return;
     }
@@ -121,7 +131,9 @@ export class UpgradeMigrationService {
       });
     }
 
-    await repository.save(rows);
+    for (const batch of chunk(rows, UPGRADE_MIGRATION_SAVE_BATCH_SIZE)) {
+      await repository.save(batch);
+    }
   }
 
   async markAsWorkspaceInitial({
@@ -141,6 +153,14 @@ export class UpgradeMigrationService {
       ? queryRunner.manager.getRepository(UpgradeMigrationEntity)
       : this.upgradeMigrationRepository;
 
+    const existingInitialMigration = await repository.findOne({
+      where: { name, attempt: 1, workspaceId, isInitial: true },
+    });
+
+    if (isDefined(existingInitialMigration)) {
+      return;
+    }
+
     await repository.save({
       name,
       status,
@@ -156,7 +176,7 @@ export class UpgradeMigrationService {
   // isInitial records are excluded — they represent activation
   // state, not execution progress.
   async getLastAttemptedCommandNameOrThrow(
-    allActiveOrSuspendedWorkspaceIds: string[],
+    allProvisionedWorkspaceIds: string[],
   ): Promise<{
     name: string;
     status: UpgradeMigrationStatus;
@@ -177,10 +197,10 @@ export class UpgradeMigrationService {
         )`,
       );
 
-    if (allActiveOrSuspendedWorkspaceIds.length > 0) {
+    if (allProvisionedWorkspaceIds.length > 0) {
       queryBuilder.andWhere(
-        '(migration."workspaceId" IS NULL OR migration."workspaceId" IN (:...allActiveOrSuspendedWorkspaceIds))',
-        { allActiveOrSuspendedWorkspaceIds },
+        '(migration."workspaceId" IS NULL OR migration."workspaceId" IN (:...allProvisionedWorkspaceIds))',
+        { allProvisionedWorkspaceIds },
       );
     } else {
       queryBuilder.andWhere('migration."workspaceId" IS NULL');
@@ -206,48 +226,55 @@ export class UpgradeMigrationService {
       return new Map();
     }
 
-    const migrations = await this.upgradeMigrationRepository
-      .createQueryBuilder('migration')
-      .select([
-        'migration.workspaceId',
-        'migration.name',
-        'migration.status',
-        'migration.executedByVersion',
-        'migration.errorMessage',
-        'migration.createdAt',
-        'migration.isInitial',
-      ])
-      .where({
-        workspaceId: In(workspaceIds),
-      })
-      .andWhere(
-        `migration.attempt = (
-          SELECT MAX(sub.attempt)
-          FROM core."upgradeMigration" sub
-          WHERE sub.name = migration.name
-          AND sub."workspaceId" = migration."workspaceId"
-        )`,
-      )
-      .orderBy('migration.workspaceId')
-      .addOrderBy('migration.createdAt', 'DESC')
-      .distinctOn(['migration.workspaceId'])
-      .getMany();
+    const rows = await this.upgradeMigrationRepository.manager.query<
+      Array<{
+        workspaceId: string;
+        name: string;
+        status: UpgradeMigrationStatus;
+        executedByVersion: string;
+        errorMessage: string | null;
+        createdAt: Date;
+        isInitial: boolean;
+      }>
+    >(
+      `
+        SELECT
+          workspace_ids."workspaceId",
+          latest.name,
+          latest.status,
+          latest."executedByVersion",
+          latest."errorMessage",
+          latest."createdAt",
+          latest."isInitial"
+        FROM unnest($1::uuid[]) AS workspace_ids("workspaceId")
+        CROSS JOIN LATERAL (
+          SELECT
+            name,
+            status,
+            "executedByVersion",
+            "errorMessage",
+            "createdAt",
+            "isInitial"
+          FROM core."upgradeMigration"
+          WHERE "workspaceId" = workspace_ids."workspaceId"
+          ORDER BY "createdAt" DESC
+          LIMIT 1
+        ) latest
+      `,
+      [workspaceIds],
+    );
 
     const cursors = new Map<string, WorkspaceLastAttemptedCommand>();
 
-    for (const migration of migrations) {
-      if (migration.workspaceId === null) {
-        continue;
-      }
-
-      cursors.set(migration.workspaceId, {
-        workspaceId: migration.workspaceId,
-        name: migration.name,
-        status: migration.status,
-        executedByVersion: migration.executedByVersion,
-        errorMessage: migration.errorMessage,
-        createdAt: migration.createdAt,
-        isInitial: migration.isInitial,
+    for (const row of rows) {
+      cursors.set(row.workspaceId, {
+        workspaceId: row.workspaceId,
+        name: row.name,
+        status: row.status,
+        executedByVersion: row.executedByVersion,
+        errorMessage: row.errorMessage,
+        createdAt: row.createdAt,
+        isInitial: row.isInitial,
       });
     }
 

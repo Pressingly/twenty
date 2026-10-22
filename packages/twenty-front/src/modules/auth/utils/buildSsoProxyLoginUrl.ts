@@ -1,38 +1,13 @@
-import { AppPath } from 'twenty-shared/types';
+import { getSsoProxyLoginReturnToPath } from '@/auth/utils/getSsoProxyLoginReturnToPath';
+import { isDefined } from 'twenty-shared/utils';
 
-type BrowserLocation = Pick<Location, 'pathname' | 'search' | 'hash'>;
-
-const normalizePathname = (pathname: string) => {
-  try {
-    return decodeURIComponent(pathname).toLowerCase();
-  } catch {
-    return pathname.toLowerCase();
-  }
-};
-
-const isSignInUpPath = (pathname: string) => {
-  const normalized = normalizePathname(pathname);
-
-  return (
-    normalized === AppPath.SignInUp ||
-    normalized.startsWith(`${AppPath.SignInUp}/`)
-  );
-};
-
-const shouldCarryReturnToPath = (pathname: string) =>
-  pathname !== '/' && !isSignInUpPath(pathname);
-
-export const buildSsoProxyLoginUrl = (
-  base: string,
-  location: BrowserLocation,
-): string => {
+// Forward the inner target (MCP /authorize), never /welcome itself: /verify drops a returnToPath pointing at sign-in.
+export const buildSsoProxyLoginUrl = (base: string, search: string): string => {
   const proxyUrl = new URL('/auth/sso/proxy-login', base);
+  const returnToPath = getSsoProxyLoginReturnToPath(search);
 
-  if (shouldCarryReturnToPath(location.pathname)) {
-    proxyUrl.searchParams.set(
-      'returnToPath',
-      location.pathname + location.search + location.hash,
-    );
+  if (isDefined(returnToPath)) {
+    proxyUrl.searchParams.set('returnToPath', returnToPath);
   }
 
   return proxyUrl.toString();

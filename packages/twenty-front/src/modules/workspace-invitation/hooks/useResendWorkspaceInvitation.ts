@@ -1,17 +1,18 @@
+import { getToastOptionsFromError } from '@/error-handler/utils/getToastOptionsFromError';
 import { useMutation } from '@apollo/client/react';
+import { useToast } from 'twenty-ui/components/feedback';
 import {
   type ResendWorkspaceInvitationMutationVariables,
+  GetWorkspaceInvitationsDocument,
   ResendWorkspaceInvitationDocument,
 } from '~/generated-metadata/graphql';
-import { workspaceInvitationsState } from '@/workspace-invitation/states/workspaceInvitationsStates';
-import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
 
 export const useResendWorkspaceInvitation = () => {
   const [resendWorkspaceInvitationMutation] = useMutation(
     ResendWorkspaceInvitationDocument,
   );
 
-  const setWorkspaceInvitations = useSetAtomState(workspaceInvitationsState);
+  const { enqueueToast } = useToast();
 
   const resendInvitation = async ({
     appTokenId,
@@ -20,13 +21,9 @@ export const useResendWorkspaceInvitation = () => {
       variables: {
         appTokenId,
       },
-      onCompleted: (data) => {
-        setWorkspaceInvitations((workspaceInvitations) => [
-          ...data.resendWorkspaceInvitation.result,
-          ...workspaceInvitations.filter(
-            (workspaceInvitation) => workspaceInvitation.id !== appTokenId,
-          ),
-        ]);
+      refetchQueries: [GetWorkspaceInvitationsDocument],
+      onError: (error) => {
+        enqueueToast(getToastOptionsFromError({ error }));
       },
     });
   };
