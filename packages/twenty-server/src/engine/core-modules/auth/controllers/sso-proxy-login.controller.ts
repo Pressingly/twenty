@@ -18,6 +18,7 @@ import { AppPath } from 'twenty-shared/types';
 import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
 import { LoginTokenService } from 'src/engine/core-modules/auth/token/services/login-token.service';
 import { SsoUserProvisioningService } from 'src/engine/core-modules/auth/services/sso-user-provisioning.service';
+import { resolveSsoReturnPath } from 'src/engine/core-modules/auth/utils/resolve-sso-return-path.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
@@ -27,8 +28,7 @@ import {
   assertCorporateId,
 } from 'src/engine/utils/proxy-identity.util';
 
-const isSameOriginPath = (value: unknown): value is string =>
-  typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
+const ROOT_PATH = '/';
 
 @Controller('auth/sso')
 @UseFilters(AuthRestApiExceptionFilter)
@@ -159,13 +159,12 @@ export class SsoProxyLoginController {
     return value ?? '';
   }
 
-  // Only same-origin paths survive as returnToPath: a protocol-relative
-  // `//evil.com` would turn the SSO round-trip into an open redirect.
   private buildVerifyPath(loginToken: string, returnToPath: unknown): string {
     const searchParams = new URLSearchParams({ loginToken });
+    const destination = resolveSsoReturnPath(returnToPath);
 
-    if (isSameOriginPath(returnToPath)) {
-      searchParams.set('returnToPath', returnToPath);
+    if (destination !== ROOT_PATH) {
+      searchParams.set('returnToPath', destination);
     }
 
     return `${AppPath.Verify}?${searchParams.toString()}`;

@@ -1,5 +1,6 @@
 import { StyledAuthContent } from '@/auth/components/StyledAuthContent';
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
+import { useSsoProxyLoginRedirect } from '@/auth/hooks/useSsoProxyLoginRedirect';
 import { useSignInUp } from '@/auth/sign-in-up/hooks/useSignInUp';
 import { useSignInUpForm } from '@/auth/sign-in-up/hooks/useSignInUpForm';
 import { isCreatingWorkspaceState } from '@/auth/states/isCreatingWorkspaceState';
@@ -14,6 +15,7 @@ import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomState
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
 
 import { EmailVerificationSent } from '@/auth/sign-in-up/components/EmailVerificationSent';
+import { SsoLoginRecovery } from '@/auth/sign-in-up/components/SsoLoginRecovery';
 import { SignInUpGlobalScopeForm } from '@/auth/sign-in-up/components/SignInUpGlobalScopeForm';
 import { SignInUpStandardContent } from '@/auth/sign-in-up/components/SignInUpStandardContent';
 import { SignInUpWorkspaceScopeForm } from '@/auth/sign-in-up/components/SignInUpWorkspaceScopeForm';
@@ -26,7 +28,7 @@ import { isMultiWorkspaceEnabledState } from '@/client-config/states/isMultiWork
 import { useGetPublicWorkspaceDataByDomain } from '@/domain-manager/hooks/useGetPublicWorkspaceDataByDomain';
 import { useIsCurrentLocationOnAWorkspace } from '@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace';
 import { useIsCurrentLocationOnDefaultDomain } from '@/domain-manager/hooks/useIsCurrentLocationOnDefaultDomain';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { SignInUpGlobalScopeFormEffect } from '@/auth/sign-in-up/components/internal/SignInUpGlobalScopeFormEffect';
 import { SignInUpSsoExchangeTokenEffect } from '@/auth/sign-in-up/components/internal/SignInUpSsoExchangeTokenEffect';
@@ -34,9 +36,7 @@ import { SignInUpTwoFactorAuthenticationProvision } from '@/auth/sign-in-up/comp
 import { SignInUpTwoFactorAuthenticationRecovery } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationRecovery';
 import { SignInUpTOTPVerification } from '@/auth/sign-in-up/components/internal/SignInUpTwoFactorAuthenticationVerification';
 import { useWorkspaceFromInviteHash } from '@/auth/sign-in-up/hooks/useWorkspaceFromInviteHash';
-import { getSsoProxyLoginReturnToPath } from '@/auth/utils/getSsoProxyLoginReturnToPath';
 import { clientConfigApiStatusState } from '@/client-config/states/clientConfigApiStatusState';
-import { REACT_APP_SERVER_BASE_URL } from '~/config';
 import { useLingui } from '@lingui/react/macro';
 import { useSearchParams } from 'react-router-dom';
 import { isDefined } from 'twenty-shared/utils';
@@ -68,23 +68,7 @@ export const SignInUp = () => {
   const isCreatingWorkspace = useAtomStateValue(isCreatingWorkspaceState);
   const isSsoEnabled = useIsSsoEnabled();
 
-  useEffect(() => {
-    if (isSsoEnabled) {
-      // Forward the target this page was sent with (MCP OAuth /authorize), not
-      // /welcome itself: /verify drops any returnToPath pointing at sign-in.
-      const returnToPath = getSsoProxyLoginReturnToPath(window.location.search);
-      const proxyUrl = new URL(
-        '/auth/sso/proxy-login',
-        REACT_APP_SERVER_BASE_URL || window.location.origin,
-      );
-
-      if (isDefined(returnToPath)) {
-        proxyUrl.searchParams.set('returnToPath', returnToPath);
-      }
-
-      window.location.replace(proxyUrl.toString());
-    }
-  }, [isSsoEnabled]);
+  const { needsRecovery, retry } = useSsoProxyLoginRedirect();
 
   const { form } = useSignInUpForm();
   const { signInUpStep } = useSignInUp(form);
@@ -236,9 +220,13 @@ export const SignInUp = () => {
     return (
       <StyledBackground>
         <StyledAuthContent>
-          <StyledLoaderContainer>
-            <Loader color="gray" />
-          </StyledLoaderContainer>
+          {needsRecovery ? (
+            <SsoLoginRecovery onRetry={retry} />
+          ) : (
+            <StyledLoaderContainer>
+              <Loader color="gray" />
+            </StyledLoaderContainer>
+          )}
         </StyledAuthContent>
       </StyledBackground>
     );

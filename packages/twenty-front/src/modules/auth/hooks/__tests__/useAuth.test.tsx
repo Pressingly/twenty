@@ -19,13 +19,28 @@ import {
   type CurrentWorkspace,
   currentWorkspaceState,
 } from '@/auth/states/currentWorkspaceState';
+import { isSsoSignOutInProgressState } from '@/auth/states/isSsoSignOutInProgressState';
 import { returnToPathState } from '@/auth/states/returnToPathState';
+import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
+import {
+  SSO_PROXY_LOGIN_MAX_ATTEMPTS,
+  canAttemptSsoProxyLogin,
+  getSsoProxyLoginAttemptStorage,
+  recordSsoProxyLoginAttempt,
+} from '@/auth/utils/ssoProxyLoginAttemptGuard';
 import { renderHook } from '@testing-library/react';
 import { getDefaultStore } from 'jotai';
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
 import { ToastProvider } from 'twenty-ui/components/feedback';
 
 const redirectSpy = jest.fn();
+
+jest.mock('@/auth/utils/browserNavigation', () => ({
+  navigateBrowserTo: jest.fn(),
+  replaceBrowserLocation: jest.fn(),
+}));
+
+const navigateBrowserToSpy = jest.mocked(navigateBrowserTo);
 
 jest.mock('@/domain-manager/hooks/useRedirect', () => ({
   useRedirect: jest.fn().mockImplementation(() => ({
@@ -93,6 +108,7 @@ describe('useAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getDefaultStore().set(returnToPathState.atom, '');
+    getDefaultStore().set(isSsoSignOutInProgressState.atom, false);
   });
 
   it('should return login token object', async () => {
@@ -206,6 +222,7 @@ describe('useAuth', () => {
     expect(sessionStorage.length).toBe(0);
     expect(getDefaultStore().get(currentWorkspaceState.atom)).toBeNull();
     expect(getDefaultStore().get(currentUserState.atom)).toBeNull();
+    expect(navigateBrowserToSpy).toHaveBeenCalledWith('/welcome');
   });
 
   it('should handle credential sign-up', async () => {
@@ -219,5 +236,71 @@ describe('useAuth', () => {
     });
 
     expect(mocks.signUpInWorkspace.result).toHaveBeenCalled();
+  });
+
+  describe('SSO sign-out', () => {
+    const portalUrl = `${window.location.protocol}//${window.location.host}/`;
+
+    beforeAll(() => {
+      if (!Object.prototype.hasOwnProperty.call(window, '_env_')) {
+        Object.defineProperty(window, '_env_', {
+          value: {},
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    beforeEach(() => {
+      jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'SSO' });
+      window.localStorage.clear();
+    });
+
+    it('lands on the portal and marks the sign-out in progress', async () => {
+      const { result } = renderHooks();
+
+      await act(async () => {
+        await result.current.signOut();
+      });
+
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith(portalUrl);
+      expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
+        true,
+      );
+    });
+
+    it('endSessionLocally lands on the portal and resets the proxy-login cap', async () => {
+      const storage = getSsoProxyLoginAttemptStorage();
+
+      Array.from({ length: SSO_PROXY_LOGIN_MAX_ATTEMPTS }).forEach(() =>
+        recordSsoProxyLoginAttempt(storage, Date.now()),
+      );
+
+      const { result } = renderHooks();
+
+      await act(async () => {
+        result.current.endSessionLocally();
+      });
+
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith(portalUrl);
+      expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
+        true,
+      );
+      expect(canAttemptSsoProxyLogin(storage, Date.now())).toBe(true);
+    });
+
+    it('endSessionLocally keeps the non-SSO behaviour', async () => {
+      jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'PASSWORD' });
+      const { result } = renderHooks();
+
+      await act(async () => {
+        result.current.endSessionLocally();
+      });
+
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith('/welcome');
+      expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
+        false,
+      );
+    });
   });
 });

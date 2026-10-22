@@ -28,15 +28,21 @@ import { useMarkSessionActive } from '@/auth/hooks/useMarkSessionActive';
 import { currentUserState } from '@/auth/states/currentUserState';
 import { isCookieAuthActiveState } from '@/auth/states/isCookieAuthActiveState';
 import { isPendingServerSignOutState } from '@/auth/states/isPendingServerSignOutState';
+import { isSsoSignOutInProgressState } from '@/auth/states/isSsoSignOutInProgressState';
 import { currentUserWorkspaceState } from '@/auth/states/currentUserWorkspaceState';
 import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
 import { returnToPathState } from '@/auth/states/returnToPathState';
+import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
 import { buildPortalUrl } from '@/auth/utils/buildPortalUrl';
 import { clearSessionLocalStorageKeys } from '@/auth/utils/clearSessionLocalStorageKeys';
 import { broadcastSignOutToOtherTabs } from '@/auth/utils/crossTabSignOut';
 import { clearSessionGeneration } from '@/auth/utils/clearSessionGeneration';
 import { isValidReturnToPath } from '@/auth/utils/isValidReturnToPath';
+import {
+  clearSsoProxyLoginAttempts,
+  getSsoProxyLoginAttemptStorage,
+} from '@/auth/utils/ssoProxyLoginAttemptGuard';
 import { isNonEmptyString } from '@sniptt/guards';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
@@ -138,7 +144,7 @@ export const useAuth = () => {
       clearSessionGeneration();
       clearSessionLocalStorageKeys();
       setLastAuthenticateWorkspaceDomain(null);
-      window.location.assign(target);
+      navigateBrowserTo(target);
     },
     [store, setLastAuthenticateWorkspaceDomain],
   );
@@ -451,7 +457,29 @@ export const useAuth = () => {
     [handleGetLoginTokenFromCredentials, handleGetAuthTokensFromLoginToken],
   );
 
+  const markSsoSignOutInProgress = useCallback(() => {
+    if (isSsoEnabled) {
+      store.set(isSsoSignOutInProgressState.atom, true);
+    }
+  }, [isSsoEnabled, store]);
+
+  const endSessionLocally = useCallback(() => {
+    if (!isSsoEnabled) {
+      clearSession();
+      return;
+    }
+
+    markSsoSignOutInProgress();
+    clearSsoProxyLoginAttempts(getSsoProxyLoginAttemptStorage());
+    // Land on the portal, outside ForwardAuth: Twenty's own sign-in page would silently re-auth through the proxy.
+    clearSession(
+      buildPortalUrl(window.location.host, window.location.protocol),
+    );
+  }, [clearSession, isSsoEnabled, markSsoSignOutInProgress]);
+
   const handleSignOut = useCallback(async () => {
+    // Once the mutation revokes the cookie, any in-flight 401 routes to the sign-in page, which must not re-auth via proxy-login.
+    markSsoSignOutInProgress();
     // Before clearSession, whose navigation kills in-flight requests.
     store.set(isPendingServerSignOutState.atom, true);
 
@@ -461,17 +489,8 @@ export const useAuth = () => {
     } catch {}
 
     broadcastSignOutToOtherTabs();
-
-    if (isSsoEnabled) {
-      // Land on the portal, outside ForwardAuth: Twenty's own sign-in page would silently re-auth through the proxy.
-      clearSession(
-        buildPortalUrl(window.location.host, window.location.protocol),
-      );
-      return;
-    }
-
-    clearSession();
-  }, [clearSession, isSsoEnabled, signOutMutation, store]);
+    endSessionLocally();
+  }, [endSessionLocally, markSsoSignOutInProgress, signOutMutation, store]);
 
   const handleCredentialsSignUpInWorkspace = useCallback(
     async ({
@@ -698,6 +717,7 @@ export const useAuth = () => {
     getAuthTokensFromLoginToken: handleGetAuthTokensFromLoginToken,
     checkUserExists: { checkUserExistsData, checkUserExistsQuery },
     clearSession,
+    endSessionLocally,
     signOut: handleSignOut,
     signUpWithCredentials: handleCredentialsSignUp,
     signUpWithCredentialsInWorkspace: handleCredentialsSignUpInWorkspace,

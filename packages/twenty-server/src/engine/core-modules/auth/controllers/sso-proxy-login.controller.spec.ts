@@ -120,12 +120,16 @@ describe('SsoProxyLoginController', () => {
     );
   });
 
-  it('should drop a protocol-relative returnToPath', async () => {
+  it.each([
+    ['protocol-relative', '//evil.com'],
+    ['backslash', '/\\evil.com'],
+    ['sign-in page', '/welcome'],
+    ['mixed-case sign-in page', '/Welcome?x=1'],
+    ['percent-encoded sign-in page', '/%77elcome'],
+  ])('should drop a %s returnToPath', async (_label, returnToPath) => {
     const { res, proxyLogin } = buildController();
 
-    await proxyLogin('someone@askii.ai', undefined, {
-      returnToPath: '//evil.com',
-    });
+    await proxyLogin('someone@askii.ai', undefined, { returnToPath });
 
     expect(res.redirect).toHaveBeenCalledWith(
       302,
