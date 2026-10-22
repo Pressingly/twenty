@@ -112,7 +112,7 @@ export const useSsoProxyLoginRedirect = () => {
     redirect();
   }, [redirect, store]);
 
-  // The persisted session flag is stale: dropping it re-enters the capped redirect instead of bypassing the cap.
+  // Treats the session as unusable and re-authenticates through the capped redirect, never around the cap.
   const retryAfterStall = useCallback(() => {
     store.set(isCookieAuthActiveState.atom, false);
   }, [store]);

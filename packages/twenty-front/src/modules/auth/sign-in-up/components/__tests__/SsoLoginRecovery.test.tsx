@@ -1,3 +1,6 @@
+/**
+ * @jest-environment-options {"url": "https://twenty.foss.example.com/"}
+ */
 import { i18n } from '@lingui/core';
 import { I18nProvider } from '@lingui/react';
 import { render, screen } from '@testing-library/react';
@@ -64,9 +67,7 @@ describe('SsoLoginRecovery', () => {
       screen.getByRole('button', { name: 'Go to the portal' }),
     );
 
-    expect(navigateBrowserTo).toHaveBeenCalledWith(
-      `${window.location.protocol}//${window.location.host}/`,
-    );
+    expect(navigateBrowserTo).toHaveBeenCalledWith('https://foss.example.com/');
   });
 
   it('offers only the portal when a sign-out stalled', async () => {
@@ -83,8 +84,6 @@ describe('SsoLoginRecovery', () => {
       screen.getByRole('button', { name: 'Go to the portal' }),
     );
 
-    expect(navigateBrowserTo).toHaveBeenCalledWith(
-      `${window.location.protocol}//${window.location.host}/`,
-    );
+    expect(navigateBrowserTo).toHaveBeenCalledWith('https://foss.example.com/');
   });
 });
