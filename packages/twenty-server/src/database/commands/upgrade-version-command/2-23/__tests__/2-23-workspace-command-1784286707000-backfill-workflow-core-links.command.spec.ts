@@ -70,7 +70,7 @@ const setup = ({ failingInsert = false }: { failingInsert?: boolean } = {}) => {
       total: 1,
     });
 
-  return { run, query, flush, events };
+  return { run, query, flush, events, queryRunner };
 };
 
 describe('BackfillWorkflowCoreLinksCommand', () => {
@@ -100,10 +100,11 @@ describe('BackfillWorkflowCoreLinksCommand', () => {
   });
 
   it('leaves the cache alone when the rebuild rolls back', async () => {
-    const { run, flush } = setup({ failingInsert: true });
+    const { run, flush, queryRunner } = setup({ failingInsert: true });
 
     await expect(run()).rejects.toThrow('insert failed');
 
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
     expect(flush).not.toHaveBeenCalled();
   });
 });
