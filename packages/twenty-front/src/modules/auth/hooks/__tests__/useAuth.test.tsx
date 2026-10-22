@@ -1,3 +1,6 @@
+/**
+ * @jest-environment-options {"url": "https://twenty.foss.example.com/"}
+ */
 import { useAuth } from '@/auth/hooks/useAuth';
 
 import { MockedProvider } from '@apollo/client/testing/react';
@@ -19,6 +22,7 @@ import {
   type CurrentWorkspace,
   currentWorkspaceState,
 } from '@/auth/states/currentWorkspaceState';
+import { isPendingServerSignOutState } from '@/auth/states/isPendingServerSignOutState';
 import { isSsoSignOutInProgressState } from '@/auth/states/isSsoSignOutInProgressState';
 import { returnToPathState } from '@/auth/states/returnToPathState';
 import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
@@ -32,6 +36,7 @@ import { renderHook } from '@testing-library/react';
 import { getDefaultStore } from 'jotai';
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
 import { ToastProvider } from 'twenty-ui/components/feedback';
+import { SignOutDocument } from '~/generated-metadata/graphql';
 
 const redirectSpy = jest.fn();
 
@@ -84,8 +89,13 @@ jest.mock('@/domain-manager/hooks/useLastAuthenticatedWorkspaceDomain', () => ({
   })),
 }));
 
+const signOutMock = {
+  request: { query: SignOutDocument },
+  result: jest.fn(() => ({ data: { signOut: true } })),
+};
+
 const Wrapper = ({ children }: { children: ReactNode }) => (
-  <MockedProvider mocks={Object.values(mocks)}>
+  <MockedProvider mocks={[...Object.values(mocks), signOutMock]}>
     <MemoryRouter>
       <ToastProvider>{children}</ToastProvider>
     </MemoryRouter>
@@ -109,6 +119,7 @@ describe('useAuth', () => {
     jest.clearAllMocks();
     getDefaultStore().set(returnToPathState.atom, '');
     getDefaultStore().set(isSsoSignOutInProgressState.atom, false);
+    getDefaultStore().set(isPendingServerSignOutState.atom, false);
   });
 
   it('should return login token object', async () => {
@@ -216,7 +227,7 @@ describe('useAuth', () => {
     const { result } = renderHooks();
 
     await act(async () => {
-      result.current.signOut();
+      await result.current.signOut();
     });
 
     expect(sessionStorage.length).toBe(0);
@@ -239,7 +250,7 @@ describe('useAuth', () => {
   });
 
   describe('SSO sign-out', () => {
-    const portalUrl = `${window.location.protocol}//${window.location.host}/`;
+    const portalUrl = 'https://foss.example.com/';
 
     beforeAll(() => {
       if (!Object.prototype.hasOwnProperty.call(window, '_env_')) {
@@ -263,6 +274,10 @@ describe('useAuth', () => {
         await result.current.signOut();
       });
 
+      expect(signOutMock.result).toHaveBeenCalled();
+      expect(getDefaultStore().get(isPendingServerSignOutState.atom)).toBe(
+        false,
+      );
       expect(navigateBrowserToSpy).toHaveBeenCalledWith(portalUrl);
       expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
         true,
