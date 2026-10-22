@@ -356,7 +356,7 @@ describe('MCP tool catalog (integration)', () => {
       expect(isDispatchFailure(result)).toBe(true);
     });
 
-    it('should mark database read tools read-only and keep execute hints on writes', async () => {
+    it('should mark database read tools read-only and flag writes destructive', async () => {
       const annotationsByToolName = Object.fromEntries(
         (await listMcpTools(adminApiKeyToken, DIRECT_MODE_PATH)).map((tool) => [
           tool.name,
@@ -372,7 +372,7 @@ describe('MCP tool catalog (integration)', () => {
       expect(annotationsByToolName.create_one_person).toEqual({
         readOnlyHint: false,
         openWorldHint: true,
-        destructiveHint: false,
+        destructiveHint: true,
       });
     });
 

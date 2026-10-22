@@ -1,8 +1,8 @@
 import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annotations.type';
 
-// Not flagged destructive: clients would prompt on every call, and writes are gated by role anyway
+// Fork: flagged destructive so MCP clients (Askii) confirm every Twenty write before running it (FOSS-594)
 export const MCP_EXECUTE_TOOL_ANNOTATIONS: McpToolAnnotations = {
   readOnlyHint: false,
   openWorldHint: true,
-  destructiveHint: false,
+  destructiveHint: true,
 };
