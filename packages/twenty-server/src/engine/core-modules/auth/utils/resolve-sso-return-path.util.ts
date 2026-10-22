@@ -1,10 +1,12 @@
+import { isString } from '@sniptt/guards';
 import { AppPath } from 'twenty-shared/types';
+import { isSafeInternalPath } from 'twenty-shared/utils';
 
-const DEFAULT_RETURN_PATH = '/';
+const ROOT_PATH = '/';
 const PLACEHOLDER_ORIGIN = 'http://placeholder.invalid';
 
-const isSameOriginPath = (path: string) =>
-  path.startsWith('/') && !path.startsWith('//') && !path.includes('\\');
+const isSafePathname = (path: string) =>
+  isSafeInternalPath(path) && path.startsWith('/');
 
 const normalizePathname = (pathname: string) => {
   try {
@@ -24,10 +26,12 @@ const isSignInUpPath = (path: string) => {
   );
 };
 
-export const resolveSsoReturnPath = (returnToPath: unknown): string => {
-  if (typeof returnToPath !== 'string' || !isSameOriginPath(returnToPath)) {
-    return DEFAULT_RETURN_PATH;
-  }
+const isMeaningfulReturnPath = (path: string) =>
+  path !== ROOT_PATH && !isSignInUpPath(path);
 
-  return isSignInUpPath(returnToPath) ? DEFAULT_RETURN_PATH : returnToPath;
-};
+export const resolveSsoReturnPath = (returnToPath: unknown): string | null =>
+  isString(returnToPath) &&
+  isSafePathname(returnToPath) &&
+  isMeaningfulReturnPath(returnToPath)
+    ? returnToPath
+    : null;

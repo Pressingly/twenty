@@ -14,6 +14,7 @@ import {
 
 import { type Request, Response } from 'express';
 import { AppPath } from 'twenty-shared/types';
+import { isDefined } from 'twenty-shared/utils';
 
 import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
 import { LoginTokenService } from 'src/engine/core-modules/auth/token/services/login-token.service';
@@ -27,8 +28,6 @@ import {
   CorporateIdError,
   assertCorporateId,
 } from 'src/engine/utils/proxy-identity.util';
-
-const ROOT_PATH = '/';
 
 @Controller('auth/sso')
 @UseFilters(AuthRestApiExceptionFilter)
@@ -163,7 +162,7 @@ export class SsoProxyLoginController {
     const searchParams = new URLSearchParams({ loginToken });
     const destination = resolveSsoReturnPath(returnToPath);
 
-    if (destination !== ROOT_PATH) {
+    if (isDefined(destination)) {
       searchParams.set('returnToPath', destination);
     }
 

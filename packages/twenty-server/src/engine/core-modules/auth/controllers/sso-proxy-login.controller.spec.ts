@@ -123,6 +123,9 @@ describe('SsoProxyLoginController', () => {
   it.each([
     ['protocol-relative', '//evil.com'],
     ['backslash', '/\\evil.com'],
+    ['tab-smuggled', '/\t/evil.com'],
+    ['newline-smuggled', '/\n/evil.com'],
+    ['root', '/'],
     ['sign-in page', '/welcome'],
     ['mixed-case sign-in page', '/Welcome?x=1'],
     ['percent-encoded sign-in page', '/%77elcome'],
