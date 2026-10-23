@@ -144,8 +144,13 @@ export class BackfillWorkflowVersionCoreLinksCommand extends ProvisionedWorkspac
         throw error;
       }
 
-      // The old sync path invalidated workflowAutomatedTriggerMaps; the raw-SQL
-      // rebuild bypasses it, so recompute it from the fresh core rows.
+      // The raw-SQL rebuild bypasses the migration runner, so the flat maps still
+      // hold the ids it just deleted. A cross-version upgrade reads them in the
+      // same process (2.41 upsertToCore) and fails on every rebuilt row.
+      await this.workspaceCacheService.flush(workspaceId, [
+        'flatWorkflowVersionMaps',
+      ]);
+
       await this.workspaceCacheService.invalidateAndRecompute(workspaceId, [
         'workflowAutomatedTriggerMaps',
       ]);
