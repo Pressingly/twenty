@@ -1,12 +1,14 @@
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
-import { currentUserWorkspaceState } from '@/auth/states/currentUserWorkspaceState';
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
+import { useHasPermissionFlag } from '@/settings/roles/hooks/useHasPermissionFlag';
 import { PermissionFlagType } from '~/generated-metadata/graphql';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 
 export const useCanChangePassword = () => {
   const currentWorkspace = useAtomStateValue(currentWorkspaceState);
-  const currentUserWorkspace = useAtomStateValue(currentUserWorkspaceState);
+  const hasBypassPermission = useHasPermissionFlag(
+    PermissionFlagType.SSO_BYPASS,
+  );
   const isSsoEnabled = useIsSsoEnabled();
 
   if (isSsoEnabled) {
@@ -19,10 +21,6 @@ export const useCanChangePassword = () => {
   if (isPasswordAuthEnabled) {
     return { canChangePassword: true };
   }
-
-  const hasBypassPermission = currentUserWorkspace?.permissionFlags?.includes(
-    PermissionFlagType.SSO_BYPASS,
-  );
 
   if (!hasBypassPermission) {
     return { canChangePassword: false };

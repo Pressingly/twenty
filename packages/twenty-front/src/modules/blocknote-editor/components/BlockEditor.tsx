@@ -1,18 +1,21 @@
-import { filterSuggestionItems } from '@blocknote/core/extensions';
+import {
+  filterSuggestionItems,
+  SuggestionMenu,
+} from '@blocknote/core/extensions';
 import { BlockNoteView } from '@blocknote/mantine';
 import { SuggestionMenuController } from '@blocknote/react';
+import { useLingui } from '@lingui/react/macro';
 import { styled } from '@linaria/react';
-import { type ClipboardEvent, useContext } from 'react';
+import { type ClipboardEvent } from 'react';
 import { type BLOCK_SCHEMA } from '@/blocknote-editor/blocks/Schema';
 import { getSlashMenu } from '@/blocknote-editor/utils/getSlashMenu';
 import { CustomMentionMenu } from '@/blocknote-editor/components/CustomMentionMenu';
 import { CustomSideMenu } from '@/blocknote-editor/components/CustomSideMenu';
-import {
-  CustomSlashMenu,
-  type SuggestionItem,
-} from '@/blocknote-editor/components/CustomSlashMenu';
+import { CustomSlashMenu } from '@/blocknote-editor/components/CustomSlashMenu';
+import { type SuggestionItem } from '@/blocknote-editor/types/SuggestionMenuItems';
 import { useMentionMenu } from '@/mention/hooks/useMentionMenu';
-import { ThemeContext, themeCssVariables } from 'twenty-ui/theme-constants';
+import { IconX } from 'twenty-ui/icon';
+import { useThemeColorScheme, themeCssVariables } from 'twenty-ui/theme';
 
 interface BlockEditorProps {
   editor: typeof BLOCK_SCHEMA.BlockNoteEditor;
@@ -21,10 +24,13 @@ interface BlockEditorProps {
   onPaste?: (event: ClipboardEvent) => void;
   onChange?: () => void;
   readonly?: boolean;
+  isCompact?: boolean;
 }
 
 // oxlint-disable-next-line twenty/no-hardcoded-colors
 const StyledEditor = styled.div`
+  max-width: 100%;
+  min-width: 0;
   width: 100%;
 
   & .editor {
@@ -32,6 +38,16 @@ const StyledEditor = styled.div`
     color: ${themeCssVariables.font.color.primary};
     font-size: 13px;
     min-height: 400px;
+  }
+  &[data-compact='true'] {
+    background-color: ${themeCssVariables.background.transparent.lighter};
+    border: 1px solid ${themeCssVariables.border.color.medium};
+    border-radius: ${themeCssVariables.border.radius.md};
+    box-sizing: border-box;
+  }
+  &[data-compact='true'] .editor {
+    min-height: 120px;
+    padding: ${themeCssVariables.spacing[1]} ${themeCssVariables.spacing[2]};
   }
   & .editor [class^='_inlineContent']:before {
     color: ${themeCssVariables.font.color.tertiary};
@@ -57,7 +73,7 @@ const StyledEditor = styled.div`
     backdrop-filter: ${themeCssVariables.blur.medium};
     background: ${themeCssVariables.background.transparent.secondary};
     border: 1px solid ${themeCssVariables.border.color.medium};
-    border-radius: 8px;
+    border-radius: ${themeCssVariables.border.radius.md};
     box-shadow:
       0px 2px 4px rgba(0, 0, 0, 0.04),
       2px 4px 16px rgba(0, 0, 0, 0.12);
@@ -71,8 +87,18 @@ const StyledEditor = styled.div`
     padding-inline: 0px;
   }
 
+  & .bn-block-content {
+    min-width: 0;
+  }
+
+  & .bn-block-content,
   & .bn-inline-content {
-    width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  & .bn-inline-content {
+    max-width: 100%;
+    min-width: 0;
   }
 
   & .bn-container .bn-suggestion-menu-item:hover {
@@ -83,7 +109,7 @@ const StyledEditor = styled.div`
     backdrop-filter: ${themeCssVariables.blur.medium};
     background: ${themeCssVariables.background.transparent.secondary};
     border: 1px solid ${themeCssVariables.border.color.medium};
-    border-radius: 8px;
+    border-radius: ${themeCssVariables.border.radius.md};
     padding: 4px;
   }
 
@@ -124,7 +150,7 @@ const StyledEditor = styled.div`
   & .bn-inline-content code {
     background-color: ${themeCssVariables.background.transparent.light};
     border: 1px solid ${themeCssVariables.font.color.extraLight};
-    border-radius: 4px;
+    border-radius: ${themeCssVariables.border.radius.sm};
     color: ${themeCssVariables.font.color.danger};
     font-family: monospace;
     font-size: 0.9rem;
@@ -147,11 +173,32 @@ export const BlockEditor = ({
   onChange,
   onPaste,
   readonly,
+  isCompact,
 }: BlockEditorProps) => {
-  const { colorScheme } = useContext(ThemeContext);
+  const colorScheme = useThemeColorScheme();
+  const { t } = useLingui();
 
   const blockNoteTheme = colorScheme === 'light' ? 'light' : 'dark';
   const getMentionItems = useMentionMenu(editor);
+
+  const getSlashMenuItems = async (query: string) => {
+    const filtered = filterSuggestionItems<SuggestionItem>(
+      getSlashMenu(editor),
+      query,
+    );
+
+    if (filtered.length > 0) {
+      return filtered;
+    }
+
+    return [
+      {
+        title: t`Close menu`,
+        Icon: IconX,
+        onItemClick: () => editor.getExtension(SuggestionMenu)?.closeMenu(),
+      },
+    ];
+  };
 
   const handleFocus = () => {
     onFocus?.();
@@ -170,7 +217,7 @@ export const BlockEditor = ({
   };
 
   return (
-    <StyledEditor>
+    <StyledEditor data-compact={isCompact}>
       <BlockNoteView
         onFocus={handleFocus}
         onBlur={handleBlur}
@@ -185,9 +232,7 @@ export const BlockEditor = ({
         <CustomSideMenu editor={editor} />
         <SuggestionMenuController
           triggerCharacter="/"
-          getItems={async (query) =>
-            filterSuggestionItems<SuggestionItem>(getSlashMenu(editor), query)
-          }
+          getItems={getSlashMenuItems}
           suggestionMenuComponent={CustomSlashMenu}
         />
         <SuggestionMenuController

@@ -19,12 +19,33 @@ describe('getLogicFunctionTriggerLabel', () => {
     ).toBe('Pre-install');
   });
 
+  it('returns Uninstall when the function matches the uninstall identifier', () => {
+    expect(
+      getLogicFunctionTriggerLabel(
+        { universalIdentifier: 'uid-uninstall' },
+        { uninstallUniversalIdentifier: 'uid-uninstall' },
+      ),
+    ).toBe('Uninstall');
+  });
+
   it('does not match when both identifiers are undefined', () => {
     expect(getLogicFunctionTriggerLabel({}, {})).toBe('');
   });
 
-  it('returns AI tool when isTool is set', () => {
-    expect(getLogicFunctionTriggerLabel({ isTool: true })).toBe('AI tool');
+  it('returns AI tool when toolTriggerSettings is set', () => {
+    expect(
+      getLogicFunctionTriggerLabel({
+        toolTriggerSettings: { inputSchema: { type: 'object' } },
+      }),
+    ).toBe('AI tool');
+  });
+
+  it('returns Workflow action when workflowActionTriggerSettings is set', () => {
+    expect(
+      getLogicFunctionTriggerLabel({
+        workflowActionTriggerSettings: { inputSchema: [] },
+      }),
+    ).toBe('Workflow action');
   });
 
   it('returns Cron when cron settings are present', () => {

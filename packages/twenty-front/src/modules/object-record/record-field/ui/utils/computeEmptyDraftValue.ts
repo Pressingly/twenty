@@ -11,7 +11,6 @@ import { isFieldRawJson } from '@/object-record/record-field/ui/types/guards/isF
 import { isFieldRelation } from '@/object-record/record-field/ui/types/guards/isFieldRelation';
 import { isFieldText } from '@/object-record/record-field/ui/types/guards/isFieldText';
 import { isFieldUuid } from '@/object-record/record-field/ui/types/guards/isFieldUuid';
-import { CurrencyCode } from 'twenty-shared/constants';
 import { CustomError } from 'twenty-shared/utils';
 
 type computeEmptyDraftValueParams = {
@@ -48,13 +47,15 @@ export const computeEmptyDraftValue = <FieldValue>({
       addressState: '',
       addressCountry: '',
       addressPostcode: '',
+      addressLat: null,
+      addressLng: null,
     } as unknown as FieldInputDraftValue<FieldValue>;
   }
 
   if (isFieldCurrency(fieldDefinition)) {
     return {
       amount: '',
-      currenyCode: CurrencyCode.USD,
+      currencyCode: '',
     } as unknown as FieldInputDraftValue<FieldValue>;
   }
 

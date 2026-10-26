@@ -4,7 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { NavigationMenuItemType } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 import { useIsMobile } from 'twenty-ui/utilities';
-import { type NavigationMenuItem } from '~/generated-metadata/graphql';
+import {
+  FeatureFlagKey,
+  type NavigationMenuItem,
+} from '~/generated-metadata/graphql';
 
 import { currentNavigationMenuItemFolderIdState } from '@/navigation-menu-item/common/states/currentNavigationMenuItemFolderIdState';
 import { lastClickedNavigationMenuItemIdState } from '@/navigation-menu-item/common/states/lastClickedNavigationMenuItemIdState';
@@ -16,6 +19,8 @@ import { useAtomState } from '@/ui/utilities/state/jotai/hooks/useAtomState';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
 import { viewsSelector } from '@/views/states/selectors/viewsSelector';
+import { lastVisitedViewPerObjectMetadataItemState } from '@/navigation/states/lastVisitedViewPerObjectMetadataItemState';
+import { useIsFeatureEnabled } from '@/workspace/hooks/useIsFeatureEnabled';
 
 type UseNavigationMenuItemFolderOpenStateParams = {
   folderId: string;
@@ -30,6 +35,12 @@ export const useNavigationMenuItemFolderOpenState = ({
   const isMobile = useIsMobile();
   const objectMetadataItems = useAtomStateValue(objectMetadataItemsSelector);
   const views = useAtomStateValue(viewsSelector);
+  const lastVisitedViewPerObjectMetadataItem = useAtomStateValue(
+    lastVisitedViewPerObjectMetadataItemState,
+  );
+  const isInitialObjectViewEnabled = useIsFeatureEnabled(
+    FeatureFlagKey.IS_INITIAL_OBJECT_VIEW_ENABLED,
+  );
 
   const [openNavigationMenuItemFolderIds, setOpenNavigationMenuItemFolderIds] =
     useAtomState(openNavigationMenuItemFolderIdsState);
@@ -46,9 +57,10 @@ export const useNavigationMenuItemFolderOpenState = ({
   const [isManuallyClosed, setIsManuallyClosed] = useState(false);
 
   const isExplicitlyOpen = openNavigationMenuItemFolderIds.includes(folderId);
-  const hasActiveChild = folderChildrenNavigationMenuItems.some((item) =>
+  const activeChildIndex = folderChildrenNavigationMenuItems.findIndex((item) =>
     activeNavigationMenuItemIds.includes(item.id),
   );
+  const hasActiveChild = activeChildIndex !== -1;
   const isOpen = isExplicitlyOpen || (hasActiveChild && !isManuallyClosed);
 
   const handleToggle = () => {
@@ -73,20 +85,24 @@ export const useNavigationMenuItemFolderOpenState = ({
           if (item.type === NavigationMenuItemType.LINK) {
             return false;
           }
-          const computedLink = getNavigationMenuItemComputedLink(
+          const computedLink = getNavigationMenuItemComputedLink({
             item,
             objectMetadataItems,
             views,
-          );
+            lastVisitedViewPerObjectMetadataItem,
+            isInitialObjectViewEnabled,
+          });
           return isNonEmptyString(computedLink);
         },
       );
       if (isDefined(firstNonLinkItem)) {
-        const link = getNavigationMenuItemComputedLink(
-          firstNonLinkItem,
+        const link = getNavigationMenuItemComputedLink({
+          item: firstNonLinkItem,
           objectMetadataItems,
           views,
-        );
+          lastVisitedViewPerObjectMetadataItem,
+          isInitialObjectViewEnabled,
+        });
         if (isNonEmptyString(link)) {
           setLastClickedNavigationMenuItemId(firstNonLinkItem.id);
           navigate(link);
@@ -99,5 +115,6 @@ export const useNavigationMenuItemFolderOpenState = ({
     isOpen,
     handleToggle,
     hasActiveChild,
+    activeChildIndex,
   };
 };

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment-options {"url": "https://twenty.foss.example.com/"}
+ */
 import { useAuth } from '@/auth/hooks/useAuth';
 
 import { MockedProvider } from '@apollo/client/testing/react';
@@ -11,11 +14,29 @@ import {
   results,
   token,
 } from '@/auth/hooks/__mocks__/useAuth';
-import { SnackBarComponentInstanceContext } from '@/ui/feedback/snack-bar-manager/contexts/SnackBarComponentInstanceContext';
-import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
+import {
+  type CurrentUser,
+  currentUserState,
+} from '@/auth/states/currentUserState';
+import {
+  type CurrentWorkspace,
+  currentWorkspaceState,
+} from '@/auth/states/currentWorkspaceState';
+import { isPendingServerSignOutState } from '@/auth/states/isPendingServerSignOutState';
 import { isSsoSignOutInProgressState } from '@/auth/states/isSsoSignOutInProgressState';
-import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
+import { returnToPathState } from '@/auth/states/returnToPathState';
+import { navigateBrowserTo } from '@/auth/utils/browserNavigation';
+import {
+  SSO_PROXY_LOGIN_MAX_ATTEMPTS,
+  canAttemptSsoProxyLogin,
+  getSsoProxyLoginAttemptStorage,
+  recordSsoProxyLoginAttempt,
+} from '@/auth/utils/ssoProxyLoginAttemptGuard';
 import { renderHook } from '@testing-library/react';
+import { getDefaultStore } from 'jotai';
+import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
+import { ToastProvider } from 'twenty-ui/components/feedback';
+import { SignOutDocument } from '~/generated-metadata/graphql';
 
 const redirectSpy = jest.fn();
 
@@ -68,14 +89,15 @@ jest.mock('@/domain-manager/hooks/useLastAuthenticatedWorkspaceDomain', () => ({
   })),
 }));
 
+const signOutMock = {
+  request: { query: SignOutDocument },
+  result: jest.fn(() => ({ data: { signOut: true } })),
+};
+
 const Wrapper = ({ children }: { children: ReactNode }) => (
-  <MockedProvider mocks={Object.values(mocks)}>
+  <MockedProvider mocks={[...Object.values(mocks), signOutMock]}>
     <MemoryRouter>
-      <SnackBarComponentInstanceContext.Provider
-        value={{ instanceId: 'test-instance-id' }}
-      >
-        {children}
-      </SnackBarComponentInstanceContext.Provider>
+      <ToastProvider>{children}</ToastProvider>
     </MemoryRouter>
   </MockedProvider>
 );
@@ -95,6 +117,9 @@ const renderHooks = () => {
 describe('useAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getDefaultStore().set(returnToPathState.atom, '');
+    getDefaultStore().set(isSsoSignOutInProgressState.atom, false);
+    getDefaultStore().set(isPendingServerSignOutState.atom, false);
   });
 
   it('should return login token object', async () => {
@@ -148,16 +173,67 @@ describe('useAuth', () => {
     );
   });
 
-  it('should handle sign-out', async () => {
-    sessionStorage.setItem('lingering-key', 'should-be-cleared');
+  it('should forward returnToPath to /auth/google when set in state', async () => {
+    getDefaultStore().set(
+      returnToPathState.atom,
+      '/authorize?response_type=code&client_id=abc&state=xyz',
+    );
 
     const { result } = renderHooks();
 
     await act(async () => {
-      result.current.signOut();
+      await result.current.signInWithGoogle({
+        action: 'list-available-workspaces',
+      });
+    });
+
+    const calledWithUrl = redirectSpy.mock.calls[0]?.[0] as string;
+    const parsed = new URL(calledWithUrl);
+
+    expect(parsed.pathname).toBe('/auth/google');
+    expect(parsed.searchParams.get('action')).toBe('list-available-workspaces');
+    expect(parsed.searchParams.get('returnToPath')).toBe(
+      '/authorize?response_type=code&client_id=abc&state=xyz',
+    );
+  });
+
+  it('should not forward an invalid (protocol-relative) returnToPath', async () => {
+    getDefaultStore().set(returnToPathState.atom, '//evil.example.com');
+
+    const { result } = renderHooks();
+
+    await act(async () => {
+      await result.current.signInWithGoogle({
+        action: 'list-available-workspaces',
+      });
+    });
+
+    const calledWithUrl = redirectSpy.mock.calls[0]?.[0] as string;
+    const parsed = new URL(calledWithUrl);
+
+    expect(parsed.searchParams.has('returnToPath')).toBe(false);
+  });
+
+  it('should handle sign-out', async () => {
+    sessionStorage.setItem('lingering-key', 'should-be-cleared');
+    getDefaultStore().set(currentWorkspaceState.atom, {
+      id: 'workspace-id',
+      activationStatus: WorkspaceActivationStatus.SUSPENDED,
+    } as CurrentWorkspace);
+    getDefaultStore().set(currentUserState.atom, {
+      id: 'user-id',
+    } as CurrentUser);
+
+    const { result } = renderHooks();
+
+    await act(async () => {
+      await result.current.signOut();
     });
 
     expect(sessionStorage.length).toBe(0);
+    expect(getDefaultStore().get(currentWorkspaceState.atom)).toBeNull();
+    expect(getDefaultStore().get(currentUserState.atom)).toBeNull();
+    expect(navigateBrowserToSpy).toHaveBeenCalledWith('/welcome');
   });
 
   it('should handle credential sign-up', async () => {
@@ -174,6 +250,8 @@ describe('useAuth', () => {
   });
 
   describe('SSO sign-out', () => {
+    const portalUrl = 'https://foss.example.com/';
+
     beforeAll(() => {
       if (!Object.prototype.hasOwnProperty.call(window, '_env_')) {
         Object.defineProperty(window, '_env_', {
@@ -186,46 +264,44 @@ describe('useAuth', () => {
 
     beforeEach(() => {
       jest.replaceProperty(window, '_env_', { AUTH_TYPE: 'SSO' });
+      window.localStorage.clear();
     });
 
-    it('navigates to the portal and marks the sign-out in progress', async () => {
-      const { result } = renderHook(
-        () => ({
-          auth: useAuth(),
-          isSignOutInProgress: useAtomStateValue(isSsoSignOutInProgressState),
-        }),
-        { wrapper: Wrapper },
-      );
-
-      expect(result.current.isSignOutInProgress).toBe(false);
+    it('lands on the portal and marks the sign-out in progress', async () => {
+      const { result } = renderHooks();
 
       await act(async () => {
-        result.current.auth.signOut();
+        await result.current.signOut();
       });
 
-      expect(navigateBrowserToSpy).toHaveBeenCalledWith(
-        `${window.location.protocol}//${window.location.host}/`,
+      expect(signOutMock.result).toHaveBeenCalled();
+      expect(getDefaultStore().get(isPendingServerSignOutState.atom)).toBe(
+        false,
       );
-      expect(result.current.isSignOutInProgress).toBe(true);
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith(portalUrl);
+      expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
+        true,
+      );
     });
 
-    it('endSessionLocally leaves for the portal and marks the sign-out in progress', async () => {
-      const { result } = renderHook(
-        () => ({
-          auth: useAuth(),
-          isSignOutInProgress: useAtomStateValue(isSsoSignOutInProgressState),
-        }),
-        { wrapper: Wrapper },
+    it('endSessionLocally lands on the portal and resets the proxy-login cap', async () => {
+      const storage = getSsoProxyLoginAttemptStorage();
+
+      Array.from({ length: SSO_PROXY_LOGIN_MAX_ATTEMPTS }).forEach(() =>
+        recordSsoProxyLoginAttempt(storage, Date.now()),
       );
+
+      const { result } = renderHooks();
 
       await act(async () => {
-        result.current.auth.endSessionLocally();
+        result.current.endSessionLocally();
       });
 
-      expect(navigateBrowserToSpy).toHaveBeenCalledWith(
-        `${window.location.protocol}//${window.location.host}/`,
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith(portalUrl);
+      expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
+        true,
       );
-      expect(result.current.isSignOutInProgress).toBe(true);
+      expect(canAttemptSsoProxyLogin(storage, Date.now())).toBe(true);
     });
 
     it('endSessionLocally keeps the non-SSO behaviour', async () => {
@@ -236,7 +312,10 @@ describe('useAuth', () => {
         result.current.endSessionLocally();
       });
 
-      expect(navigateBrowserToSpy).not.toHaveBeenCalled();
+      expect(navigateBrowserToSpy).toHaveBeenCalledWith('/welcome');
+      expect(getDefaultStore().get(isSsoSignOutInProgressState.atom)).toBe(
+        false,
+      );
     });
   });
 });

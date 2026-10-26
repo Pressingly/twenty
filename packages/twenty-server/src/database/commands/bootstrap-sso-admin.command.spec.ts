@@ -129,6 +129,18 @@ describe('BootstrapSsoAdminCommand', () => {
     );
   });
 
+  it('looks up the Admin role scoped to the SMB workspace', async () => {
+    const { command, roleRepository } = buildCommand();
+
+    await command.run([], { email: 'admin@askii.ai' });
+
+    expect(roleRepository.findOne).toHaveBeenCalledWith('workspace-id-1', {
+      where: {
+        universalIdentifier: expect.any(String),
+      },
+    });
+  });
+
   it('newly provisions Admin user when no userWorkspace exists (cold start)', async () => {
     const { command, userRepository, userWorkspaceService } = buildCommand({
       helperResult: { wasExistingMember: false },

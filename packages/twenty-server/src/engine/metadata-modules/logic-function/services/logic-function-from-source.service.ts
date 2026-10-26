@@ -4,7 +4,6 @@ import crypto from 'crypto';
 
 import { v4 } from 'uuid';
 import { isDefined } from 'twenty-shared/utils';
-import { SEED_LOGIC_FUNCTION_INPUT_SCHEMA } from 'twenty-shared/logic-function';
 
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
@@ -15,6 +14,7 @@ import { findFlatEntityByIdInFlatEntityMapsOrThrow } from 'src/engine/metadata-m
 import { CreateLogicFunctionFromSourceInput } from 'src/engine/metadata-modules/logic-function/dtos/create-logic-function-from-source.input';
 import { LogicFunctionExecutionResultDTO } from 'src/engine/metadata-modules/logic-function/dtos/logic-function-execution-result.dto';
 import { LogicFunctionDTO } from 'src/engine/metadata-modules/logic-function/dtos/logic-function.dto';
+import { LogicFunctionExecutionMode } from 'src/engine/metadata-modules/logic-function/logic-function.entity';
 import {
   LogicFunctionException,
   LogicFunctionExceptionCode,
@@ -76,7 +76,6 @@ export class LogicFunctionFromSourceService {
             builtHandlerPath,
             handlerName: input.source.handlerName,
             checksum: null,
-            toolInputSchema: input.source.toolInputSchema,
             isBuildUpToDate: false,
             applicationUniversalIdentifier:
               ownerFlatApplication.universalIdentifier,
@@ -111,7 +110,6 @@ export class LogicFunctionFromSourceService {
           builtHandlerPath,
           handlerName,
           checksum,
-          toolInputSchema: SEED_LOGIC_FUNCTION_INPUT_SCHEMA,
           isBuildUpToDate: true,
           applicationUniversalIdentifier:
             ownerFlatApplication.universalIdentifier,
@@ -137,7 +135,7 @@ export class LogicFunctionFromSourceService {
     workspaceId: string;
   }): Promise<{ id: string }> {
     const { flatLogicFunction: existingLogicFunction, ownerFlatApplication } =
-      await this.helperService.findLogicFunctionAndApplicationOrThrow({
+      await this.helperService.findWorkspaceCustomLogicFunctionOrThrow({
         id: existingLogicFunctionId,
         workspaceId,
       });
@@ -170,10 +168,9 @@ export class LogicFunctionFromSourceService {
         name: existingLogicFunction.name,
         description: existingLogicFunction.description,
         timeoutSeconds: existingLogicFunction.timeoutSeconds,
-        toolInputSchema: existingLogicFunction.toolInputSchema,
-        isTool: existingLogicFunction.isTool,
         isBuildUpToDate: existingLogicFunction.isBuildUpToDate,
         checksum: existingLogicFunction.checksum,
+        executionMode: LogicFunctionExecutionMode.LIVE,
         handlerName: existingLogicFunction.handlerName,
         sourceHandlerPath: toSourceHandlerPath,
         builtHandlerPath: toBuiltHandlerPath,
@@ -182,6 +179,9 @@ export class LogicFunctionFromSourceService {
           existingLogicFunction.databaseEventTriggerSettings,
         httpRouteTriggerSettings:
           existingLogicFunction.httpRouteTriggerSettings,
+        toolTriggerSettings: existingLogicFunction.toolTriggerSettings,
+        workflowActionTriggerSettings:
+          existingLogicFunction.workflowActionTriggerSettings,
         applicationUniversalIdentifier:
           ownerFlatApplication.universalIdentifier,
       });
@@ -209,7 +209,7 @@ export class LogicFunctionFromSourceService {
     workspaceId: string;
   }): Promise<void> {
     const { flatLogicFunction, ownerFlatApplication } =
-      await this.helperService.findLogicFunctionAndApplicationOrThrow({
+      await this.helperService.findWorkspaceCustomLogicFunctionOrThrow({
         id: updateLogicFunctionFromSourceInput.id,
         workspaceId,
       });
@@ -253,14 +253,14 @@ export class LogicFunctionFromSourceService {
   }): Promise<LogicFunctionDTO> {
     const {
       flatLogicFunction: existingFlatLogicFunction,
-      ownerFlatApplication: resolvedOwnerFlatApplication,
+      workspaceCustomFlatApplication,
     } = await this.helperService.findLogicFunctionAndApplicationOrThrow({
       id,
       workspaceId,
     });
 
     const effectiveOwnerFlatApplication =
-      ownerFlatApplication ?? resolvedOwnerFlatApplication;
+      ownerFlatApplication ?? workspaceCustomFlatApplication;
 
     const validateAndBuildResult =
       await this.workspaceMigrationValidateBuildAndRunService.validateBuildAndRunWorkspaceMigration(
@@ -299,7 +299,7 @@ export class LogicFunctionFromSourceService {
     workspaceId: string;
   }): Promise<void> {
     const { flatLogicFunction, ownerFlatApplication } =
-      await this.helperService.findLogicFunctionAndApplicationOrThrow({
+      await this.helperService.findWorkspaceCustomLogicFunctionOrThrow({
         id,
         workspaceId,
       });
@@ -348,13 +348,17 @@ export class LogicFunctionFromSourceService {
     id,
     payload,
     workspaceId,
+    userId,
+    userWorkspaceId,
   }: {
     id: string;
     payload: object;
     workspaceId: string;
+    userId?: string;
+    userWorkspaceId?: string;
   }): Promise<LogicFunctionExecutionResultDTO> {
     const { flatLogicFunction } =
-      await this.helperService.findLogicFunctionAndApplicationOrThrow({
+      await this.helperService.findLogicFunctionRunnableOnDemandOrThrow({
         id,
         workspaceId,
       });
@@ -367,6 +371,9 @@ export class LogicFunctionFromSourceService {
       logicFunctionId: id,
       workspaceId,
       payload,
+      userId,
+      userWorkspaceId,
+      executionMode: LogicFunctionExecutionMode.LIVE,
     });
 
     return {
@@ -394,7 +401,7 @@ export class LogicFunctionFromSourceService {
     workspaceId: string;
   }): Promise<string | null> {
     const { flatLogicFunction, ownerFlatApplication } =
-      await this.helperService.findLogicFunctionAndApplicationOrThrow({
+      await this.helperService.findWorkspaceCustomLogicFunctionOrThrow({
         id,
         workspaceId,
       });

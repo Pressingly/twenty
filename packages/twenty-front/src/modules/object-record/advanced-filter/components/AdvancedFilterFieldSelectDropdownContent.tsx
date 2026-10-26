@@ -1,7 +1,10 @@
+import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
+import { AdvancedFilterCompositeSubFieldSelectMenu } from '@/object-record/advanced-filter/components/AdvancedFilterCompositeSubFieldSelectMenu';
 import { AdvancedFilterFieldSelectMenu } from '@/object-record/advanced-filter/components/AdvancedFilterFieldSelectMenu';
-import { AdvancedFilterSubFieldSelectMenu } from '@/object-record/advanced-filter/components/AdvancedFilterSubFieldSelectMenu';
-import { objectFilterDropdownIsSelectingCompositeFieldComponentState } from '@/object-record/object-filter-dropdown/states/objectFilterDropdownIsSelectingCompositeFieldComponentState';
-import { useAtomComponentState } from '@/ui/utilities/state/jotai/hooks/useAtomComponentState';
+import { AdvancedFilterRelationTargetFieldSelectMenu } from '@/object-record/advanced-filter/components/AdvancedFilterRelationTargetFieldSelectMenu';
+import { useState } from 'react';
+import { isDefined } from 'twenty-shared/utils';
+import { Dropdown } from 'twenty-ui/components/navigation';
 
 type AdvancedFilterFieldSelectDropdownContentProps = {
   recordFilterId: string;
@@ -10,16 +13,36 @@ type AdvancedFilterFieldSelectDropdownContentProps = {
 export const AdvancedFilterFieldSelectDropdownContent = ({
   recordFilterId,
 }: AdvancedFilterFieldSelectDropdownContentProps) => {
-  const [objectFilterDropdownIsSelectingCompositeField] = useAtomComponentState(
-    objectFilterDropdownIsSelectingCompositeFieldComponentState,
-  );
+  const [searchInput, setSearchInput] = useState('');
+  const [subPageFieldMetadataItem, setSubPageFieldMetadataItem] =
+    useState<FieldMetadataItem | null>(null);
 
-  const shouldShowCompositeSelectionSubMenu =
-    objectFilterDropdownIsSelectingCompositeField;
-
-  return shouldShowCompositeSelectionSubMenu ? (
-    <AdvancedFilterSubFieldSelectMenu recordFilterId={recordFilterId} />
-  ) : (
-    <AdvancedFilterFieldSelectMenu recordFilterId={recordFilterId} />
+  return (
+    <>
+      <Dropdown.Page id="root">
+        <AdvancedFilterFieldSelectMenu
+          recordFilterId={recordFilterId}
+          searchInput={searchInput}
+          onSearchInputChange={setSearchInput}
+          onSubPageFieldMetadataItemSelect={setSubPageFieldMetadataItem}
+        />
+      </Dropdown.Page>
+      <Dropdown.Page id="composite">
+        {isDefined(subPageFieldMetadataItem) && (
+          <AdvancedFilterCompositeSubFieldSelectMenu
+            recordFilterId={recordFilterId}
+            fieldMetadataItem={subPageFieldMetadataItem}
+          />
+        )}
+      </Dropdown.Page>
+      <Dropdown.Page id="relation-target">
+        {isDefined(subPageFieldMetadataItem) && (
+          <AdvancedFilterRelationTargetFieldSelectMenu
+            recordFilterId={recordFilterId}
+            sourceFieldMetadataItem={subPageFieldMetadataItem}
+          />
+        )}
+      </Dropdown.Page>
+    </>
   );
 };

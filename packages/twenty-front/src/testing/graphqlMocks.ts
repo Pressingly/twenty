@@ -15,16 +15,20 @@ import { mockedPublicWorkspaceDataBySubdomain } from '~/testing/mock-data/public
 import { mockedUserData } from '~/testing/mock-data/users';
 
 import { GET_PUBLIC_WORKSPACE_DATA_BY_DOMAIN } from '@/auth/graphql/queries/getPublicWorkspaceDataByDomain';
+import { BILLING_PORTAL_SESSION } from '@/settings/billing/graphql/queries/billingPortalSession';
+import { GET_RESOURCE_CREDIT_USAGE } from '@/settings/billing/graphql/queries/getResourceCreditUsage';
 import { LIST_PLANS } from '@/settings/billing/graphql/queries/listPlans';
+import { GET_ROLE } from '@/settings/roles/graphql/queries/getRoleQuery';
 import { GET_ROLES } from '@/settings/roles/graphql/queries/getRolesQuery';
 import { mockBillingPlans } from '~/testing/mock-data/billing-plans';
 import { mockedCompanyRecords } from '~/testing/mock-data/generated/data/companies/mock-companies-data';
 import { mockedTaskRecords } from '~/testing/mock-data/generated/data/tasks/mock-tasks-data';
 import { mockedStandardObjectMetadataQueryResult } from '~/testing/mock-data/generated/metadata/objects/mock-objects-metadata';
 import { mockedRoles } from '~/testing/mock-data/generated/metadata/roles/mock-roles-data';
-import { mockedBackendCommandMenuItems } from '~/testing/mock-data/command-menu-items';
+import { mockedCommandMenuItems } from '~/testing/mock-data/generated/metadata/command-menu-items/mock-command-menu-items-data';
 
 import { type Task } from '@/activities/types/Task';
+import { getJunctionRecordsFromRecord } from '@/object-record/record-field/ui/utils/junction/getJunctionRecordsFromRecord';
 import { FIND_MINIMAL_METADATA } from '@/metadata-store/graphql/queries/findMinimalMetadata';
 import {
   getConnectionTypename,
@@ -54,8 +58,6 @@ const flatTaskRecords = mockedTaskRecords.map((record) =>
   getRecordFromRecordNode<Task>({ recordNode: record }),
 );
 
-// Wraps raw server-fetched records (which already have correct field shapes)
-// into a GraphQL connection response structure.
 const wrapRecordsAsConnection = (
   objectNameSingular: string,
   records: Record<string, unknown>[],
@@ -207,6 +209,11 @@ export const graphqlMocks = {
         data: { getPageLayouts: [] },
       });
     }),
+    metadataGraphql.query('FindAllRecordFormPageLayouts', () => {
+      return HttpResponse.json({
+        data: { getPageLayouts: [] },
+      });
+    }),
     metadataGraphql.query('FindManyLogicFunctions', () => {
       return HttpResponse.json({
         data: { findManyLogicFunctions: [] },
@@ -219,7 +226,7 @@ export const graphqlMocks = {
     }),
     metadataGraphql.query('FindManyCommandMenuItems', () => {
       return HttpResponse.json({
-        data: { commandMenuItems: mockedBackendCommandMenuItems },
+        data: { commandMenuItems: mockedCommandMenuItems },
       });
     }),
     graphql.query('SearchPeople', () => {
@@ -444,16 +451,16 @@ export const graphqlMocks = {
       });
     }),
     graphql.query('FindManyTaskTargets', () => {
-      const taskTargetNodes = flatTaskRecords.flatMap(
-        (task) => task.taskTargets ?? [],
+      const taskTargetNodes = flatTaskRecords.flatMap((task) =>
+        getJunctionRecordsFromRecord({
+          record: task,
+          junctionFieldName: 'taskTargets',
+        }),
       );
 
       return HttpResponse.json({
         data: {
-          taskTargets: wrapRecordsAsConnection(
-            'taskTarget',
-            taskTargetNodes as Record<string, unknown>[],
-          ),
+          taskTargets: wrapRecordsAsConnection('taskTarget', taskTargetNodes),
         },
       });
     }),
@@ -520,12 +527,49 @@ export const graphqlMocks = {
       return HttpResponse.json({
         data: {
           getRoles: mockedRoles,
+          getPermissionFlags: [],
+        },
+      });
+    }),
+    graphql.query(getOperationName(GET_ROLE) ?? '', ({ variables }) => {
+      const role = mockedRoles.find((role) => role.id === variables.id);
+
+      return HttpResponse.json({
+        data: {
+          getRole: role ?? null,
         },
       });
     }),
     graphql.query(getOperationName(LIST_PLANS) ?? '', () => {
       return HttpResponse.json({
         data: mockBillingPlans,
+      });
+    }),
+    graphql.query(getOperationName(GET_RESOURCE_CREDIT_USAGE) ?? '', () => {
+      return HttpResponse.json({
+        data: {
+          getResourceCreditUsage: [
+            {
+              __typename: 'BillingResourceCreditUsage',
+              productKey: 'RESOURCE_CREDIT',
+              usedCredits: 1000,
+              grantedCredits: 500000,
+              rolloverCredits: 0,
+              totalGrantedCredits: 500000,
+              unitPriceCents: 1,
+            },
+          ],
+        },
+      });
+    }),
+    graphql.query(getOperationName(BILLING_PORTAL_SESSION) ?? '', () => {
+      return HttpResponse.json({
+        data: {
+          billingPortalSession: {
+            __typename: 'BillingSession',
+            url: 'https://billing.stripe.com/p/mock-portal-session',
+          },
+        },
       });
     }),
     http.get('https://chat-assets.frontapp.com/v1/chat.bundle.js', () => {

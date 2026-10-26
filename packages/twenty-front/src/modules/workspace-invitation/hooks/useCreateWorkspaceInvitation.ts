@@ -1,26 +1,25 @@
+import { getToastOptionsFromError } from '@/error-handler/utils/getToastOptionsFromError';
 import { useMutation } from '@apollo/client/react';
+import { useToast } from 'twenty-ui/components/feedback';
 import {
   type SendInvitationsMutationVariables,
+  GetWorkspaceInvitationsDocument,
   SendInvitationsDocument,
 } from '~/generated-metadata/graphql';
-import { workspaceInvitationsState } from '@/workspace-invitation/states/workspaceInvitationsStates';
-import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
 
 export const useCreateWorkspaceInvitation = () => {
   const [sendInvitationsMutation] = useMutation(SendInvitationsDocument);
 
-  const setWorkspaceInvitations = useSetAtomState(workspaceInvitationsState);
+  const { enqueueToast } = useToast();
 
   const sendInvitation = async (
     variables: SendInvitationsMutationVariables,
   ) => {
     return await sendInvitationsMutation({
       variables,
-      onCompleted: (data) => {
-        setWorkspaceInvitations((workspaceInvitations) => [
-          ...workspaceInvitations,
-          ...data.sendInvitations.result,
-        ]);
+      refetchQueries: [GetWorkspaceInvitationsDocument],
+      onError: (error) => {
+        enqueueToast(getToastOptionsFromError({ error }));
       },
     });
   };

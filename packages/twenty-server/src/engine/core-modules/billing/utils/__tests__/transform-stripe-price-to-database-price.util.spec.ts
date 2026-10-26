@@ -51,6 +51,7 @@ describe('transformStripePriceToDatabasePrice', () => {
       transformQuantity: undefined,
       usageType: BillingUsageType.LICENSED,
       interval: SubscriptionInterval.Month,
+      metadata: {},
       currencyOptions: undefined,
       tiers: undefined,
       recurring: {
@@ -59,6 +60,22 @@ describe('transformStripePriceToDatabasePrice', () => {
         meter: null,
       },
     });
+  });
+
+  it('keeps a zero unit amount rather than dropping it', () => {
+    const result = transformStripePriceToDatabasePrice(
+      createMockPrice({ unit_amount: 0, unit_amount_decimal: '0' }),
+    );
+
+    expect(result.unitAmount).toBe(0);
+  });
+
+  it('leaves unitAmount undefined when Stripe reports none', () => {
+    const result = transformStripePriceToDatabasePrice(
+      createMockPrice({ unit_amount: null }),
+    );
+
+    expect(result.unitAmount).toBeUndefined();
   });
 
   describe('tax behavior transformations', () => {

@@ -3,11 +3,13 @@ import { SettingsLogicFunctionCronTriggerSection } from '@/settings/logic-functi
 import { SettingsLogicFunctionDatabaseEventTriggerSection } from '@/settings/logic-functions/components/triggers/SettingsLogicFunctionDatabaseEventTriggerSection';
 import { SettingsLogicFunctionHttpTriggerSection } from '@/settings/logic-functions/components/triggers/SettingsLogicFunctionHttpTriggerSection';
 import { SettingsLogicFunctionToolTriggerSection } from '@/settings/logic-functions/components/triggers/SettingsLogicFunctionToolTriggerSection';
+import { SettingsLogicFunctionWorkflowActionTriggerSection } from '@/settings/logic-functions/components/triggers/SettingsLogicFunctionWorkflowActionTriggerSection';
 import { styled } from '@linaria/react';
 import { useLingui } from '@lingui/react/macro';
 import { isDefined } from 'twenty-shared/utils';
-import { Callout, IconInfoCircle } from 'twenty-ui/display';
-import { themeCssVariables } from 'twenty-ui/theme-constants';
+import { Callout } from 'twenty-ui/components/feedback';
+import { IconInfoCircle } from 'twenty-ui/icon';
+import { themeCssVariables } from 'twenty-ui/theme';
 
 const StyledEmptyState = styled.div`
   background-color: ${themeCssVariables.background.secondary};
@@ -42,14 +44,20 @@ export const SettingsLogicFunctionTriggersTab = ({
     isDefined(formValues.httpRouteTriggerSettings) ||
     isDefined(formValues.cronTriggerSettings) ||
     isDefined(formValues.databaseEventTriggerSettings) ||
-    formValues.isTool;
+    isDefined(formValues.toolTriggerSettings) ||
+    isDefined(formValues.workflowActionTriggerSettings);
 
   if (readonly && !hasAnyTrigger) {
     return isDefined(applicationName) ? (
       <StyledCalloutWrapper>
         <Callout
-          variant="info"
-          Icon={IconInfoCircle}
+          status="info"
+          icon={
+            <IconInfoCircle
+              size={themeCssVariables.icon.size.md}
+              aria-hidden="true"
+            />
+          }
           title={t`Bundled with ${applicationName}`}
           description={t`This function has no trigger configured, so it can only be invoked from the Test tab or by other functions.`}
         />
@@ -79,9 +87,13 @@ export const SettingsLogicFunctionTriggersTab = ({
         readonly={readonly}
       />
       <SettingsLogicFunctionToolTriggerSection
-        isTool={formValues.isTool}
-        toolInputSchema={formValues.toolInputSchema}
-        onChange={onChange('isTool')}
+        value={formValues.toolTriggerSettings}
+        onChange={onChange('toolTriggerSettings')}
+        readonly={readonly}
+      />
+      <SettingsLogicFunctionWorkflowActionTriggerSection
+        value={formValues.workflowActionTriggerSettings}
+        onChange={onChange('workflowActionTriggerSettings')}
         readonly={readonly}
       />
       {!readonly && !hasAnyTrigger && (

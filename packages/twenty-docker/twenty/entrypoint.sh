@@ -16,9 +16,21 @@ setup_and_migrate_db() {
         yarn database:init:prod
     fi
 
-    yarn command:prod cache:flush
-    yarn command:prod upgrade
-    yarn command:prod cache:flush
+    if ! yarn command:prod cache:flush; then
+        echo "Warning: Failed to flush cache before upgrade, but continuing startup..."
+    fi
+
+    if ! yarn command:prod upgrade; then
+        if [ "${UPGRADE_CONTINUE_ON_ERROR}" != "true" ]; then
+            echo "Error: Upgrade failed, refusing to start on a partially migrated database. Set UPGRADE_CONTINUE_ON_ERROR=true to start anyway." >&2
+            exit 1
+        fi
+        echo "Warning: Upgrade completed with errors. Some workspaces may not be fully migrated. Check logs for details."
+    fi
+
+    if ! yarn command:prod cache:flush; then
+        echo "Warning: Failed to flush cache after upgrade, but continuing startup..."
+    fi
 
     echo "Successfully migrated DB!"
 }

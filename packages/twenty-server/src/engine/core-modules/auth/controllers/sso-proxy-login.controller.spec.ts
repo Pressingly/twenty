@@ -2,13 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 
 import { SsoProxyLoginController } from 'src/engine/core-modules/auth/controllers/sso-proxy-login.controller';
 
-type ConfigKey =
-  | 'AUTH_TYPE'
-  | 'DEFAULT_EMAIL_DOMAIN'
-  | 'ACCESS_TOKEN_EXPIRES_IN'
-  | 'REFRESH_TOKEN_EXPIRES_IN'
-  | 'SERVER_URL'
-  | 'SMB_CORPORATE_ID';
+type ConfigKey = 'AUTH_TYPE' | 'DEFAULT_EMAIL_DOMAIN' | 'SMB_CORPORATE_ID';
 
 type Headers = string | string[] | undefined;
 
@@ -18,9 +12,6 @@ const buildController = (
   const config: Record<ConfigKey, unknown> = {
     AUTH_TYPE: 'SSO',
     DEFAULT_EMAIL_DOMAIN: 'askii.ai',
-    ACCESS_TOKEN_EXPIRES_IN: '30m',
-    REFRESH_TOKEN_EXPIRES_IN: '60d',
-    SERVER_URL: 'https://twenty.example.com',
     SMB_CORPORATE_ID: '',
     ...configOverrides,
   };
@@ -34,24 +25,17 @@ const buildController = (
       workspace: { id: 'workspace-1', subdomain: 'askii' },
     }),
   };
-  const accessTokenService = {
-    generateAccessToken: jest.fn().mockResolvedValue({
-      token: 'access-jwt',
+  const loginTokenService = {
+    generateLoginToken: jest.fn().mockResolvedValue({
+      token: 'login-jwt',
       expiresAt: new Date('2026-04-29T00:00:00Z'),
-    }),
-  };
-  const refreshTokenService = {
-    generateRefreshToken: jest.fn().mockResolvedValue({
-      token: 'refresh-jwt',
-      expiresAt: new Date('2026-06-29T00:00:00Z'),
     }),
   };
 
   const controller = new SsoProxyLoginController(
     twentyConfigService as any,
     ssoUserProvisioningService as any,
-    accessTokenService as any,
-    refreshTokenService as any,
+    loginTokenService as any,
   );
 
   const res: any = {
@@ -66,7 +50,7 @@ const buildController = (
     headerUser: Headers = undefined,
     query: Record<string, unknown> = {},
   ) => {
-    const req: any = { query, get: jest.fn() };
+    const req: any = { query, get: jest.fn(() => undefined) };
 
     return controller.proxyLogin(req, headerEmail, headerUser, res);
   };
@@ -75,8 +59,7 @@ const buildController = (
     controller,
     twentyConfigService,
     ssoUserProvisioningService,
-    accessTokenService,
-    refreshTokenService,
+    loginTokenService,
     res,
     proxyLogin,
   };
@@ -109,7 +92,7 @@ describe('SsoProxyLoginController', () => {
     );
   });
 
-  it('should provision user from X-Auth-Request-Email and redirect', async () => {
+  it('should provision user from X-Auth-Request-Email and redirect to /verify with a login token', async () => {
     const { ssoUserProvisioningService, res, proxyLogin } = buildController();
 
     await proxyLogin('someone@askii.ai');
@@ -117,17 +100,44 @@ describe('SsoProxyLoginController', () => {
     expect(ssoUserProvisioningService.findOrProvision).toHaveBeenCalledWith(
       'someone@askii.ai',
     );
-    expect(res.cookie).toHaveBeenCalledWith(
-      'tokenPair',
-      expect.stringContaining('access-jwt'),
-      expect.objectContaining({
-        path: '/',
-        sameSite: 'lax',
-        secure: true,
-        httpOnly: false,
-      }),
+    expect(res.cookie).not.toHaveBeenCalled();
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      '/verify?loginToken=login-jwt',
     );
-    expect(res.redirect).toHaveBeenCalledWith(302, '/');
+  });
+
+  it('should carry a same-origin returnToPath through to /verify', async () => {
+    const { res, proxyLogin } = buildController();
+
+    await proxyLogin('someone@askii.ai', undefined, {
+      returnToPath: '/authorize?clientId=abc',
+    });
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      `/verify?loginToken=login-jwt&returnToPath=${encodeURIComponent('/authorize?clientId=abc')}`,
+    );
+  });
+
+  it.each([
+    ['protocol-relative', '//evil.com'],
+    ['backslash', '/\\evil.com'],
+    ['tab-smuggled', '/\t/evil.com'],
+    ['newline-smuggled', '/\n/evil.com'],
+    ['root', '/'],
+    ['sign-in page', '/welcome'],
+    ['mixed-case sign-in page', '/Welcome?x=1'],
+    ['percent-encoded sign-in page', '/%77elcome'],
+  ])('should drop a %s returnToPath', async (_label, returnToPath) => {
+    const { res, proxyLogin } = buildController();
+
+    await proxyLogin('someone@askii.ai', undefined, { returnToPath });
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      '/verify?loginToken=login-jwt',
+    );
   });
 
   it('should synthesize email when X-Auth-Request-User has no @-sign', async () => {
@@ -160,47 +170,6 @@ describe('SsoProxyLoginController', () => {
     );
   });
 
-  it('should set tokenPair cookie maxAge from REFRESH_TOKEN_EXPIRES_IN, not the access token', async () => {
-    const { res, proxyLogin } = buildController({
-      ACCESS_TOKEN_EXPIRES_IN: '15m',
-      REFRESH_TOKEN_EXPIRES_IN: '7d',
-    });
-
-    await proxyLogin('someone@askii.ai');
-
-    expect(res.cookie).toHaveBeenCalledWith(
-      'tokenPair',
-      expect.any(String),
-      expect.objectContaining({ maxAge: 7 * 24 * 60 * 60 * 1000 }),
-    );
-  });
-
-  it('should set Secure cookie flag based on SERVER_URL scheme', async () => {
-    const { res: httpsRes, proxyLogin: httpsProxyLogin } = buildController({
-      SERVER_URL: 'https://twenty.example.com',
-    });
-
-    await httpsProxyLogin('someone@askii.ai');
-
-    expect(httpsRes.cookie).toHaveBeenCalledWith(
-      'tokenPair',
-      expect.any(String),
-      expect.objectContaining({ secure: true }),
-    );
-
-    const { res: httpRes, proxyLogin: httpProxyLogin } = buildController({
-      SERVER_URL: 'http://localhost:3000',
-    });
-
-    await httpProxyLogin('someone@askii.ai');
-
-    expect(httpRes.cookie).toHaveBeenCalledWith(
-      'tokenPair',
-      expect.any(String),
-      expect.objectContaining({ secure: false }),
-    );
-  });
-
   it('should 404 when bare username arrives without DEFAULT_EMAIL_DOMAIN configured', async () => {
     const { proxyLogin } = buildController({ DEFAULT_EMAIL_DOMAIN: '' });
 
@@ -209,60 +178,15 @@ describe('SsoProxyLoginController', () => {
     );
   });
 
-  it('should pass authProvider=SSO when issuing tokens', async () => {
-    const { accessTokenService, refreshTokenService, proxyLogin } =
-      buildController();
+  it('should issue the login token for the provisioned user with authProvider=SSO', async () => {
+    const { loginTokenService, proxyLogin } = buildController();
 
     await proxyLogin('someone@askii.ai');
 
-    expect(accessTokenService.generateAccessToken).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-1',
-        workspaceId: 'workspace-1',
-        authProvider: 'sso',
-      }),
+    expect(loginTokenService.generateLoginToken).toHaveBeenCalledWith(
+      'user@askii.ai',
+      'workspace-1',
+      'sso',
     );
-    expect(refreshTokenService.generateRefreshToken).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-1',
-        workspaceId: 'workspace-1',
-        authProvider: 'sso',
-      }),
-    );
-  });
-
-  describe('returnToPath', () => {
-    it('should redirect to a valid same-origin returnToPath', async () => {
-      const { res, proxyLogin } = buildController();
-
-      await proxyLogin('someone@askii.ai', undefined, {
-        returnToPath: '/authorize?client_id=abc',
-      });
-
-      expect(res.redirect).toHaveBeenCalledWith(
-        302,
-        '/authorize?client_id=abc',
-      );
-    });
-
-    it('should redirect to / when returnToPath is the sign-in page', async () => {
-      const { res, proxyLogin } = buildController();
-
-      await proxyLogin('someone@askii.ai', undefined, {
-        returnToPath: '/welcome',
-      });
-
-      expect(res.redirect).toHaveBeenCalledWith(302, '/');
-    });
-
-    it('should redirect to / when returnToPath is protocol-relative', async () => {
-      const { res, proxyLogin } = buildController();
-
-      await proxyLogin('someone@askii.ai', undefined, {
-        returnToPath: '//evil.com',
-      });
-
-      expect(res.redirect).toHaveBeenCalledWith(302, '/');
-    });
   });
 });

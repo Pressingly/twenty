@@ -14,7 +14,7 @@ import { bindDataToRequestObject } from 'src/engine/utils/bind-data-to-request-o
 import {
   CorporateIdError,
   assertCorporateId,
-  clearTokenPairCookie,
+  clearSessionCookie,
   matchesProxyIdentity,
 } from 'src/engine/utils/proxy-identity.util';
 import { WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
@@ -38,19 +38,19 @@ export class JwtAuthGuard implements CanActivate {
         await this.accessTokenService.validateTokenByRequest(request);
 
       // SSO stale-session detection (proxy-auth-middleware Rule 2). When
-      // oauth2-proxy asserts a different identity than what this JWT was
-      // issued for, the tokenPair cookie that produced this Bearer is stale.
+      // oauth2-proxy asserts a different identity than what this session was
+      // issued for, the session cookie is stale.
       //
       // Repro: portal "Logout all" clears the shared _oauth2_proxy cookie
-      // and Cognito SSO but NOT Twenty's tokenPair cookie on its subdomain.
+      // and Cognito SSO but NOT Twenty's session cookie on its subdomain.
       // A different user then logs in upstream and refreshes the Twenty tab.
-      // Without this check, validateTokenByRequest happily decodes the
-      // stale Bearer and we serve the previous user.
+      // Without this check, validateTokenByRequest happily resolves the
+      // stale session and we serve the previous user.
       //
-      // On mismatch: clear the tokenPair cookie BEFORE returning false so
-      // the browser stops sending the stale Bearer. The frontend bootstrap
-      // then has no tokenPair → routes through /auth/sso/proxy-login →
-      // new tokens issued for the new upstream user.
+      // On mismatch: clear the session cookie BEFORE returning false so
+      // the browser stops sending it. The frontend bootstrap then has no
+      // session → routes through /auth/sso/proxy-login → a new session is
+      // issued for the new upstream user.
       //
       // Gating:
       //   - AUTH_TYPE=SSO  — non-SSO deployments use Twenty's native auth,
@@ -67,9 +67,9 @@ export class JwtAuthGuard implements CanActivate {
           this.twentyConfigService,
         )
       ) {
-        clearTokenPairCookie(response);
+        clearSessionCookie(response, this.twentyConfigService);
         this.logger.warn(
-          `Auth refused: proxy identity differs from JWT user; tokenPair cleared`,
+          `Auth refused: proxy identity differs from JWT user; session cookie cleared`,
         );
 
         return false;

@@ -1,14 +1,16 @@
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { formatFieldMetadataItemAsFieldDefinition } from '@/object-metadata/utils/formatFieldMetadataItemAsFieldDefinition';
 import { FormFieldInput } from '@/object-record/record-field/ui/components/FormFieldInput';
+import { getRecordFormFieldInputSettings } from '@/object-record/record-form/utils/getRecordFormFieldInputSettings';
 import { isFieldRelation } from '@/object-record/record-field/ui/types/guards/isFieldRelation';
 import { type UpdateMultipleRecordsState } from '@/object-record/record-update-multiple/components/UpdateMultipleRecordsContainer';
 import { isUpdateRecordValueEmpty } from '@/object-record/record-update-multiple/utils/isUpdateRecordValueEmpty';
 import { shouldDisplayFormMultiEditField } from '@/object-record/record-update-multiple/utils/shouldDisplayFormMultiEditField';
 import { styled } from '@linaria/react';
 import { FieldMetadataType } from 'twenty-shared/types';
-import { Section } from 'twenty-ui/layout';
-import { themeCssVariables } from 'twenty-ui/theme-constants';
+import { computeRelationGqlFieldJoinColumnName } from 'twenty-shared/utils';
+import { Section } from 'twenty-ui/components/layout';
+import { themeCssVariables } from 'twenty-ui/theme';
 
 const StyledSectionContainer = styled.div`
   > * {
@@ -53,13 +55,15 @@ export const UpdateMultipleRecordsForm = ({
 
   return (
     <StyledSectionContainer>
-      <Section>
+      <Section.Root>
         {fieldsWithDefinitions.map(({ fieldMetadataItem, fieldDefinition }) => {
           const fieldName = fieldDefinition.metadata.fieldName;
           const isRelation = isFieldRelation(fieldDefinition);
           const fieldNameOrRelationIdName =
             isRelation && fieldMetadataItem.type === FieldMetadataType.RELATION
-              ? (fieldMetadataItem.settings?.joinColumnName as string)
+              ? computeRelationGqlFieldJoinColumnName({
+                  name: fieldMetadataItem.name,
+                })
               : fieldName;
 
           const value = values[fieldNameOrRelationIdName];
@@ -82,10 +86,11 @@ export const UpdateMultipleRecordsForm = ({
               defaultValue={value}
               onChange={handleValueChange}
               onClear={() => onChange(fieldNameOrRelationIdName, undefined)}
+              settings={getRecordFormFieldInputSettings(fieldMetadataItem.type)}
             />
           );
         })}
-      </Section>
+      </Section.Root>
     </StyledSectionContainer>
   );
 };

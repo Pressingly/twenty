@@ -8,9 +8,10 @@ import { activeTabIdComponentState } from '@/ui/layout/tab-list/states/activeTab
 import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
 import { styled } from '@linaria/react';
 import { t } from '@lingui/core/macro';
-import { H2Title, IconPlayerPlay } from 'twenty-ui/display';
-import { Button, CoreEditorHeader } from 'twenty-ui/input';
-import { Section } from 'twenty-ui/layout';
+import { Section } from 'twenty-ui/components/layout';
+import { CodeEditorHeader } from 'twenty-ui/components/code-editor';
+import { IconPlayerPlay } from 'twenty-ui/icon';
+import { Button } from 'twenty-ui/primitives/input';
 
 const StyledTabListContainer = styled.div`
   > * {
@@ -23,11 +24,13 @@ export const SettingsLogicFunctionCodeEditorTab = ({
   handleExecute,
   onChange,
   isTesting = false,
+  applicationVariableKeys,
 }: {
   files: File[];
   handleExecute: () => void;
   onChange: (value: string) => void;
   isTesting?: boolean;
+  applicationVariableKeys?: string[];
 }) => {
   const activeTabId = useAtomComponentStateValue(
     activeTabIdComponentState,
@@ -35,19 +38,19 @@ export const SettingsLogicFunctionCodeEditorTab = ({
   );
   const TestButton = (
     <Button
-      title={t`Test`}
-      variant="primary"
-      accent="blue"
-      size="small"
-      Icon={IconPlayerPlay}
+      size="sm"
+      startIcon={<IconPlayerPlay />}
       disabled={isTesting}
       onClick={handleExecute}
-    />
+      variant="solid"
+      color="accent"
+    >{t`Test`}</Button>
   );
 
   const HeaderTabList = (
     <StyledTabListContainer>
       <TabList
+        aria-label={t`Function files`}
         tabs={files.map((file) => {
           return { id: file.path, title: file.path.split('/').at(-1) || '' };
         })}
@@ -57,19 +60,20 @@ export const SettingsLogicFunctionCodeEditorTab = ({
   );
 
   return (
-    <Section>
-      <H2Title
+    <Section.Root>
+      <Section.Header
         title={t`Code your function`}
         description={t`Write your function (in typescript) below`}
       />
-      <CoreEditorHeader leftNodes={[HeaderTabList]} rightNodes={[TestButton]} />
+      <CodeEditorHeader startElement={HeaderTabList} endElement={TestButton} />
       {activeTabId && (
         <SettingsLogicFunctionCodeEditor
           files={files}
           currentFilePath={activeTabId}
           onChange={(newCodeValue: string) => onChange(newCodeValue)}
+          applicationVariableKeys={applicationVariableKeys}
         />
       )}
-    </Section>
+    </Section.Root>
   );
 };

@@ -1,3 +1,4 @@
+import { isRecordFilterAboutSoftDelete } from '@/object-record/record-filter/utils/isRecordFilterAboutSoftDelete';
 import type { Store } from 'jotai/vanilla/store';
 
 import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
@@ -9,6 +10,7 @@ import { contextStoreFilterGroupsComponentState } from '@/context-store/states/c
 import { contextStoreFiltersComponentState } from '@/context-store/states/contextStoreFiltersComponentState';
 import { contextStoreTargetedRecordsRuleComponentState } from '@/context-store/states/contextStoreTargetedRecordsRuleComponentState';
 import { computeContextStoreFilters } from '@/context-store/utils/computeContextStoreFilters';
+import { flattenedFieldMetadataItemsSelector } from '@/object-metadata/states/flattenedFieldMetadataItemsSelector';
 import { objectMetadataItemsSelector } from '@/object-metadata/states/objectMetadataItemsSelector';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { recordStoreFamilyState } from '@/object-record/record-store/states/recordStoreFamilyState';
@@ -24,11 +26,17 @@ export const buildHeadlessCommandContextApi = ({
   contextStoreInstanceId,
   engineComponentKey,
   payload,
+  navigationTargetObjectMetadataId,
+  creationTargetObjectMetadataId,
+  isInSidePanel,
 }: {
   store: Store;
   contextStoreInstanceId: string;
   engineComponentKey: EngineComponentKey;
   payload?: CommandMenuItemPayload | null;
+  navigationTargetObjectMetadataId?: string | null;
+  creationTargetObjectMetadataId?: string;
+  isInSidePanel?: boolean;
 }): HeadlessEngineCommandContextApi => {
   const objectMetadataItemId = store.get(
     contextStoreCurrentObjectMetadataItemIdComponentState.atomFamily({
@@ -89,12 +97,17 @@ export const buildHeadlessCommandContextApi = ({
       ? (currentWorkspaceMember?.timeZone ?? systemTimeZone)
       : systemTimeZone;
 
+  const flattenedFieldMetadataItems = store.get(
+    flattenedFieldMetadataItemsSelector.atom,
+  );
+
   const graphqlFilter = isDefined(objectMetadataItem)
     ? computeContextStoreFilters({
         contextStoreTargetedRecordsRule: targetedRecordsRule,
         contextStoreFilters: filters,
         contextStoreFilterGroups: filterGroups,
         objectMetadataItem,
+        fieldMetadataItems: flattenedFieldMetadataItems,
         filterValueDependencies: {
           currentWorkspaceMemberId: currentWorkspaceMember?.id,
           timeZone: userTimezone,
@@ -113,6 +126,9 @@ export const buildHeadlessCommandContextApi = ({
 
   return {
     engineComponentKey,
+    hasAnySoftDeleteFilterOnView: filters.some((recordFilter) =>
+      isRecordFilterAboutSoftDelete({ recordFilter, objectMetadataItems }),
+    ),
     contextStoreInstanceId,
     objectMetadataItem: objectMetadataItem ?? null,
     currentViewId,
@@ -121,5 +137,8 @@ export const buildHeadlessCommandContextApi = ({
     selectedRecords,
     graphqlFilter,
     payload: payload ?? null,
+    navigationTargetObjectMetadataId: navigationTargetObjectMetadataId ?? null,
+    creationTargetObjectMetadataId,
+    isInSidePanel: isInSidePanel ?? false,
   };
 };
