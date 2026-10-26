@@ -9,6 +9,7 @@ import { type RunOnWorkspaceArgs } from 'src/database/commands/command-runners/w
 import { RegisteredWorkspaceCommand } from 'src/engine/core-modules/upgrade/decorators/registered-workspace-command.decorator';
 import { WorkspaceOrmManager } from 'src/engine/twenty-orm/workspace-orm.manager';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
+import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { type WorkflowWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow.workspace-entity';
 
 // Full rebuild of the core workflow rows for a workspace once
@@ -27,6 +28,7 @@ export class BackfillWorkflowCoreLinksCommand extends ProvisionedWorkspaceComman
   constructor(
     protected readonly workspaceIteratorService: WorkspaceIteratorService,
     private readonly workspaceOrmManager: WorkspaceOrmManager,
+    private readonly workspaceCacheService: WorkspaceCacheService,
   ) {
     super(workspaceIteratorService);
   }
@@ -135,6 +137,9 @@ export class BackfillWorkflowCoreLinksCommand extends ProvisionedWorkspaceComman
 
         throw error;
       }
+
+      // Same raw-SQL rebuild hazard as the 2.22 workflowVersion backfill.
+      await this.workspaceCacheService.flush(workspaceId, ['flatWorkflowMaps']);
 
       this.logger.log(
         `Rebuilt ${workspaceWorkflows.length} core workflow row(s) for workspace ${workspaceId}`,
