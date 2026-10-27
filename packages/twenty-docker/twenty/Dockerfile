@@ -40,7 +40,7 @@ RUN yarn workspaces focus twenty-monorepo twenty-server twenty-emails twenty-sha
 
 FROM server-deps AS twenty-server-build
 
-# lingui extract runs its worker pool on threads.js, which gives each worker 10s to start.
+# lingui extract and compile run their worker pools on threads.js, which gives each worker 10s to start.
 # This stage builds in parallel with twenty-front-build, so on a busy builder workers miss that deadline.
 ENV THREADS_WORKER_INIT_TIMEOUT=120000
 
