@@ -47,7 +47,6 @@ const buildService = ({ hasRoleTarget }: { hasRoleTarget: boolean }) => {
     unused,
     unused,
     unused,
-    unused,
   );
 
   return {
