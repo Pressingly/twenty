@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { getAgentHistorySchemaAdditions } from 'src/database/commands/agent-history/utils/get-agent-history-schema-additions.util';
+import { getLegacyAgentHistoryFlatFieldMetadatas } from 'src/database/commands/agent-history/utils/get-legacy-agent-history-flat-field-metadatas.util';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { addFlatEntityToFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/add-flat-entity-to-flat-entity-maps-or-throw.util';
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
@@ -23,6 +24,7 @@ export class AgentHistorySchemaService {
         'flatFieldMetadataMaps',
         'flatIndexMaps',
         'featureFlagsMap',
+        'billingEntitlements',
       ]),
     );
     const { twentyStandardFlatApplication } =
@@ -39,7 +41,19 @@ export class AgentHistorySchemaService {
     });
     const { objects, fields, indexes } = getAgentHistorySchemaAdditions({
       existing,
-      standard,
+      standard: {
+        ...standard,
+        flatFieldMetadataMaps: getLegacyAgentHistoryFlatFieldMetadatas({
+          standard,
+        }).reduce(
+          (maps, flatEntity) =>
+            addFlatEntityToFlatEntityMapsOrThrow({
+              flatEntityMaps: maps,
+              flatEntity,
+            }),
+          standard.flatFieldMetadataMaps,
+        ),
+      },
     });
     if (objects.length + fields.length + indexes.length === 0) {
       return;
@@ -47,6 +61,7 @@ export class AgentHistorySchemaService {
     // Same from/to path as standard application sync; custom-object side effects must not expand this schema
     const result =
       await this.migrations.validateBuildAndRunWorkspaceMigrationFromTo({
+        shouldDeferActions: false,
         workspaceId,
         dryRun,
         buildOptions: {
@@ -55,7 +70,10 @@ export class AgentHistorySchemaService {
           applicationUniversalIdentifier:
             twentyStandardFlatApplication.universalIdentifier,
         },
-        additionalCacheDataMaps: { featureFlagsMap: existing.featureFlagsMap },
+        additionalCacheDataMaps: {
+          featureFlagsMap: existing.featureFlagsMap,
+          billingEntitlements: existing.billingEntitlements,
+        },
         idByUniversalIdentifierByMetadataName,
         fromToAllFlatEntityMaps: {
           flatObjectMetadataMaps: {

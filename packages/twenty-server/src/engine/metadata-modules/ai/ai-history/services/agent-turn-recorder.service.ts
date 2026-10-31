@@ -3,16 +3,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { type ActorMetadata, FieldActorSource } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
-import { AGENT_TURN_CREDITS_EXHAUSTED_ERROR } from 'src/engine/metadata-modules/ai/ai-history/constants/agent-turn-credits-exhausted-error.constant';
+import { formatErrorWithCause } from 'src/engine/metadata-modules/ai/ai-chat/utils/format-error-with-cause.util';
 import { type StreamErrorPayload } from 'src/engine/metadata-modules/ai/ai-history/utils/map-error-to-stream-error.util';
 import { AgentTurnStatus } from 'src/engine/metadata-modules/ai/ai-history/enums/agent-turn-status.enum';
-import { AgentHistoryUpgradeFenceService } from 'src/engine/metadata-modules/ai/ai-history/services/agent-history-upgrade-fence.service';
 import { type AgentHistoryStorageContext } from 'src/engine/metadata-modules/ai/ai-history/services/agent-history-workspace-storage.service';
 import { AgentHistoryRepository } from 'src/engine/metadata-modules/ai/ai-history/repositories/agent-history-repository';
 import { InjectAgentHistoryRepository } from 'src/engine/metadata-modules/ai/ai-history/repositories/inject-agent-history-repository.decorator';
 import { type AgentTurnWorkspaceEntity } from 'src/engine/metadata-modules/ai/ai-history/standard-objects/agent-turn.workspace-entity';
 import { type AgentTurnUsage } from 'src/engine/metadata-modules/ai/ai-billing/types/agent-turn-usage.type';
-import { type RecordableAgentExecution } from 'src/engine/metadata-modules/ai/ai-history/types/recordable-agent-execution.type';
 import { buildEndWaitingAgentTurnQuery } from 'src/engine/metadata-modules/ai/ai-history/utils/build-end-waiting-agent-turn-query.util';
 import { buildReleaseStreamClaimQuery } from 'src/engine/metadata-modules/ai/ai-history/utils/build-release-stream-claim-query.util';
 import { isAgentTurnStatusFinal } from 'src/engine/metadata-modules/ai/ai-history/utils/is-agent-turn-status-final.util';
@@ -45,34 +43,7 @@ export class AgentTurnRecorderService {
   constructor(
     @InjectAgentHistoryRepository('agentTurn')
     private readonly turnRepository: AgentHistoryRepository<AgentTurnWorkspaceEntity>,
-    private readonly upgradeFenceService: AgentHistoryUpgradeFenceService,
   ) {}
-
-  // Without the 2.46 run fields a turn records nothing, so only the stream
-  // claim is checked
-  private async touchTurn({
-    workspaceId,
-    turnId,
-    streamClaim,
-  }: {
-    workspaceId: string;
-    turnId: string;
-    streamClaim?: AgentTurnStreamClaim;
-  }): Promise<boolean> {
-    return this.turnRepository.query(
-      workspaceId,
-      async ({ manager, table }) => {
-        const touchedTurns = await manager.query<{ id: string }[]>(
-          `UPDATE ${table('agentTurn')} SET "updatedAt" = now()
-         WHERE id = $1${buildStreamClaimCondition({ table, streamClaim, firstParameterIndex: 2 })}
-         RETURNING id`,
-          [turnId, ...buildStreamClaimParameters(streamClaim)],
-        );
-
-        return touchedTurns.length > 0;
-      },
-    );
-  }
 
   // A resumed or retried turn runs again, so it keeps its first start. Its
   // creator is whoever first ran it: chat turns are inserted before their
@@ -90,12 +61,6 @@ export class AgentTurnRecorderService {
     createdBy?: ActorMetadata;
     streamClaim?: AgentTurnStreamClaim;
   }): Promise<boolean> {
-    if (
-      !(await this.upgradeFenceService.hasUpgradedAgentHistory(workspaceId))
-    ) {
-      return this.touchTurn({ workspaceId, turnId, streamClaim });
-    }
-
     return this.turnRepository.query(
       workspaceId,
       async ({ manager, table }) => {
@@ -148,12 +113,6 @@ export class AgentTurnRecorderService {
     modelId?: string;
     streamClaim?: AgentTurnStreamClaim;
   }): Promise<boolean> {
-    if (
-      !(await this.upgradeFenceService.hasUpgradedAgentHistory(workspaceId))
-    ) {
-      return this.touchTurn({ workspaceId, turnId, streamClaim });
-    }
-
     return this.turnRepository.query(
       workspaceId,
       async ({ manager, table }) => {
@@ -181,57 +140,8 @@ export class AgentTurnRecorderService {
     );
   }
 
-  // Ends a turn run outside chat. Its credits were spent even when its reply
-  // could not be saved, and a failed usage write must not leave it running
-  async finishExecutedTurn({
-    workspaceId,
-    threadId,
-    turnId,
-    execution,
-    isWaiting = false,
-    error,
-  }: {
-    workspaceId: string;
-    threadId: string;
-    turnId: string;
-    execution: RecordableAgentExecution;
-    isWaiting?: boolean;
-    error?: StreamErrorPayload;
-  }): Promise<void> {
-    if (isDefined(execution.turnUsage)) {
-      await this.recordUsage({
-        workspaceId,
-        threadId,
-        turnId,
-        usage: execution.turnUsage,
-      }).catch((usageError: unknown) => {
-        this.logger.error(
-          `Failed to record the usage of agent turn ${turnId}: ${usageError instanceof Error ? usageError.message : String(usageError)}`,
-        );
-      });
-    }
-
-    const failureError =
-      error ??
-      (execution.hasNoMoreAvailableCredits === true
-        ? AGENT_TURN_CREDITS_EXHAUSTED_ERROR
-        : undefined);
-
-    await this.finish({
-      workspaceId,
-      turnId,
-      modelId: execution.modelId,
-      ...(isDefined(failureError)
-        ? { status: AgentTurnStatus.FAILED, error: failureError }
-        : {
-            status: isWaiting
-              ? AgentTurnStatus.WAITING_FOR_INPUT
-              : AgentTurnStatus.COMPLETED,
-          }),
-    });
-  }
-
-  // Credits were spent whatever became of the turn, so usage is never guarded by a stream claim
+  // Credits were spent whatever became of the turn, so usage is never guarded by a stream claim, and a
+  // failure to count it must not fail a reply already saved
   async recordUsage({
     workspaceId,
     turnId,
@@ -243,37 +153,11 @@ export class AgentTurnRecorderService {
     threadId: string;
     usage: AgentTurnUsage;
   }): Promise<void> {
-    const hasAgentTurnRunFields =
-      await this.upgradeFenceService.hasUpgradedAgentHistory(workspaceId);
-
-    await this.turnRepository.query(workspaceId, async ({ manager, table }) => {
-      if (!hasAgentTurnRunFields) {
+    await this.turnRepository
+      .query(workspaceId, async ({ manager, table }) => {
+        // sum in Postgres: JS numbers must never be added to exact NUMERIC totals
         await manager.query(
-          `UPDATE ${table('agentChatThread')} SET
-             "totalInputTokens" = "totalInputTokens" + $2,
-             "totalOutputTokens" = "totalOutputTokens" + $3,
-             "totalCacheReadTokens" = "totalCacheReadTokens" + $4,
-             "totalCacheCreationTokens" = "totalCacheCreationTokens" + $5,
-             "totalInputCredits" = "totalInputCredits" + $6,
-             "totalOutputCredits" = "totalOutputCredits" + $7
-           WHERE id = $1`,
-          [
-            threadId,
-            usage.inputTokens,
-            usage.outputTokens,
-            usage.cacheReadTokens,
-            usage.cacheCreationTokens,
-            usage.inputCredits,
-            usage.outputCredits,
-          ],
-        );
-
-        return;
-      }
-
-      // sum in Postgres: JS numbers must never be added to exact NUMERIC totals
-      await manager.query(
-        `WITH turn AS (
+          `WITH turn AS (
            UPDATE ${table('agentTurn')} SET
              "inputTokens" = COALESCE("inputTokens", 0) + $3,
              "outputTokens" = COALESCE("outputTokens", 0) + $4,
@@ -293,18 +177,23 @@ export class AgentTurnRecorderService {
            "totalInputCredits" = "totalInputCredits" + $7,
            "totalOutputCredits" = "totalOutputCredits" + $8
          WHERE id = $2`,
-        [
-          turnId,
-          threadId,
-          usage.inputTokens,
-          usage.outputTokens,
-          usage.cacheReadTokens,
-          usage.cacheCreationTokens,
-          usage.inputCredits,
-          usage.outputCredits,
-        ],
+          [
+            turnId,
+            threadId,
+            usage.inputTokens,
+            usage.outputTokens,
+            usage.cacheReadTokens,
+            usage.cacheCreationTokens,
+            usage.inputCredits,
+            usage.outputCredits,
+          ],
+        );
+      })
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Could not record the usage of turn ${turnId}: ${formatErrorWithCause(error)}`,
+        ),
       );
-    });
   }
 
   // the waiting turn is the one holding the question, whoever ends the wait
@@ -317,12 +206,6 @@ export class AgentTurnRecorderService {
     messageId: string;
     status: AgentTurnStatus.COMPLETED | AgentTurnStatus.CANCELLED;
   }): Promise<void> {
-    if (
-      !(await this.upgradeFenceService.hasUpgradedAgentHistory(workspaceId))
-    ) {
-      return;
-    }
-
     await this.turnRepository.query(workspaceId, async ({ manager, table }) => {
       await manager.query(buildEndWaitingAgentTurnQuery({ table }), [
         messageId,
@@ -344,24 +227,19 @@ export class AgentTurnRecorderService {
       error?: StreamErrorPayload | null;
     };
   }): Promise<boolean> {
-    const hasAgentTurnRunFields =
-      await this.upgradeFenceService.hasUpgradedAgentHistory(workspaceId);
-
     return this.turnRepository.query(
       workspaceId,
       async ({ manager, table }) => {
         const releasedThreads = await manager.query<{ id: string }[]>(
-          buildReleaseStreamClaimQuery({ table, hasAgentTurnRunFields }),
-          hasAgentTurnRunFields
-            ? [
-                threadId,
-                streamId,
-                endRunningTurn?.status ?? null,
-                isDefined(endRunningTurn?.error)
-                  ? JSON.stringify(endRunningTurn.error)
-                  : null,
-              ]
-            : [threadId, streamId],
+          buildReleaseStreamClaimQuery({ table }),
+          [
+            threadId,
+            streamId,
+            endRunningTurn?.status ?? null,
+            isDefined(endRunningTurn?.error)
+              ? JSON.stringify(endRunningTurn.error)
+              : null,
+          ],
         );
 
         return releasedThreads.length > 0;
@@ -379,12 +257,6 @@ export class AgentTurnRecorderService {
     AgentTurnWorkspaceEntity,
     'id' | 'status' | 'error'
   > | null> {
-    if (
-      !(await this.upgradeFenceService.hasUpgradedAgentHistory(workspaceId))
-    ) {
-      return null;
-    }
-
     return this.turnRepository.findOne(workspaceId, {
       where: { threadId },
       order: { createdAt: 'DESC', id: 'DESC' },

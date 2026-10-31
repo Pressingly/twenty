@@ -10,9 +10,6 @@ exports[`MCP database tool input schemas should list the input schemas of the no
           "bodyV2": {
             "description": "Note body",
             "properties": {
-              "blocknote": {
-                "type": "string",
-              },
               "markdown": {
                 "type": "string",
               },
@@ -60,9 +57,6 @@ exports[`MCP database tool input schemas should list the input schemas of the no
     "bodyV2": {
       "description": "Note body",
       "properties": {
-        "blocknote": {
-          "type": "string",
-        },
         "markdown": {
           "type": "string",
         },
@@ -208,7 +202,7 @@ exports[`MCP database tool input schemas should list the input schemas of the no
           "bodyV2": {
             "additionalProperties": false,
             "properties": {
-              "blocknote": {
+              "markdown": {
                 "enum": [
                   "AscNullsFirst",
                   "AscNullsLast",
@@ -217,7 +211,7 @@ exports[`MCP database tool input schemas should list the input schemas of the no
                 ],
                 "type": "string",
               },
-              "markdown": {
+              "tiptap": {
                 "enum": [
                   "AscNullsFirst",
                   "AscNullsLast",
@@ -483,7 +477,7 @@ exports[`MCP database tool input schemas should list the input schemas of the no
       "type": "object",
     },
     "groupBy": {
-      "description": "Fields to group by (max 2). Each entry must be an object with exactly one field key. At most one entry can use unnest. A record with several values is counted in each group, so totals can exceed the record count. Examples: {"status": true}, {"companyId": true}, {"createdAt": {"granularity": "MONTH", "timeZone": "UTC"}}. Available: bodyV2.blocknote, bodyV2.markdown, createdAt (date), createdBy.source, createdBy.workspaceMemberId, createdBy.name, title, updatedAt (date), updatedBy.source, updatedBy.workspaceMemberId, updatedBy.name.",
+      "description": "Fields to group by (max 2). Each entry must be an object with exactly one field key. At most one entry can use unnest. A record with several values is counted in each group, so totals can exceed the record count. Examples: {"status": true}, {"companyId": true}, {"createdAt": {"granularity": "MONTH", "timeZone": "UTC"}}. Available: bodyV2.markdown, bodyV2.tiptap, createdAt (date), createdBy.source, createdBy.workspaceMemberId, createdBy.name, title, updatedAt (date), updatedBy.source, updatedBy.workspaceMemberId, updatedBy.name.",
       "items": {
         "anyOf": [
           {
@@ -492,13 +486,13 @@ exports[`MCP database tool input schemas should list the input schemas of the no
               "bodyV2": {
                 "additionalProperties": false,
                 "properties": {
-                  "blocknote": {
+                  "markdown": {
                     "const": true,
                     "type": "boolean",
                   },
                 },
                 "required": [
-                  "blocknote",
+                  "markdown",
                 ],
                 "type": "object",
               },
@@ -514,13 +508,13 @@ exports[`MCP database tool input schemas should list the input schemas of the no
               "bodyV2": {
                 "additionalProperties": false,
                 "properties": {
-                  "markdown": {
+                  "tiptap": {
                     "const": true,
                     "type": "boolean",
                   },
                 },
                 "required": [
-                  "markdown",
+                  "tiptap",
                 ],
                 "type": "object",
               },
@@ -1082,9 +1076,6 @@ exports[`MCP database tool input schemas should list the input schemas of the no
         "bodyV2": {
           "description": "Note body",
           "properties": {
-            "blocknote": {
-              "type": "string",
-            },
             "markdown": {
               "type": "string",
             },
@@ -1133,9 +1124,6 @@ exports[`MCP database tool input schemas should list the input schemas of the no
     "bodyV2": {
       "description": "Note body",
       "properties": {
-        "blocknote": {
-          "type": "string",
-        },
         "markdown": {
           "type": "string",
         },
@@ -1184,9 +1172,6 @@ exports[`MCP database tool input schemas should list the input schemas of the no
           "bodyV2": {
             "description": "Note body",
             "properties": {
-              "blocknote": {
-                "type": "string",
-              },
               "markdown": {
                 "type": "string",
               },
@@ -2012,12 +1997,8 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
     },
     "extraData": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -2029,11 +2010,7 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -3373,12 +3350,8 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
     },
     "extraData": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -3390,11 +3363,7 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -5100,12 +5069,8 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
     },
     "extraData": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -5117,11 +5082,7 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -5959,12 +5920,8 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
     },
     "extraData": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -5976,11 +5933,7 @@ exports[`MCP database tool input schemas should list the input schemas of the pe
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -7564,12 +7517,8 @@ exports[`MCP database tool input schemas should list the input schemas of the su
     },
     "files": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -7581,11 +7530,7 @@ exports[`MCP database tool input schemas should list the input schemas of the su
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -8199,12 +8144,8 @@ exports[`MCP database tool input schemas should list the input schemas of the su
     },
     "files": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -8216,11 +8157,7 @@ exports[`MCP database tool input schemas should list the input schemas of the su
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -8947,12 +8884,8 @@ exports[`MCP database tool input schemas should list the input schemas of the su
     },
     "files": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -8964,11 +8897,7 @@ exports[`MCP database tool input schemas should list the input schemas of the su
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },
@@ -9341,12 +9270,8 @@ exports[`MCP database tool input schemas should list the input schemas of the su
     },
     "files": {
       "properties": {
-        "eq": {
-          "description": "Equals",
-          "type": "string",
-        },
         "ilike": {
-          "description": "ILIKE (% wildcard, case-insensitive)",
+          "description": "ILIKE on the JSON text (% wildcard, case-insensitive)",
           "type": "string",
         },
         "is": {
@@ -9358,11 +9283,7 @@ exports[`MCP database tool input schemas should list the input schemas of the su
           "type": "string",
         },
         "like": {
-          "description": "LIKE (% wildcard)",
-          "type": "string",
-        },
-        "neq": {
-          "description": "Not equals",
+          "description": "LIKE on the JSON text (% wildcard)",
           "type": "string",
         },
       },

@@ -3,8 +3,12 @@ import { RemoteReceiver } from '@remote-dom/core/receivers';
 import { useEffect, useRef } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 
+import { createFileInputAwareRemoteConnection } from '@/host/file-input/utils/createFileInputAwareRemoteConnection';
+import { createFileInputHost } from '@/host/file-input/utils/createFileInputHost';
 import { type HostFocusController } from '@/host/focus/types/HostFocusController';
 import { createFocusAwareRemoteConnection } from '@/host/focus/utils/createFocusAwareRemoteConnection';
+import { type HostOutsidePressController } from '@/host/events/types/HostOutsidePressController';
+import { type HostScrollController } from '@/host/scroll/types/HostScrollController';
 import { buildHostFetchPolicyFromFrontComponentUrls } from '@/host/fetch/utils/buildHostFetchPolicyFromFrontComponentUrls';
 import { createFrontComponentHostThread } from '@/host/thread/utils/createFrontComponentHostThread';
 import { createImageLoadingHost } from '@/host/image-loading/utils/createImageLoadingHost';
@@ -39,12 +43,16 @@ type FrontComponentWorkerEffectProps = {
   mediaSessionHost?: FrontComponentMediaSessionHost;
   setReceiver: React.Dispatch<React.SetStateAction<RemoteReceiver | null>>;
   hostFocusController: HostFocusController;
+  hostScrollController: HostScrollController;
+  outsidePressController: HostOutsidePressController;
   setThread: React.Dispatch<React.SetStateAction<FrontComponentThread | null>>;
   setError: React.Dispatch<React.SetStateAction<Error | null>>;
 };
 
 export const FrontComponentWorkerEffect = ({
   hostFocusController,
+  hostScrollController,
+  outsidePressController,
   componentUrl,
   applicationAccessToken,
   apiUrl,
@@ -86,12 +94,14 @@ export const FrontComponentWorkerEffect = ({
 
     const hostFetch = createHostFetchEnforcingPolicy(hostFetchPolicy);
     const imageLoadingHost = createImageLoadingHost();
+    const fileInputHost = createFileInputHost({ geometryTracker });
 
     const thread = createFrontComponentHostThread({
       hostMessagePort: channel.port1,
       hostFetch,
       imageLoadingHost,
       geometryTracker,
+      outsidePressController,
       mediaSessionHost,
     });
 
@@ -148,9 +158,12 @@ export const FrontComponentWorkerEffect = ({
           : undefined;
 
         await thread.imports.render(
-          createFocusAwareRemoteConnection({
-            connection: newReceiver.connection,
-            hostFocusController,
+          createFileInputAwareRemoteConnection({
+            fileInputHost,
+            connection: createFocusAwareRemoteConnection({
+              connection: newReceiver.connection,
+              hostFocusController,
+            }),
           }),
           {
             componentUrl,
@@ -169,6 +182,10 @@ export const FrontComponentWorkerEffect = ({
               mediaSessionHost?.getRecorderCapabilities(),
           },
         );
+
+        if (!isCancelled) {
+          setReceiver(newReceiver);
+        }
       } catch (error) {
         if (!isCancelled) {
           setError(error instanceof Error ? error : new Error(String(error)));
@@ -178,13 +195,14 @@ export const FrontComponentWorkerEffect = ({
 
     resolveComponentSourceAndRender();
 
-    setReceiver(newReceiver);
     isInitializedRef.current = true;
 
     return () => {
       isCancelled = true;
       imageLoadingHost.dispose();
+      fileInputHost.dispose();
       hostFocusController.reset();
+      hostScrollController.reset();
       window.removeEventListener('message', handleSandboxMessage);
       setThread(null);
       channel.port1.close();
@@ -203,6 +221,8 @@ export const FrontComponentWorkerEffect = ({
     initialExecutionContext,
     geometryTracker,
     hostFocusController,
+    hostScrollController,
+    outsidePressController,
     mediaSessionHost,
     setError,
     setReceiver,

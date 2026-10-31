@@ -64,6 +64,7 @@ export const USER_QUERY_FRAGMENT = gql`
       activationStatus
       isPublicInviteLinkEnabled
       isCampaignClickTrackingEnabled
+      isCampaignOpenTrackingEnabled
       workspaceDiscoverability
       isGoogleAuthEnabled
       isMicrosoftAuthEnabled
@@ -81,8 +82,10 @@ export const USER_QUERY_FRAGMENT = gql`
       installedApplications {
         id
         name
+        description
         universalIdentifier
         logoUrl
+        createdAt
       }
       isCustomDomainEnabled
       workspaceUrls {
@@ -98,6 +101,7 @@ export const USER_QUERY_FRAGMENT = gql`
       billingCustomer {
         id
         hasPaymentMethod
+        userCreditsFallback
       }
       billingSubscriptions {
         ...BillingSubscriptionFragment
@@ -106,6 +110,7 @@ export const USER_QUERY_FRAGMENT = gql`
         key
         value
       }
+      isTrialAvailable
       workspaceMembersCount
       defaultRole {
         ...RoleFragment

@@ -21,8 +21,6 @@ import { type ListItemColor } from '@ui/primitives/navigation/ListItem/types/Lis
 import { type ListItemIndicator } from '@ui/primitives/navigation/ListItem/types/ListItemIndicator';
 import { type ListItemProps } from '@ui/primitives/navigation/ListItem/types/ListItemProps';
 
-import { ListItemMenuExample } from './ListItemMenuExample';
-
 const meta: Meta<typeof ListItem> = {
   title: 'UI/Navigation/ListItem',
   component: ListItem,
@@ -54,10 +52,10 @@ const ACTIONS = (
   </>
 );
 
-export const Default: Story = {
+export const Display: Story = {
   decorators: [ComponentDecorator],
   parameters: { container: { width: 240 } },
-  args: { startIcon: START_ICON },
+  args: { children: 'Notifications', startIcon: START_ICON },
 };
 
 export const OverflowingLabel: Story = {
@@ -87,7 +85,7 @@ export const WithPersistentActions: Story = {
 };
 
 export const ButtonOwner: Story = {
-  ...Default,
+  ...Display,
   args: {
     children: 'Duplicate record',
     render: <button type="button" />,
@@ -96,7 +94,7 @@ export const ButtonOwner: Story = {
 };
 
 export const LinkOwner: Story = {
-  ...Default,
+  ...Display,
   args: {
     children: 'Typography documentation',
     render: (renderProps) => (
@@ -108,18 +106,12 @@ export const LinkOwner: Story = {
 };
 
 export const ExplicitLinkContent: Story = {
-  ...Default,
-  parameters: { ...Default.parameters, a11y: A11Y_DEFER_COLOR_CONTRAST },
+  ...Display,
+  parameters: { ...Display.parameters, a11y: A11Y_DEFER_COLOR_CONTRAST },
   args: {
     children: <a href="https://twenty.com/developers">Read documentation</a>,
     description: 'Resource',
   },
-};
-
-export const MenuOwner: Story = {
-  decorators: [ComponentDecorator],
-  parameters: { container: { width: 240, height: 200 } },
-  render: () => <ListItemMenuExample />,
 };
 
 export const WithCheckbox: Story = {

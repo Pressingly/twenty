@@ -29,6 +29,7 @@ import { WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { WorkspaceSchemaService } from 'src/engine/workspace-datasource/workspace-schema.service';
 import { seedBillingCustomers } from 'src/engine/workspace-manager/dev-seeder/core/billing/utils/seed-billing-customers.util';
+import { seedBillingEntitlements } from 'src/engine/workspace-manager/dev-seeder/core/billing/utils/seed-billing-entitlements.util';
 import { seedBillingSubscriptions } from 'src/engine/workspace-manager/dev-seeder/core/billing/utils/seed-billing-subscriptions.util';
 import {
   type SeededWorkspacesIds,
@@ -50,6 +51,7 @@ import { seedUnsubscribeTopics } from 'src/engine/workspace-manager/dev-seeder/c
 import { seedUserWorkspaces } from 'src/engine/workspace-manager/dev-seeder/core/utils/seed-user-workspaces.util';
 import { seedUsers } from 'src/engine/workspace-manager/dev-seeder/core/utils/seed-users.util';
 import { createWorkspace } from 'src/engine/workspace-manager/dev-seeder/core/utils/seed-workspace.util';
+import { DevSeederAgentChatChannelWorkspaceService } from 'src/engine/workspace-manager/dev-seeder/data/services/dev-seeder-agent-chat-channel.workspace-service';
 import { DevSeederAgentChatPendingInputWorkspaceService } from 'src/engine/workspace-manager/dev-seeder/data/services/dev-seeder-agent-chat-pending-input.workspace-service';
 import { DevSeederDataService } from 'src/engine/workspace-manager/dev-seeder/data/services/dev-seeder-data.service';
 import { DevSeederWorkflowPendingInputWorkspaceService } from 'src/engine/workspace-manager/dev-seeder/data/services/dev-seeder-workflow-pending-input.workspace-service';
@@ -75,6 +77,7 @@ export class DevSeederWorkspaceService {
     private readonly devSeederDataService: DevSeederDataService,
     private readonly devSeederWorkflowPendingInputService: DevSeederWorkflowPendingInputWorkspaceService,
     private readonly devSeederAgentChatPendingInputService: DevSeederAgentChatPendingInputWorkspaceService,
+    private readonly devSeederAgentChatChannelService: DevSeederAgentChatChannelWorkspaceService,
     private readonly applicationService: ApplicationService,
     private readonly applicationRegistrationService: ApplicationRegistrationService,
     private readonly workspaceCacheService: WorkspaceCacheService,
@@ -256,6 +259,7 @@ export class DevSeederWorkspaceService {
 
     // Before the chat seed, whose owner grants then cover these threads too.
     await this.devSeederAgentChatPendingInputService.seed({ workspaceId });
+    await this.devSeederAgentChatChannelService.seed({ workspaceId });
 
     await this.seedAgentChat({
       workspaceId,
@@ -396,6 +400,7 @@ export class DevSeederWorkspaceService {
           schemaName,
           workspaceId,
         });
+        await seedBillingEntitlements({ queryRunner, schemaName, workspaceId });
       }
 
       if (seedDemoUsersAndDependents) {

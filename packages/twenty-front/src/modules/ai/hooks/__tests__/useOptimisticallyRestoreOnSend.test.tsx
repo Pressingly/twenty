@@ -9,12 +9,14 @@ import { recordStoreFamilyState } from '@/object-record/record-store/states/reco
 const THREAD_ID = '20202020-0000-4000-8000-0000000000aa';
 const LAST_ACTIVITY_AT = '2026-10-01T10:00:00.000Z';
 const ARCHIVED_PARTICIPANT = {
+  __typename: 'AgentChatThreadParticipant' as const,
   threadId: THREAD_ID,
   lastReadAt: LAST_ACTIVITY_AT,
   archivedAt: '2026-10-01T11:00:00.000Z',
   snoozedUntil: null,
   isSubscribed: true,
   lastMentionedAt: null,
+  mentionsResolvedAt: null,
   id: 'participant-id',
   updatedAt: '2026-10-01T11:00:00.000Z',
 };
@@ -53,12 +55,14 @@ describe('useOptimisticallyRestoreOnSend', () => {
     expect(
       store.get(agentChatThreadParticipantsState.atom)?.[THREAD_ID],
     ).toEqual({
+      __typename: 'AgentChatThreadParticipant' as const,
       threadId: THREAD_ID,
       lastReadAt: sentAt,
       archivedAt: null,
       snoozedUntil: null,
       isSubscribed: true,
       lastMentionedAt: null,
+      mentionsResolvedAt: null,
       id: 'participant-id',
       updatedAt: ARCHIVED_PARTICIPANT.updatedAt,
     });
@@ -71,34 +75,5 @@ describe('useOptimisticallyRestoreOnSend', () => {
     expect(
       store.get(agentChatThreadParticipantsState.atom)?.[THREAD_ID],
     ).toEqual(ARCHIVED_PARTICIPANT);
-  });
-
-  it('moves the thread up by its last change before the workspace tracks last activity', () => {
-    const store = createStore();
-
-    store.set(recordStoreFamilyState.atomFamily(THREAD_ID), {
-      __typename: 'AgentChatThread',
-      id: THREAD_ID,
-      updatedAt: LAST_ACTIVITY_AT,
-    } as never);
-
-    const { result } = renderHook(() => useOptimisticallyRestoreOnSend(), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <Provider store={store}>{children}</Provider>
-      ),
-    });
-    const sentAt = '2026-10-01T12:00:00.000Z';
-
-    act(() => {
-      result.current.applyOptimisticRestore({
-        threadId: THREAD_ID,
-        optimisticUpdatedAt: sentAt,
-      });
-    });
-
-    const thread = store.get(recordStoreFamilyState.atomFamily(THREAD_ID));
-
-    expect(thread).toMatchObject({ updatedAt: sentAt });
-    expect(thread).not.toHaveProperty('lastActivityAt');
   });
 });

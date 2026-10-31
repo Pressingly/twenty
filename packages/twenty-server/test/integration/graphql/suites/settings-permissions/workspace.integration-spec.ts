@@ -635,7 +635,7 @@ describe('workspace permissions', () => {
           variables: {
             input: {
               publicFeatureFlag:
-                FeatureFlagKey.IS_WORKFLOW_CORE_INDEX_PAGE_ENABLED,
+                FeatureFlagKey.IS_CONFIGURABLE_SEARCH_FIELDS_ENABLED,
               value: true,
             },
           },

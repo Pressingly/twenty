@@ -1,18 +1,20 @@
 import { type AgentChatInboxAction } from '@/ai/types/AgentChatInboxAction';
 import { type AgentChatInboxState } from '@/ai/types/AgentChatInboxState';
+import { getAgentChatMentionsResolvedAt } from '@/ai/utils/get-agent-chat-mentions-resolved-at.util';
 import { isDefined } from '@/utils/validation/isDefined';
 
-// What a chat without the member's row reads as
+// What a chat without the member's row reads as: one they can open but do
+// not follow, since only taking part in it or filing it follows a chat
 const DEFAULT_AGENT_CHAT_INBOX_STATE: AgentChatInboxState = {
   lastReadAt: null,
   archivedAt: null,
   snoozedUntil: null,
-  isSubscribed: true,
+  isSubscribed: false,
+  lastMentionedAt: null,
+  mentionsResolvedAt: null,
 };
 
-// The server writes each action as one SQL upsert stamped by the database
-// clock (AgentChatThreadParticipantService); this is the same change, for
-// the optimistic copy apps show before the server answers
+// Optimistic copy of AgentChatThreadParticipantService's write
 export const applyAgentChatInboxAction = ({
   participant,
   action,
@@ -39,11 +41,19 @@ export const applyAgentChatInboxAction = ({
             new Date(state.lastReadAt) > new Date(threadLastActivityAt))
             ? state.lastReadAt
             : threadLastActivityAt,
+        mentionsResolvedAt: getAgentChatMentionsResolvedAt(state),
       };
     case 'UNREAD':
       return { ...state, lastReadAt: null };
+    // Filing a chat follows it, so new activity brings it back
     case 'ARCHIVE':
-      return { ...state, archivedAt: now.toISOString(), snoozedUntil: null };
+      return {
+        ...state,
+        mentionsResolvedAt: getAgentChatMentionsResolvedAt(state),
+        archivedAt: now.toISOString(),
+        snoozedUntil: null,
+        isSubscribed: true,
+      };
     // A snooze already due is saved as ended, and a snoozed chat is followed
     // again since it is meant to come back
     case 'SNOOZE':
@@ -69,6 +79,7 @@ export const applyAgentChatInboxAction = ({
     case 'UNSUBSCRIBE':
       return {
         ...state,
+        mentionsResolvedAt: getAgentChatMentionsResolvedAt(state),
         isSubscribed: false,
         archivedAt: now.toISOString(),
         snoozedUntil: null,
