@@ -1,7 +1,6 @@
 import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { SettingsCard } from '@/settings/components/SettingsCard';
 import { useCurrentUserWorkspaceTwoFactorAuthentication } from '@/settings/two-factor-authentication/hooks/useCurrentUserWorkspaceTwoFactorAuthentication';
-import { UndecoratedLink } from '@/ui/navigation/link/components/UndecoratedLink/UndecoratedLink';
 import { useLingui } from '@lingui/react/macro';
 import { SettingsPath } from 'twenty-shared/types';
 import { getSettingsPath } from 'twenty-shared/utils';
@@ -37,24 +36,21 @@ const ProfileTwoFactorAuthenticationSectionInner = () => {
         title={t`Two Factor Authentication`}
         description={t`Enhances security by requiring a code along with your password`}
       />
-      <UndecoratedLink
+      <SettingsCard
         to={getSettingsPath(
           SettingsPath.TwoFactorAuthenticationStrategyConfig,
           { twoFactorAuthenticationStrategy: 'TOTP' },
         )}
-      >
-        <SettingsCard
-          title={t`Authenticator App`}
-          Icon={<IconShield />}
-          Status={
-            has2FAMethod ? (
-              <Status color="turquoise">{t`Active`}</Status>
-            ) : (
-              <Status color="gray">{t`Deactivated`}</Status>
-            )
-          }
-        />
-      </UndecoratedLink>
+        title={t`Authenticator App`}
+        Icon={<IconShield />}
+        Status={
+          has2FAMethod ? (
+            <Status color="turquoise">{t`Active`}</Status>
+          ) : (
+            <Status color="gray">{t`Deactivated`}</Status>
+          )
+        }
+      />
     </Section.Root>
   );
 };
