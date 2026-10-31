@@ -4,12 +4,14 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 
 import { type Request, type Response } from 'express';
 import { isDefined } from 'twenty-shared/utils';
 
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { bindDataToRequestObject } from 'src/engine/utils/bind-data-to-request-object.util';
 import {
   CorporateIdError,
@@ -27,6 +29,8 @@ export class JwtAuthGuard implements CanActivate {
     private readonly accessTokenService: AccessTokenService,
     private readonly workspaceStorageCacheService: WorkspaceCacheStorageService,
     private readonly twentyConfigService: TwentyConfigService,
+    // Resolved app-wide: JwtAuthGuard runs in modules that never import UserSessionModule
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -67,7 +71,10 @@ export class JwtAuthGuard implements CanActivate {
           this.twentyConfigService,
         )
       ) {
-        clearSessionCookie(response, this.twentyConfigService);
+        clearSessionCookie(
+          response,
+          this.moduleRef.get(UserSessionCookieService, { strict: false }),
+        );
         this.logger.warn(
           `Auth refused: proxy identity differs from JWT user; session cookie cleared`,
         );
