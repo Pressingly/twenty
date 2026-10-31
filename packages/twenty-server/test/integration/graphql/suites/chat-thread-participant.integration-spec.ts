@@ -19,7 +19,6 @@ import { getAppProviderByClassName } from 'test/integration/utils/get-app-provid
 import { setManualRecordShare } from 'test/integration/utils/set-manual-record-share.util';
 
 import { AgentChatInboxAction } from 'src/engine/metadata-modules/ai/ai-chat/enums/agent-chat-inbox-action.enum';
-import { type AgentChatSharingService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-sharing.service';
 import { type AgentChatThreadParticipantService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-thread-participant.service';
 import { type AgentChatThreadService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-thread.service';
 import { AiExceptionCode } from 'src/engine/metadata-modules/ai/ai.exception';
@@ -32,7 +31,7 @@ import { WORKSPACE_MEMBER_DATA_SEED_IDS } from 'src/engine/workspace-manager/dev
 const SCHEMA = getWorkspaceSchemaName(SEED_APPLE_WORKSPACE_ID);
 
 const PARTICIPANT_FIELDS =
-  'id threadId lastReadAt archivedAt snoozedUntil isSubscribed lastMentionedAt updatedAt';
+  'id threadId lastReadAt archivedAt snoozedUntil isSubscribed lastMentionedAt mentionsResolvedAt updatedAt';
 
 const UPDATE_INBOX_STATE = parse(
   `mutation UpdateInboxState($threadIds: [UUID!]!, $action: AgentChatInboxAction!, $snoozedUntil: DateTime) { updateAgentChatThreadInboxState(threadIds: $threadIds, action: $action, snoozedUntil: $snoozedUntil) { ${PARTICIPANT_FIELDS} } }`,
@@ -73,7 +72,7 @@ const addParticipants = (
 ) =>
   getAppProviderByClassName<AgentChatThreadService>(
     'AgentChatThreadService',
-  ).addParticipants({
+  ).mentionParticipants({
     workspaceId: SEED_APPLE_WORKSPACE_ID,
     workspaceMemberId,
     threadId,
@@ -88,14 +87,16 @@ type Participant = {
   snoozedUntil: string | null;
   isSubscribed: boolean;
   lastMentionedAt: string | null;
+  mentionsResolvedAt: string | null;
 };
 
 const OPEN_THREADS_SUMMARY = parse(
-  `query OpenThreadsSummary { agentChatOpenThreadsSummary { openThreadCount needsInputThreadCount hasUnreadOpenThread hasUnreadMentionThread hasUnreadAssignedThread } }`,
+  `query OpenThreadsSummary { agentChatOpenThreadsSummary { openThreadCount unreadOpenThreadCount needsInputThreadCount hasUnreadOpenThread hasUnreadMentionThread hasUnreadAssignedThread } }`,
 );
 
 type OpenThreadsSummary = {
   openThreadCount: number;
+  unreadOpenThreadCount: number;
   needsInputThreadCount: number;
   hasUnreadOpenThread: boolean;
   hasUnreadMentionThread: boolean;
@@ -393,7 +394,7 @@ describe('Chat thread participant state through the authenticated API', () => {
     await setShareWithJony(threadId, true);
 
     // A thread shared with a member they never opened has no state yet,
-    // which reads as unread
+    // which reads as one they do not follow
     expect(
       await findMyParticipant(threadId, APPLE_JONY_MEMBER_ACCESS_TOKEN),
     ).toBeUndefined();
@@ -1088,7 +1089,7 @@ describe('Chat thread participant state through the authenticated API', () => {
 
   // Other tests' chats may stay open for the member, so counts are compared
   // with what they were before
-  it('summarizes the open chats the member can read, from their own rows', async () => {
+  it('summarizes the open chats the member follows, from their own rows', async () => {
     const before = await findOpenThreadsSummary();
     const threadId = await createTestThread();
 
@@ -1100,9 +1101,36 @@ describe('Chat thread participant state through the authenticated API', () => {
       [threadId, randomUUID()],
     );
 
+    // Being able to open a chat, reading it or marking it unread does not
+    // follow it
+    expect(await findOpenThreadsSummary()).toEqual(before);
+
+    for (const action of ['UNREAD', 'READ'] as const) {
+      await runInboxAction(action, threadId, {
+        token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+      });
+
+      expect(await findOpenThreadsSummary()).toEqual(before);
+    }
+
+    await runInboxAction('SUBSCRIBE', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    });
+
     expect(await findOpenThreadsSummary()).toMatchObject({
       openThreadCount: before.openThreadCount + 1,
+      unreadOpenThreadCount: before.unreadOpenThreadCount,
       needsInputThreadCount: before.needsInputThreadCount + 1,
+      hasUnreadOpenThread: before.hasUnreadOpenThread,
+    });
+
+    await runInboxAction('UNREAD', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    });
+
+    expect(await findOpenThreadsSummary()).toMatchObject({
+      openThreadCount: before.openThreadCount + 1,
+      unreadOpenThreadCount: before.unreadOpenThreadCount + 1,
       hasUnreadOpenThread: true,
     });
 
@@ -1112,7 +1140,12 @@ describe('Chat thread participant state through the authenticated API', () => {
 
     expect(await findOpenThreadsSummary()).toMatchObject({
       openThreadCount: before.openThreadCount + 1,
+      unreadOpenThreadCount: before.unreadOpenThreadCount,
       hasUnreadOpenThread: before.hasUnreadOpenThread,
+    });
+
+    await runInboxAction('UNREAD', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
     });
 
     await runInboxAction('ARCHIVE', threadId, {
@@ -1122,7 +1155,29 @@ describe('Chat thread participant state through the authenticated API', () => {
     expect(await findOpenThreadsSummary()).toEqual(before);
   });
 
+  it('follows a chat the member files as done, so new activity brings it back', async () => {
+    const threadId = await createTestThread();
+
+    await setShareWithJony(threadId, true);
+    await runInboxAction('READ', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    });
+
+    expect(
+      await findMyParticipant(threadId, APPLE_JONY_MEMBER_ACCESS_TOKEN),
+    ).toMatchObject({ isSubscribed: false, archivedAt: null });
+
+    await runInboxAction('ARCHIVE', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    });
+
+    expect(
+      await findMyParticipant(threadId, APPLE_JONY_MEMBER_ACCESS_TOKEN),
+    ).toMatchObject({ isSubscribed: true, archivedAt: expect.any(String) });
+  });
+
   it('flags the open chats the member was mentioned in or assigned that are unread', async () => {
+    const initialSummary = await findOpenThreadsSummary();
     const mentionedThreadId = await createTestThread();
     const assignedThreadId = await createTestThread();
 
@@ -1132,6 +1187,7 @@ describe('Chat thread participant state through the authenticated API', () => {
     await assign(assignedThreadId, WORKSPACE_MEMBER_DATA_SEED_IDS.JONY);
 
     expect(await findOpenThreadsSummary()).toMatchObject({
+      unreadOpenThreadCount: initialSummary.unreadOpenThreadCount + 2,
       hasUnreadMentionThread: true,
       hasUnreadAssignedThread: true,
     });
@@ -1150,36 +1206,186 @@ describe('Chat thread participant state through the authenticated API', () => {
 
     const before = await findOpenThreadsSummary();
 
+    expect(before.unreadOpenThreadCount).toBe(
+      initialSummary.unreadOpenThreadCount,
+    );
+
     // Activity brings back a chat filed under done, but not one the member left
     await global.testDataSource.query(
       `UPDATE ${SCHEMA}."agentChatThread" SET "lastActivityAt" = clock_timestamp() WHERE id = ANY($1)`,
       [[mentionedThreadId, assignedThreadId]],
     );
 
-    expect((await findOpenThreadsSummary()).openThreadCount).toBe(
-      before.openThreadCount + 1,
-    );
+    expect(await findOpenThreadsSummary()).toMatchObject({
+      openThreadCount: before.openThreadCount + 1,
+      unreadOpenThreadCount: before.unreadOpenThreadCount + 1,
+    });
   });
 
-  it('reads as empty in a workspace the inbox upgrade has not reached', async () => {
+  it('resolves the mention when the member reads the chat and keeps it when they mark it unread', async () => {
     const threadId = await createTestThread();
 
-    await setShareWithJony(threadId, true);
-    jest
-      .spyOn(
-        getAppProviderByClassName<AgentChatSharingService>(
-          'AgentChatSharingService',
-        ),
-        'hasInboxState',
-      )
-      .mockResolvedValue(false);
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
 
-    expect(await findOpenThreadsSummary()).toEqual({
-      openThreadCount: 0,
-      needsInputThreadCount: 0,
-      hasUnreadOpenThread: false,
-      hasUnreadMentionThread: false,
-      hasUnreadAssignedThread: false,
+    for (const action of ['READ', 'UNREAD']) {
+      const response = await runInboxAction(action, threadId, {
+        token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+      });
+      const participant = response.body.data.updateAgentChatThreadInboxState[0];
+
+      expect(response.body.errors).toBeUndefined();
+      expect(participant.mentionsResolvedAt).toBe(participant.lastMentionedAt);
+    }
+  });
+
+  it('preserves unresolved mentions while marking unread and snoozing', async () => {
+    const threadId = await createTestThread();
+
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+
+    for (const action of ['UNREAD', 'SNOOZE']) {
+      const response = await runInboxAction(action, threadId, {
+        token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+        snoozedUntil:
+          action === 'SNOOZE' ? buildFutureSnoozedUntil() : undefined,
+      });
+
+      expect(response.body.errors).toBeUndefined();
+      expect(
+        response.body.data.updateAgentChatThreadInboxState[0],
+      ).toMatchObject({
+        lastMentionedAt: expect.any(String),
+        mentionsResolvedAt: null,
+      });
+    }
+  });
+
+  it('keeps a mention resolved after Done until an explicit new mention arrives', async () => {
+    const threadId = await createTestThread();
+
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+    await runInboxAction('ARCHIVE', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
     });
+
+    const doneParticipant = await findMyParticipant(
+      threadId,
+      APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    );
+
+    expect(doneParticipant!.mentionsResolvedAt).toBe(
+      doneParticipant!.lastMentionedAt,
+    );
+
+    await getAppProviderByClassName<AgentChatThreadService>(
+      'AgentChatThreadService',
+    ).recordThreadActivity({
+      workspaceId: SEED_APPLE_WORKSPACE_ID,
+      threadId,
+      text: 'An unrelated update',
+    });
+    await runInboxAction('MOVE_TO_INBOX', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    });
+
+    expect(
+      await findMyParticipant(threadId, APPLE_JONY_MEMBER_ACCESS_TOKEN),
+    ).toMatchObject({
+      lastMentionedAt: doneParticipant!.lastMentionedAt,
+      mentionsResolvedAt: doneParticipant!.mentionsResolvedAt,
+    });
+
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+
+    const mentionedAgain = await findMyParticipant(
+      threadId,
+      APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    );
+
+    expect(
+      new Date(mentionedAgain!.lastMentionedAt!).getTime(),
+    ).toBeGreaterThan(new Date(mentionedAgain!.mentionsResolvedAt!).getTime());
+  });
+
+  it('resolves a mention when the member unsubscribes', async () => {
+    const threadId = await createTestThread();
+
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+    await runInboxAction('UNSUBSCRIBE', threadId, {
+      token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    });
+
+    const unsubscribedParticipant = await findMyParticipant(
+      threadId,
+      APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    );
+
+    expect(unsubscribedParticipant).toMatchObject({
+      isSubscribed: false,
+      mentionsResolvedAt: unsubscribedParticipant!.lastMentionedAt,
+    });
+  });
+
+  it('delivers app recipients without creating or clearing an explicit mention', async () => {
+    const threadId = await createTestThread();
+    const threadService = getAppProviderByClassName<AgentChatThreadService>(
+      'AgentChatThreadService',
+    );
+    const delivery = {
+      workspaceId: SEED_APPLE_WORKSPACE_ID,
+      workspaceMemberId: WORKSPACE_MEMBER_DATA_SEED_IDS.JANE,
+      threadId,
+      participantWorkspaceMemberIds: [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY],
+    };
+
+    await threadService.deliverToParticipants(delivery);
+
+    expect(
+      await findMyParticipant(threadId, APPLE_JONY_MEMBER_ACCESS_TOKEN),
+    ).toMatchObject({
+      isSubscribed: true,
+      lastReadAt: null,
+      lastMentionedAt: null,
+      mentionsResolvedAt: null,
+    });
+
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+
+    const mentionedParticipant = await findMyParticipant(
+      threadId,
+      APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    );
+
+    await threadService.deliverToParticipants(delivery);
+
+    expect(
+      await findMyParticipant(threadId, APPLE_JONY_MEMBER_ACCESS_TOKEN),
+    ).toMatchObject({
+      lastMentionedAt: mentionedParticipant!.lastMentionedAt,
+      mentionsResolvedAt: null,
+    });
+  });
+
+  it('orders a new mention after the resolved cursor at millisecond precision', async () => {
+    const threadId = await createTestThread();
+    const resolvedAt = new Date(Date.now() + 60_000).toISOString();
+
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+    await global.testDataSource.query(
+      `UPDATE ${SCHEMA}."agentChatThreadParticipant"
+       SET "lastMentionedAt" = $3, "mentionsResolvedAt" = $3
+       WHERE "threadId" = $1 AND "workspaceMemberId" = $2`,
+      [threadId, WORKSPACE_MEMBER_DATA_SEED_IDS.JONY, resolvedAt],
+    );
+    await addParticipants(threadId, [WORKSPACE_MEMBER_DATA_SEED_IDS.JONY]);
+
+    const participant = await findMyParticipant(
+      threadId,
+      APPLE_JONY_MEMBER_ACCESS_TOKEN,
+    );
+
+    expect(new Date(participant!.lastMentionedAt!).getTime()).toBe(
+      new Date(resolvedAt).getTime() + 1,
+    );
   });
 });

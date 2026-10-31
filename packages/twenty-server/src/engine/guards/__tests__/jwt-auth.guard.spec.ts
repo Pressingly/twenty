@@ -1,7 +1,10 @@
 import { type ExecutionContext } from '@nestjs/common';
+import { type ModuleRef } from '@nestjs/core';
 
 import { type AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
+import { type MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { JwtAuthGuard } from 'src/engine/guards/jwt-auth.guard';
 import { type WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
 
@@ -18,6 +21,7 @@ type ServiceStubs = {
   accessTokenService: AccessTokenService;
   workspaceCacheStorageService: WorkspaceCacheStorageService;
   twentyConfigService: TwentyConfigService;
+  moduleRef: ModuleRef;
 };
 
 const buildExecutionContext = (
@@ -34,7 +38,7 @@ const buildExecutionContext = (
   return {
     switchToHttp: jest.fn(() => ({
       getRequest: () => request,
-      getResponse: () => response,
+      getResponse: () => ({ ...response, req: request }),
     })),
   } as unknown as ExecutionContext;
 };
@@ -42,17 +46,29 @@ const buildExecutionContext = (
 const buildServices = (
   authContext: Record<string, unknown>,
   config: Partial<Record<string, string>> = {},
-): ServiceStubs => ({
-  accessTokenService: {
-    validateTokenByRequest: jest.fn().mockResolvedValue(authContext),
-  } as unknown as AccessTokenService,
-  workspaceCacheStorageService: {
-    getMetadataVersion: jest.fn().mockResolvedValue(undefined),
-  } as unknown as WorkspaceCacheStorageService,
-  twentyConfigService: {
+): ServiceStubs => {
+  const twentyConfigService = {
     get: jest.fn((key: string) => config[key] ?? ''),
-  } as unknown as TwentyConfigService,
-});
+  } as unknown as TwentyConfigService;
+
+  const userSessionCookieService = new UserSessionCookieService(
+    twentyConfigService,
+    { incrementCounterBy: jest.fn() } as unknown as MetricsService,
+  );
+
+  return {
+    accessTokenService: {
+      validateTokenByRequest: jest.fn().mockResolvedValue(authContext),
+    } as unknown as AccessTokenService,
+    workspaceCacheStorageService: {
+      getMetadataVersion: jest.fn().mockResolvedValue(undefined),
+    } as unknown as WorkspaceCacheStorageService,
+    twentyConfigService,
+    moduleRef: {
+      get: jest.fn(() => userSessionCookieService),
+    } as unknown as ModuleRef,
+  };
+};
 
 describe('JwtAuthGuard', () => {
   describe('SSO mode — proxy identity reconciliation', () => {
@@ -75,6 +91,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -102,6 +119,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -130,6 +148,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -158,6 +177,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -186,6 +206,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -223,6 +244,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -251,6 +273,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -279,6 +302,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -318,6 +342,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -354,6 +379,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -382,6 +408,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -410,6 +437,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -446,6 +474,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -477,6 +506,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -504,6 +534,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -537,6 +568,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(
@@ -559,6 +591,7 @@ describe('JwtAuthGuard', () => {
         services.accessTokenService,
         services.workspaceCacheStorageService,
         services.twentyConfigService,
+        services.moduleRef,
       );
 
       const result = await guard.canActivate(

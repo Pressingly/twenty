@@ -19,6 +19,11 @@ const buildService = ({ hasRoleTarget }: { hasRoleTarget: boolean }) => {
   const roleTargetRepository = {
     exists: jest.fn().mockResolvedValue(hasRoleTarget),
   };
+  const roleAssignmentValidationService = {
+    validateRoleAssignableToUsersOrThrow: jest
+      .fn()
+      .mockResolvedValue(undefined),
+  };
   const userRoleService = {
     assignRoleToManyUserWorkspace: jest.fn().mockResolvedValue(undefined),
   };
@@ -28,7 +33,7 @@ const buildService = ({ hasRoleTarget }: { hasRoleTarget: boolean }) => {
     userWorkspaceRepository as never,
     unused,
     roleTargetRepository as never,
-    unused,
+    roleAssignmentValidationService as never,
     unused,
     unused,
     unused,
@@ -44,7 +49,12 @@ const buildService = ({ hasRoleTarget }: { hasRoleTarget: boolean }) => {
     unused,
   );
 
-  return { service, roleTargetRepository, userRoleService };
+  return {
+    service,
+    roleTargetRepository,
+    roleAssignmentValidationService,
+    userRoleService,
+  };
 };
 
 describe('UserWorkspaceService SSO orphan membership self-heal', () => {
@@ -71,11 +81,19 @@ describe('UserWorkspaceService SSO orphan membership self-heal', () => {
   });
 
   it('should assign the default role to a membership left without one', async () => {
-    const { service, userRoleService } = buildService({
-      hasRoleTarget: false,
-    });
+    const { service, roleAssignmentValidationService, userRoleService } =
+      buildService({
+        hasRoleTarget: false,
+      });
 
     await service.addUserToWorkspaceIfUserNotInWorkspace(user, workspace);
+
+    expect(
+      roleAssignmentValidationService.validateRoleAssignableToUsersOrThrow,
+    ).toHaveBeenCalledWith({
+      roleId: DEFAULT_ROLE_ID,
+      workspaceId: WORKSPACE_ID,
+    });
 
     expect(userRoleService.assignRoleToManyUserWorkspace).toHaveBeenCalledWith({
       workspaceId: WORKSPACE_ID,

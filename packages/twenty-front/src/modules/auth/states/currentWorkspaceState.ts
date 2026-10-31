@@ -18,9 +18,11 @@ export type CurrentWorkspace = Pick<
   | 'billingEntitlements'
   | 'billingCustomer'
   | 'currentBillingSubscription'
+  | 'isTrialAvailable'
   | 'workspaceMembersCount'
   | 'isPublicInviteLinkEnabled'
   | 'isCampaignClickTrackingEnabled'
+  | 'isCampaignOpenTrackingEnabled'
   | 'workspaceDiscoverability'
   | 'isGoogleAuthEnabled'
   | 'isGoogleAuthBypassEnabled'
@@ -49,7 +51,12 @@ export type CurrentWorkspace = Pick<
   workspaceCustomApplication: Pick<Application, 'id'> | null;
   installedApplications: Pick<
     Application,
-    'id' | 'name' | 'universalIdentifier' | 'logoUrl'
+    | 'id'
+    | 'name'
+    | 'description'
+    | 'universalIdentifier'
+    | 'logoUrl'
+    | 'createdAt'
   >[];
 };
 

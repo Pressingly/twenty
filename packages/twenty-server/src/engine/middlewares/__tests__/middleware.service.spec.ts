@@ -1,6 +1,7 @@
 import { type AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
 import { type ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { type JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
+import { type MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { type WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
@@ -14,6 +15,7 @@ type RequestStub = {
 
 type ResponseStub = {
   clearCookie: jest.Mock;
+  req: { headers: Record<string, string> };
 };
 
 const buildRequest = (
@@ -28,7 +30,10 @@ const buildRequest = (
   headers: {},
 });
 
-const buildResponse = (): ResponseStub => ({ clearCookie: jest.fn() });
+const buildResponse = (): ResponseStub => ({
+  clearCookie: jest.fn(),
+  req: { headers: {} },
+});
 
 type BuildOpts = {
   authContext?: Record<string, unknown>;
@@ -66,6 +71,10 @@ const buildService = ({
     get: jest.fn((key: string) => config[key] ?? ''),
   } as unknown as TwentyConfigService;
 
+  const metricsService = {
+    incrementCounterBy: jest.fn(),
+  } as unknown as MetricsService;
+
   return {
     service: new MiddlewareService(
       accessTokenService,
@@ -74,7 +83,7 @@ const buildService = ({
       exceptionHandlerService,
       jwtWrapperService,
       twentyConfigService,
-      new UserSessionCookieService(twentyConfigService),
+      new UserSessionCookieService(twentyConfigService, metricsService),
     ),
     accessTokenService,
   };

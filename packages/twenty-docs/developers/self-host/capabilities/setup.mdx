@@ -1,9 +1,11 @@
 ---
 title: Setup
-icon: "gear"
+description: Configure Twenty from the admin panel or with environment variables.
 ---
 
-# Configuration Management
+import { PageBanner } from "/snippets/page-banner.mdx"
+
+## Overview
 
 <Warning>
 **First time installing?** Follow the [Docker Compose installation guide](/developers/self-host/capabilities/docker-compose) to get Twenty running, then return here for configuration.
@@ -193,7 +195,7 @@ On Microsoft Azure Console enable the following APIs in "Permissions":
 
 - Microsoft Graph: Mail.ReadWrite
 - Microsoft Graph: Mail.Send
-- Microsoft Graph: Calendars.Read
+- Microsoft Graph: Calendars.ReadWrite
 - Microsoft Graph: User.Read
 - Microsoft Graph: openid
 - Microsoft Graph: email
@@ -201,11 +203,11 @@ On Microsoft Azure Console enable the following APIs in "Permissions":
 - Microsoft Graph: offline_access
 
 <Note>
-"Mail.ReadWrite" and "Mail.Send" are only mandatory if you want to send emails using our workflow actions. You can use "Mail.Read" instead if you only want to receive emails.
+All of these permissions are required, even if you only want to sync emails and calendar events. Twenty always requests "Mail.ReadWrite", "Mail.Send" and "Calendars.ReadWrite" when a user connects their account, so read-only permissions like "Mail.Read" or "Calendars.Read" are not enough.
 </Note>
 
 <Note>
-"Calendars.ReadWrite" is mandatory if you want to create calendar events using our workflow actions. If you want to only sync calendar events, use "Calendars.Read".
+If your tenant does not let regular users consent to these permissions, they will see error AADSTS90094 when connecting their account. An administrator can fix this by clicking "Grant admin consent for {your-tenant}" in the app registration's "API permissions" page.
 </Note>
 
 ### Authorized redirect URIs
@@ -232,14 +234,15 @@ You need to add the following redirect URIs to your project:
 </Warning>
 
 ### Configure scopes
-[See relevant source code](https://github.com/twentyhq/twenty/blob/main/packages/twenty-server/src/engine/core-modules/auth/utils/get-microsoft-apis-oauth-scopes.ts#L2-L9)
+[See relevant source code](https://github.com/twentyhq/twenty/blob/main/packages/twenty-server/src/engine/core-modules/auth/utils/get-microsoft-apis-oauth-scopes.ts#L2-L11)
 - 'openid'
 - 'email'
 - 'profile'
 - 'offline_access'
 - 'Mail.ReadWrite'
 - 'Mail.Send'
-- 'Calendars.Read'
+- 'Calendars.ReadWrite'
+- 'User.Read'
 
 ### If your app is in test mode
 
@@ -507,3 +510,5 @@ With multi-workspace enabled, do not list every workspace subdomain here.
 Instead, route API paths (`/graphql`, `/metadata`, `/rest`, `/auth/`,
 `/client-config`, `/file`) to the back-end on each workspace hostname, so every
 workspace stays same-origin — this is how Twenty Cloud runs.
+
+<PageBanner illustration="dev-self-host" />
