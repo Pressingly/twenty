@@ -4,19 +4,25 @@ import {
 } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
-import { computePermissionIntersection } from 'src/engine/twenty-orm/utils/compute-permission-intersection.util';
-import {
-  TwentyOrmException,
-  TwentyOrmExceptionCode,
-} from 'src/engine/twenty-orm/exceptions/twenty-orm.exception';
+import { type FlatEntityMaps } from 'src/engine/metadata-modules/flat-entity/types/flat-entity-maps.type';
+import { type OrmFlatFieldMetadata } from 'src/engine/metadata-modules/flat-field-metadata/types/orm-flat-field-metadata.type';
+import { type FlatObjectMetadata } from 'src/engine/metadata-modules/flat-object-metadata/types/flat-object-metadata.type';
 import { type RolePermissionConfig } from 'src/engine/twenty-orm/types/role-permission-config.type';
+import { computeObjectsPermissionsForRolePermissionConfig } from 'src/engine/twenty-orm/utils/compute-objects-permissions-for-role-permission-config.util';
+import { type ApplicationDefaultRoleMaps } from 'src/engine/twenty-orm/types/application-default-role-maps.type';
 
 export const resolveObjectRecordsPermissions = ({
   rolePermissionConfig,
   objectPermissionsByRoleId,
+  flatObjectMetadataMaps,
+  flatFieldMetadataMaps,
+  flatApplicationMaps,
 }: {
   rolePermissionConfig?: RolePermissionConfig;
   objectPermissionsByRoleId: ObjectsPermissionsByRoleId;
+  flatObjectMetadataMaps: FlatEntityMaps<FlatObjectMetadata>;
+  flatFieldMetadataMaps: FlatEntityMaps<OrmFlatFieldMetadata>;
+  flatApplicationMaps: ApplicationDefaultRoleMaps;
 }): {
   objectRecordsPermissions: ObjectsPermissions;
   shouldBypassPermissionChecks: boolean;
@@ -36,29 +42,14 @@ export const resolveObjectRecordsPermissions = ({
     };
   }
 
-  if ('unionOf' in rolePermissionConfig) {
-    if (rolePermissionConfig.unionOf.length !== 1) {
-      throw new TwentyOrmException(
-        'Union permission logic for multiple roles not yet implemented',
-        TwentyOrmExceptionCode.UNSUPPORTED_OPERATION,
-      );
-    }
-
-    return {
-      objectRecordsPermissions:
-        objectPermissionsByRoleId[rolePermissionConfig.unionOf[0]] ?? {},
-      shouldBypassPermissionChecks: false,
-    };
-  }
-
-  const allRolePermissions = rolePermissionConfig.intersectionOf.map(
-    (roleId) => objectPermissionsByRoleId[roleId],
-  );
-
   return {
-    objectRecordsPermissions: allRolePermissions.every(isDefined)
-      ? computePermissionIntersection(allRolePermissions)
-      : {},
+    objectRecordsPermissions: computeObjectsPermissionsForRolePermissionConfig({
+      intersectionOf: rolePermissionConfig.intersectionOf,
+      rolesPermissions: objectPermissionsByRoleId,
+      flatObjectMetadataMaps,
+      flatFieldMetadataMaps,
+      flatApplicationMaps,
+    }),
     shouldBypassPermissionChecks: false,
   };
 };

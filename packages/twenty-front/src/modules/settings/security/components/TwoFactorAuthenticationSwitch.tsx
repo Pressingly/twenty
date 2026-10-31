@@ -9,6 +9,7 @@ import { t } from '@lingui/core/macro';
 import { useToast } from 'twenty-ui/components/feedback';
 import { IconLifebuoy } from 'twenty-ui/icon';
 import { UpdateWorkspaceDocument } from '~/generated-metadata/graphql';
+import { doNotTranslate } from 'twenty-shared/i18n';
 
 // Under SSO the IdP owns MFA, so Twenty's local 2FA enforcement switch is a dead control.
 export const TwoFactorAuthenticationSwitch = () => {
@@ -30,7 +31,7 @@ const TwoFactorAuthenticationSwitchEnabled = () => {
 
   const handleChange = async () => {
     if (!currentWorkspace?.id) {
-      throw new Error('User is not logged in');
+      throw new Error(doNotTranslate('User is not logged in'));
     }
 
     const newEnforceValue = !currentWorkspace.isTwoFactorAuthenticationEnforced;
@@ -71,7 +72,6 @@ const TwoFactorAuthenticationSwitchEnabled = () => {
           description={t`Enforce two-step verification for every user login.`}
           checked={currentWorkspace.isTwoFactorAuthenticationEnforced}
           onChange={handleChange}
-          advancedMode
         />
       )}
     </>

@@ -12,12 +12,14 @@ const THREAD_ID = '20202020-0000-4000-8000-0000000000aa';
 const OTHER_THREAD_ID = '20202020-0000-4000-8000-0000000000bb';
 const LAST_ACTIVITY_AT = '2026-10-01T10:00:00.000Z';
 const READ_PARTICIPANT = {
+  __typename: 'AgentChatThreadParticipant' as const,
   threadId: THREAD_ID,
   lastReadAt: LAST_ACTIVITY_AT,
   archivedAt: null,
   snoozedUntil: null,
   isSubscribed: true,
   lastMentionedAt: null,
+  mentionsResolvedAt: null,
   id: 'participant-id',
   updatedAt: '2026-10-01T10:00:00.000Z',
 };
@@ -59,7 +61,7 @@ describe('useUpdateAgentChatThreadInboxState', () => {
     jest.clearAllMocks();
   });
 
-  it('reads a thread up to its last activity before the server answers', async () => {
+  it('reads a thread up to its last activity before the server answers, without following it', async () => {
     mutate.mockReturnValue(new Promise(() => undefined));
     const { result, store } = renderUpdateInboxState();
 
@@ -77,7 +79,9 @@ describe('useUpdateAgentChatThreadInboxState', () => {
       lastReadAt: LAST_ACTIVITY_AT,
       archivedAt: null,
       snoozedUntil: null,
-      isSubscribed: true,
+      isSubscribed: false,
+      lastMentionedAt: null,
+      mentionsResolvedAt: null,
     });
   });
 
@@ -94,7 +98,10 @@ describe('useUpdateAgentChatThreadInboxState', () => {
 
     const participants = store.get(agentChatThreadParticipantsState.atom);
 
-    expect(participants?.[THREAD_ID]?.archivedAt).toEqual(expect.any(String));
+    expect(participants?.[THREAD_ID]).toMatchObject({
+      archivedAt: expect.any(String),
+      isSubscribed: true,
+    });
     expect(participants?.[OTHER_THREAD_ID]?.archivedAt).toEqual(
       expect.any(String),
     );
