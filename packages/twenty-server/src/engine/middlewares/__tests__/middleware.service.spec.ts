@@ -395,7 +395,7 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
       },
     );
 
-    it('treats a CHANGE_ME_ SMB_CORPORATE_ID as unset', async () => {
+    it('refuses a signed-in request when SMB_CORPORATE_ID is a CHANGE_ME_ placeholder', async () => {
       const { service, verify } = buildService({
         config: {
           AUTH_TYPE: 'SSO',
@@ -411,7 +411,7 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
           }) as never,
           buildResponse() as never,
         ),
-      ).resolves.toBeUndefined();
+      ).rejects.toMatchObject({ code: 'FORBIDDEN_EXCEPTION' });
       expect(verify).not.toHaveBeenCalled();
     });
   });

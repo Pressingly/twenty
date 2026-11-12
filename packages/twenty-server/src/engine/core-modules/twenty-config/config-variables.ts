@@ -2715,7 +2715,7 @@ export class ConfigVariables {
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
-      'Cognito corporate_id for Layer 2 tenant isolation. When set, the forwarded X-Auth-Request-Access-Token is verified against the mPass JWKS and must carry custom:is_corporate="true" and a matching custom:corporate_id: strictly at SSO proxy-login, and on signed-in requests a verified token of another organization is refused. Empty = skip check (backward compatible).',
+      'Cognito corporate_id for Layer 2 tenant isolation. When set, the forwarded X-Auth-Request-Access-Token is verified against the mPass JWKS and must carry custom:is_corporate="true" and a matching custom:corporate_id: strictly at SSO proxy-login, and on signed-in requests a verified token of another organization is refused. Empty = skip check (backward compatible); a CHANGE_ME_ placeholder refuses every mPass login.',
     type: ConfigVariableType.STRING,
   })
   @IsOptional()

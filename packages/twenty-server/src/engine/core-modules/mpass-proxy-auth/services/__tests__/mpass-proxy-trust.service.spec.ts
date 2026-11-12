@@ -237,12 +237,44 @@ describe('MpassProxyTrustService', () => {
   });
 
   describe('SMB_CORPORATE_ID handling', () => {
-    it('treats a CHANGE_ME_ placeholder as unset', async () => {
+    it('refuses every proxy-login with placeholder_config for a CHANGE_ME_ value', async () => {
       const { service, verify } = buildService({
         config: { SMB_CORPORATE_ID: 'CHANGE_ME_SMB_CORPORATE_ID' },
+        verify: jest.fn().mockResolvedValue({
+          'custom:is_corporate': 'true',
+          'custom:corporate_id': 'CHANGE_ME_SMB_CORPORATE_ID',
+        }),
+      });
+
+      expect(await service.findCorporateRejection({})).toBe(
+        'placeholder_config',
+      );
+      expect(
+        await service.findCorporateRejection({ accessToken: 'token' }),
+      ).toBe('placeholder_config');
+      expect(verify).not.toHaveBeenCalled();
+    });
+
+    it('refuses signed-in requests carrying a token for a CHANGE_ME_ value', async () => {
+      const { service } = buildService({
+        config: { SMB_CORPORATE_ID: ' CHANGE_ME_SMB_CORPORATE_ID ' },
+      });
+
+      expect(
+        await service.findCorporateMismatch({ accessToken: 'token' }),
+      ).toBe('placeholder_config');
+      expect(await service.findCorporateMismatch({})).toBeUndefined();
+    });
+
+    it('treats a whitespace-only value as unset', async () => {
+      const { service, verify } = buildService({
+        config: { SMB_CORPORATE_ID: '   ' },
       });
 
       expect(await service.findCorporateRejection({})).toBeUndefined();
+      expect(
+        await service.findCorporateMismatch({ accessToken: 'token' }),
+      ).toBeUndefined();
       expect(verify).not.toHaveBeenCalled();
     });
 
@@ -280,6 +312,16 @@ describe('MpassProxyTrustService', () => {
 
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining('SMB_CORPORATE_ID'),
+      );
+    });
+
+    it('logs an error for a CHANGE_ME_ corporate id', () => {
+      buildService({
+        config: { SMB_CORPORATE_ID: 'CHANGE_ME_SMB_CORPORATE_ID' },
+      }).service.onModuleInit();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'SMB_CORPORATE_ID is a CHANGE_ME_ placeholder: every mPass login is refused',
       );
     });
 

@@ -15,6 +15,7 @@ import {
 import { MpassTokenVerifier } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-token-verifier';
 import { type MpassTokenClaims } from 'src/engine/core-modules/mpass-proxy-auth/types/mpass-token-claims.type';
 import { type ProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/types/proxy-identity-headers.type';
+import { CONFIG_PLACEHOLDER_PREFIX } from 'src/engine/core-modules/mpass-proxy-auth/constants/mpass-token-verification.constant';
 import { configuredValue } from 'src/engine/core-modules/mpass-proxy-auth/utils/configured-value.util';
 import { isEdgeSecretUsable } from 'src/engine/core-modules/mpass-proxy-auth/utils/is-edge-secret-usable.util';
 import { isRequestFromEdge } from 'src/engine/core-modules/mpass-proxy-auth/utils/is-request-from-edge.util';
@@ -26,7 +27,30 @@ import {
 import { readProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/utils/read-proxy-identity-headers.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 
-export type CorporateMismatchReason = 'not_corporate' | 'wrong_organization';
+export type CorporateMismatchReason =
+  | 'not_corporate'
+  | 'wrong_organization'
+  | 'placeholder_config';
+
+// A CHANGE_ME_ corporate id is a deployment that meant to set one, so it
+// keeps the gate on and refuses everyone instead of failing open.
+type CorporateGate =
+  | { state: 'off' }
+  | { state: 'placeholder' }
+  | { state: 'on'; corporateId: string };
+
+const resolveCorporateGate = (rawCorporateId: unknown): CorporateGate => {
+  const corporateId =
+    typeof rawCorporateId === 'string' ? rawCorporateId.trim() : '';
+
+  if (!isNonEmptyString(corporateId)) {
+    return { state: 'off' };
+  }
+
+  return corporateId.startsWith(CONFIG_PLACEHOLDER_PREFIX)
+    ? { state: 'placeholder' }
+    : { state: 'on', corporateId };
+};
 
 export type CorporateRejectionReason =
   | InvalidMpassTokenReason
@@ -78,7 +102,15 @@ export class MpassProxyTrustService implements OnModuleInit {
       );
     }
 
-    if (this.isCorporateGateOn() && !this.mpassTokenVerifier.isConfigured) {
+    const gate = this.corporateGate();
+
+    if (gate.state === 'placeholder') {
+      this.logger.error(
+        'SMB_CORPORATE_ID is a CHANGE_ME_ placeholder: every mPass login is refused',
+      );
+    }
+
+    if (gate.state === 'on' && !this.mpassTokenVerifier.isConfigured) {
       this.logger.error(
         'SMB_CORPORATE_ID is set but no token issuer or client id is configured (MPASS_COGNITO_ISSUER_URL, MPASS_OIDC_CLIENT_ID): every mPass login will be refused',
       );
@@ -106,10 +138,10 @@ export class MpassProxyTrustService implements OnModuleInit {
   async findCorporateRejection(
     trustedHeaders: ProxyIdentityHeaders,
   ): Promise<CorporateRejectionReason | undefined> {
-    const expectedCorporateId = this.expectedCorporateId();
+    const gate = this.corporateGate();
 
-    if (!expectedCorporateId) {
-      return undefined;
+    if (gate.state !== 'on') {
+      return gate.state === 'placeholder' ? 'placeholder_config' : undefined;
     }
 
     if (!isDefined(trustedHeaders.accessToken)) {
@@ -121,7 +153,7 @@ export class MpassProxyTrustService implements OnModuleInit {
         trustedHeaders.accessToken,
       );
 
-      return corporateClaimsMismatch(claims, expectedCorporateId);
+      return corporateClaimsMismatch(claims, gate.corporateId);
     } catch (error) {
       if (error instanceof InvalidMpassTokenError) {
         return error.reason;
@@ -137,10 +169,14 @@ export class MpassProxyTrustService implements OnModuleInit {
   async findCorporateMismatch(
     trustedHeaders: ProxyIdentityHeaders,
   ): Promise<CorporateMismatchReason | undefined> {
-    const expectedCorporateId = this.expectedCorporateId();
+    const gate = this.corporateGate();
 
-    if (!expectedCorporateId || !isDefined(trustedHeaders.accessToken)) {
+    if (gate.state === 'off' || !isDefined(trustedHeaders.accessToken)) {
       return undefined;
+    }
+
+    if (gate.state === 'placeholder') {
+      return 'placeholder_config';
     }
 
     try {
@@ -148,7 +184,7 @@ export class MpassProxyTrustService implements OnModuleInit {
         trustedHeaders.accessToken,
       );
 
-      return corporateClaimsMismatch(claims, expectedCorporateId);
+      return corporateClaimsMismatch(claims, gate.corporateId);
     } catch (error) {
       if (!(error instanceof InvalidMpassTokenError)) {
         throw error;
@@ -162,12 +198,10 @@ export class MpassProxyTrustService implements OnModuleInit {
     }
   }
 
-  private isCorporateGateOn(): boolean {
-    return isNonEmptyString(this.expectedCorporateId());
-  }
-
-  private expectedCorporateId(): string {
-    return configuredValue(this.twentyConfigService.get('SMB_CORPORATE_ID'));
+  private corporateGate(): CorporateGate {
+    return resolveCorporateGate(
+      this.twentyConfigService.get('SMB_CORPORATE_ID'),
+    );
   }
 
   private edgeSecret(): string {

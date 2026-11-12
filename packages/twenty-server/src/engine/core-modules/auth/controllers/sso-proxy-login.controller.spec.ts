@@ -201,6 +201,21 @@ describe('SsoProxyLoginController', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('should 403 every login when SMB_CORPORATE_ID is a CHANGE_ME_ placeholder', async () => {
+      const { proxyLogin, ssoUserProvisioningService } = buildController(
+        { SMB_CORPORATE_ID: 'CHANGE_ME_SMB_CORPORATE_ID' },
+        jest.fn().mockResolvedValue({
+          'custom:is_corporate': 'true',
+          'custom:corporate_id': 'CHANGE_ME_SMB_CORPORATE_ID',
+        }),
+      );
+
+      await expect(
+        proxyLogin({ email: 'someone@askii.ai', accessToken: 'token' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(ssoUserProvisioningService.findOrProvision).not.toHaveBeenCalled();
+    });
+
     it('should log in with a verified token of this organization', async () => {
       const { proxyLogin, verify, res } = buildController(
         { SMB_CORPORATE_ID: 'corp-1' },
