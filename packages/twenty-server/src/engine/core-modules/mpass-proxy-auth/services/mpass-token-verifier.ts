@@ -1,5 +1,7 @@
 import { type KeyObject } from 'crypto';
 
+import { Logger } from '@nestjs/common';
+
 import { isNonEmptyString, isObject } from '@sniptt/guards';
 import * as jwt from 'jsonwebtoken';
 import { isDefined } from 'twenty-shared/utils';
@@ -9,6 +11,7 @@ import {
   CLOCK_SKEW_LEEWAY_SECONDS,
   JWKS_FAILURE_BACKOFF_MS,
   JWKS_LIFESPAN_MS,
+  JWKS_STALE_GRACE_MS,
   REQUIRED_TOKEN_CLAIMS,
 } from 'src/engine/core-modules/mpass-proxy-auth/constants/mpass-token-verification.constant';
 import { InvalidMpassTokenError } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
@@ -92,6 +95,11 @@ export class MpassTokenVerifier {
   private readonly now: () => number;
   private readonly jwksByIssuer = new Map<string, CachedJwks>();
   private readonly jwksFailedAtByIssuer = new Map<string, number>();
+  private readonly jwksFetchesInFlight = new Map<
+    string,
+    Promise<JwksSigningKeys>
+  >();
+  private readonly logger = new Logger(MpassTokenVerifier.name);
 
   constructor({
     issuers,
@@ -163,17 +171,25 @@ export class MpassTokenVerifier {
     const cached = this.jwksByIssuer.get(issuer);
     const cachedKey = cached?.keys.get(keyId);
 
-    if (isDefined(cachedKey) && this.isFresh(cached)) {
+    if (
+      isDefined(cached) &&
+      isDefined(cachedKey) &&
+      this.ageOf(cached) < JWKS_LIFESPAN_MS
+    ) {
       return cachedKey;
     }
 
     // A kid missing from a just-fetched set is unknown, not a rotation; this
     // stops forged kids from turning every request into a JWKS fetch.
-    if (isDefined(cached) && this.wasFetchedRecently(cached)) {
+    if (
+      isDefined(cached) &&
+      !isDefined(cachedKey) &&
+      this.ageOf(cached) < JWKS_FAILURE_BACKOFF_MS
+    ) {
       throw new InvalidMpassTokenError('unknown_signing_key');
     }
 
-    const keys = await this.refreshJwks(issuer);
+    const keys = await this.refreshOrServeStale(issuer, cached);
     const signingKey = keys.get(keyId);
 
     if (!isDefined(signingKey)) {
@@ -183,11 +199,48 @@ export class MpassTokenVerifier {
     return signingKey;
   }
 
-  private async refreshJwks(issuer: string): Promise<JwksSigningKeys> {
+  // A JWKS outage must not lock out every login: the last good set stays
+  // trusted for a bounded grace, and only an issuer with none fails closed.
+  private async refreshOrServeStale(
+    issuer: string,
+    cached: CachedJwks | undefined,
+  ): Promise<JwksSigningKeys> {
+    try {
+      return await this.refreshJwks(issuer);
+    } catch (error) {
+      if (!isDefined(cached) || this.ageOf(cached) >= JWKS_STALE_GRACE_MS) {
+        throw error;
+      }
+
+      this.logger.warn(
+        `JWKS refresh unavailable for issuer=${issuer}; serving the last good key set fetched ${Math.round(this.ageOf(cached) / 1000)}s ago`,
+      );
+
+      return cached.keys;
+    }
+  }
+
+  private refreshJwks(issuer: string): Promise<JwksSigningKeys> {
     if (this.failedRecently(issuer)) {
-      throw new InvalidMpassTokenError('jwks_unavailable');
+      return Promise.reject(new InvalidMpassTokenError('jwks_unavailable'));
     }
 
+    const inFlight = this.jwksFetchesInFlight.get(issuer);
+
+    if (isDefined(inFlight)) {
+      return inFlight;
+    }
+
+    const fetch = this.fetchAndCacheJwks(issuer).finally(() =>
+      this.jwksFetchesInFlight.delete(issuer),
+    );
+
+    this.jwksFetchesInFlight.set(issuer, fetch);
+
+    return fetch;
+  }
+
+  private async fetchAndCacheJwks(issuer: string): Promise<JwksSigningKeys> {
     try {
       const keys = await this.fetchJwksSigningKeys(issuer);
 
@@ -202,14 +255,8 @@ export class MpassTokenVerifier {
     }
   }
 
-  private isFresh(cached: CachedJwks | undefined): cached is CachedJwks {
-    return (
-      isDefined(cached) && this.now() - cached.fetchedAt < JWKS_LIFESPAN_MS
-    );
-  }
-
-  private wasFetchedRecently(cached: CachedJwks): boolean {
-    return this.now() - cached.fetchedAt < JWKS_FAILURE_BACKOFF_MS;
+  private ageOf(cached: CachedJwks): number {
+    return this.now() - cached.fetchedAt;
   }
 
   private failedRecently(issuer: string): boolean {

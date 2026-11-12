@@ -13,6 +13,7 @@ import {
 } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
 import { MpassTokenVerifier } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-token-verifier';
 import { type ProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/types/proxy-identity-headers.type';
+import { configuredValue } from 'src/engine/core-modules/mpass-proxy-auth/utils/configured-value.util';
 import { isEdgeSecretUsable } from 'src/engine/core-modules/mpass-proxy-auth/utils/is-edge-secret-usable.util';
 import { isRequestFromEdge } from 'src/engine/core-modules/mpass-proxy-auth/utils/is-request-from-edge.util';
 import { mpassIdForLogs } from 'src/engine/core-modules/mpass-proxy-auth/utils/mpass-id-for-logs.util';
@@ -119,11 +120,11 @@ export class MpassProxyTrustService implements OnModuleInit {
     }
   }
 
-  isCorporateGateOn(): boolean {
+  private isCorporateGateOn(): boolean {
     return Boolean(this.twentyConfigService.get('SMB_CORPORATE_ID'));
   }
 
   private edgeSecret(): string {
-    return (this.twentyConfigService.get('MPASS_EDGE_SECRET') ?? '').trim();
+    return configuredValue(this.twentyConfigService.get('MPASS_EDGE_SECRET'));
   }
 }

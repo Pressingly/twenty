@@ -632,47 +632,19 @@ describe('JwtAuthGuard', () => {
       expect(services.verify).not.toHaveBeenCalled();
     });
 
-    it('refuses an edge request whose token fails verification', async () => {
+    it('leaves the corporate gate to proxy-login: no per-request token verification', async () => {
       const request: RequestStub = {
         get: jest.fn(
           headerReader({
             'x-auth-request-email': 'alice@example.com',
-            'x-auth-request-access-token': 'tampered.jwt',
+            'x-auth-request-access-token': 'expired.jwt',
           }),
         ),
       };
       const services = buildServices(
         { user: { email: 'alice@example.com' }, userWorkspaceId: 'uw-1' },
         { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
-        jest
-          .fn()
-          .mockRejectedValue(new InvalidMpassTokenError('bad_signature')),
-      );
-
-      const result = await buildGuard(services).canActivate(
-        buildExecutionContext(request, { clearCookie: jest.fn() }),
-      );
-
-      expect(result).toBe(false);
-      expect(services.verify).toHaveBeenCalledWith('tampered.jwt');
-    });
-
-    it('accepts an edge request with a verified token of this organization', async () => {
-      const request: RequestStub = {
-        get: jest.fn(
-          headerReader({
-            'x-auth-request-email': 'alice@example.com',
-            'x-auth-request-access-token': 'valid.jwt',
-          }),
-        ),
-      };
-      const services = buildServices(
-        { user: { email: 'alice@example.com' }, userWorkspaceId: 'uw-1' },
-        { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
-        jest.fn().mockResolvedValue({
-          'custom:is_corporate': 'true',
-          'custom:corporate_id': 'corp-1',
-        }),
+        jest.fn().mockRejectedValue(new InvalidMpassTokenError('expired')),
       );
 
       const result = await buildGuard(services).canActivate(
@@ -680,6 +652,7 @@ describe('JwtAuthGuard', () => {
       );
 
       expect(result).toBe(true);
+      expect(services.verify).not.toHaveBeenCalled();
     });
   });
 

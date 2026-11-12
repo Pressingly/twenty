@@ -1,5 +1,7 @@
 import { generateKeyPairSync, type KeyObject } from 'crypto';
 
+import { Logger } from '@nestjs/common';
+
 import * as jwt from 'jsonwebtoken';
 
 import { InvalidMpassTokenError } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
@@ -98,6 +100,14 @@ const rejectionReason = async (promise: Promise<unknown>) => {
 };
 
 describe('MpassTokenVerifier', () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
   it('accepts a Cognito access token issued to the client', async () => {
     const { verifier, fetchJwksSigningKeys } = buildVerifier();
 
@@ -293,5 +303,95 @@ describe('MpassTokenVerifier', () => {
         }),
       ),
     ).resolves.toBeDefined();
+  });
+
+  describe('stale key grace', () => {
+    const HOUR_MS = 3_600_000;
+
+    const buildWithFailingRefresh = () =>
+      buildVerifier({
+        fetchJwksSigningKeys: jest
+          .fn()
+          .mockResolvedValueOnce(jwksFor(signingKeyPair.publicKey))
+          .mockRejectedValue(new Error('JWKS endpoint down')),
+      });
+
+    it('serves the last good key set when a refresh fails, and during the backoff', async () => {
+      const { verifier, fetchJwksSigningKeys, clock } =
+        buildWithFailingRefresh();
+
+      await verifier.verify(signToken(accessClaims()));
+      clock.now += 2 * HOUR_MS;
+
+      const lateToken = signToken(
+        accessClaims({
+          iat: clock.now / 1000 - 10,
+          exp: clock.now / 1000 + 600,
+        }),
+      );
+
+      await expect(verifier.verify(lateToken)).resolves.toBeDefined();
+      await expect(verifier.verify(lateToken)).resolves.toBeDefined();
+      expect(fetchJwksSigningKeys).toHaveBeenCalledTimes(2);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('serving the last good key set'),
+      );
+    });
+
+    it('fails closed once the last good key set is older than 24 hours', async () => {
+      const { verifier, clock } = buildWithFailingRefresh();
+
+      await verifier.verify(signToken(accessClaims()));
+      clock.now += 24 * HOUR_MS;
+
+      const lateToken = signToken(
+        accessClaims({
+          iat: clock.now / 1000 - 10,
+          exp: clock.now / 1000 + 600,
+        }),
+      );
+
+      expect(await rejectionReason(verifier.verify(lateToken))).toBe(
+        'jwks_unavailable',
+      );
+    });
+
+    it('rejects a kid absent from the stale set instead of trusting it', async () => {
+      const { verifier, clock } = buildWithFailingRefresh();
+
+      await verifier.verify(signToken(accessClaims()));
+      clock.now += 2 * HOUR_MS;
+
+      const unknownKidToken = signToken(
+        accessClaims({
+          iat: clock.now / 1000 - 10,
+          exp: clock.now / 1000 + 600,
+        }),
+        { kid: 'key-2' },
+      );
+
+      expect(await rejectionReason(verifier.verify(unknownKidToken))).toBe(
+        'unknown_signing_key',
+      );
+    });
+  });
+
+  it('shares one in-flight JWKS fetch between concurrent verifications', async () => {
+    let resolveFetch: (keys: ReturnType<typeof jwksFor>) => void = () => {};
+    const fetchJwksSigningKeys = jest.fn(
+      () =>
+        new Promise<ReturnType<typeof jwksFor>>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    const { verifier } = buildVerifier({ fetchJwksSigningKeys });
+    const token = signToken(accessClaims());
+
+    const verifications = [verifier.verify(token), verifier.verify(token)];
+
+    resolveFetch(jwksFor(signingKeyPair.publicKey));
+
+    await expect(Promise.all(verifications)).resolves.toHaveLength(2);
+    expect(fetchJwksSigningKeys).toHaveBeenCalledTimes(1);
   });
 });

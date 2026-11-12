@@ -42,11 +42,11 @@ export class JwtAuthGuard implements CanActivate {
 
       if (
         this.twentyConfigService.get('AUTH_TYPE') === 'SSO' &&
-        !(await this.isTrustedProxyIdentityAccepted(
+        !this.isTrustedProxyIdentityAccepted(
           request,
           response,
           data.user?.email,
-        ))
+        )
       ) {
         return false;
       }
@@ -83,47 +83,32 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   // A stale session (portal "Logout all" then a different upstream user) is
-  // refused and its cookie cleared so the SPA re-enters proxy-login. Requests
-  // without a trusted access token (API keys, MCP) skip the corporate gate.
-  private async isTrustedProxyIdentityAccepted(
+  // refused and its cookie cleared so the SPA re-enters proxy-login, which is
+  // where the SMB corporate gate runs.
+  private isTrustedProxyIdentityAccepted(
     request: Request,
     response: Response,
     jwtEmail: string | undefined,
-  ): Promise<boolean> {
-    const mpassProxyTrustService = this.moduleRef.get(MpassProxyTrustService, {
-      strict: false,
-    });
-    const trustedHeaders =
-      mpassProxyTrustService.readTrustedProxyHeaders(request);
+  ): boolean {
+    const trustedHeaders = this.moduleRef
+      .get(MpassProxyTrustService, { strict: false })
+      .readTrustedProxyHeaders(request);
 
     if (
-      isDefined(jwtEmail) &&
-      !matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
+      !isDefined(jwtEmail) ||
+      matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
     ) {
-      clearSessionCookie(
-        response,
-        this.moduleRef.get(UserSessionCookieService, { strict: false }),
-      );
-      this.logger.warn(
-        'Auth refused: proxy identity differs from JWT user; session cookie cleared',
-      );
-
-      return false;
-    }
-
-    if (!isDefined(trustedHeaders.accessToken)) {
       return true;
     }
 
-    const rejection =
-      await mpassProxyTrustService.findCorporateRejection(trustedHeaders);
+    clearSessionCookie(
+      response,
+      this.moduleRef.get(UserSessionCookieService, { strict: false }),
+    );
+    this.logger.warn(
+      'Auth refused: proxy identity differs from JWT user; session cookie cleared',
+    );
 
-    if (isDefined(rejection)) {
-      this.logger.warn(`Auth refused: corporate gate reason=${rejection}`);
-
-      return false;
-    }
-
-    return true;
+    return false;
   }
 }

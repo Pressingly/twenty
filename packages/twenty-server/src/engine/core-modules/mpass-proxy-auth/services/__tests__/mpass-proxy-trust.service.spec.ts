@@ -114,6 +114,7 @@ describe('MpassProxyTrustService', () => {
     it.each([
       ['empty', ''],
       ['shorter than 32 characters', 'short'],
+      ['a CHANGE_ME_ placeholder', `CHANGE_ME_${'x'.repeat(40)}`],
     ])('trusts nothing when MPASS_EDGE_SECRET is %s', (_case, secret) => {
       const { service } = buildService({
         config: { MPASS_EDGE_SECRET: secret },

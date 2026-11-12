@@ -355,33 +355,12 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
       expect(verify).not.toHaveBeenCalled();
     });
 
-    it('refuses an edge request whose token fails verification', async () => {
-      const { service } = buildService({
+    it('leaves the corporate gate to proxy-login: no per-request token verification', async () => {
+      const { service, verify } = buildService({
         config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
         verify: jest
           .fn()
-          .mockRejectedValue(new InvalidMpassTokenError('expired')),
-      });
-      const request = buildRequest({
-        email: 'alice@example.com',
-        accessToken: 'expired.jwt',
-      });
-
-      await expect(
-        service.hydrateGraphqlRequest(
-          request as never,
-          buildResponse() as never,
-        ),
-      ).rejects.toMatchObject({ code: 'FORBIDDEN_EXCEPTION' });
-    });
-
-    it('accepts an edge request with a verified token of this organization', async () => {
-      const { service, verify } = buildService({
-        config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
-        verify: jest.fn().mockResolvedValue({
-          'custom:is_corporate': 'true',
-          'custom:corporate_id': 'corp-1',
-        }),
+          .mockRejectedValue(new InvalidMpassTokenError('jwks_unavailable')),
       });
       const request = buildRequest({
         email: 'alice@example.com',
@@ -394,7 +373,7 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
           buildResponse() as never,
         ),
       ).resolves.toBeUndefined();
-      expect(verify).toHaveBeenCalledWith('valid.jwt');
+      expect(verify).not.toHaveBeenCalled();
     });
   });
 });

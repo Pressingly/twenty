@@ -124,7 +124,7 @@ export class MiddlewareService {
   public async hydrateRestRequest(request: Request, response?: Response) {
     const data = await this.accessTokenService.validateTokenByRequest(request);
 
-    await this.assertMpassProxyIdentity(request, response, data.user?.email);
+    this.assertMpassProxyIdentity(request, response, data.user?.email);
 
     const metadataVersion = data.workspace
       ? await this.getOrSeedMetadataVersion(data.workspace)
@@ -187,7 +187,7 @@ export class MiddlewareService {
       );
     }
 
-    await this.assertMpassProxyIdentity(request, response, data.user?.email);
+    this.assertMpassProxyIdentity(request, response, data.user?.email);
 
     const metadataVersion = data.workspace
       ? await this.getOrSeedMetadataVersion(data.workspace)
@@ -216,11 +216,13 @@ export class MiddlewareService {
     return workspace.metadataVersion;
   }
 
-  private async assertMpassProxyIdentity(
+  // The SMB corporate gate runs once, in proxy-login, when a session is
+  // established; a later identity change refuses here and re-enters it.
+  private assertMpassProxyIdentity(
     request: Request,
     response: Response | undefined,
     jwtEmail: string | undefined,
-  ): Promise<void> {
+  ): void {
     if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
       return;
     }
@@ -229,7 +231,6 @@ export class MiddlewareService {
       this.mpassProxyTrustService.readTrustedProxyHeaders(request);
 
     this.assertProxyIdentityMatchesUser(trustedHeaders, response, jwtEmail);
-    await this.assertCorporateIdMatches(trustedHeaders);
   }
 
   // When oauth2-proxy asserts a different identity than the session was
@@ -258,26 +259,6 @@ export class MiddlewareService {
       'Proxy identity differs from JWT user; session cookie cleared',
       AuthExceptionCode.UNAUTHENTICATED,
     );
-  }
-
-  // API-key, MCP and internal traffic carry no trusted access token and skip
-  // the SMB corporate gate; proxy-login is where its absence is refused.
-  private async assertCorporateIdMatches(
-    trustedHeaders: ProxyIdentityHeaders,
-  ): Promise<void> {
-    if (!isDefined(trustedHeaders.accessToken)) {
-      return;
-    }
-
-    const rejection =
-      await this.mpassProxyTrustService.findCorporateRejection(trustedHeaders);
-
-    if (isDefined(rejection)) {
-      throw new AuthException(
-        `Access denied: ${rejection}`,
-        AuthExceptionCode.FORBIDDEN_EXCEPTION,
-      );
-    }
   }
 
   private hasErrorStatus(error: unknown): error is { status: number } {
