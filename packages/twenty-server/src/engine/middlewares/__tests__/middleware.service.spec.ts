@@ -355,21 +355,60 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
       expect(verify).not.toHaveBeenCalled();
     });
 
-    it('leaves the corporate gate to proxy-login: no per-request token verification', async () => {
-      const { service, verify } = buildService({
+    it('refuses a signed-in request whose verified token is from another organization', async () => {
+      const { service } = buildService({
         config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
-        verify: jest
-          .fn()
-          .mockRejectedValue(new InvalidMpassTokenError('jwks_unavailable')),
-      });
-      const request = buildRequest({
-        email: 'alice@example.com',
-        accessToken: 'valid.jwt',
+        verify: jest.fn().mockResolvedValue({ 'custom:is_corporate': 'false' }),
       });
 
       await expect(
         service.hydrateGraphqlRequest(
-          request as never,
+          buildRequest({
+            email: 'alice@example.com',
+            accessToken: 'jwt',
+          }) as never,
+          buildResponse() as never,
+        ),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN_EXCEPTION' });
+    });
+
+    it.each(['expired', 'jwks_unavailable', 'unknown_signing_key'] as const)(
+      'keeps a signed-in request when verification fails with %s',
+      async (reason) => {
+        const { service, verify } = buildService({
+          config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
+          verify: jest
+            .fn()
+            .mockRejectedValue(new InvalidMpassTokenError(reason)),
+        });
+
+        await expect(
+          service.hydrateGraphqlRequest(
+            buildRequest({
+              email: 'alice@example.com',
+              accessToken: 'jwt',
+            }) as never,
+            buildResponse() as never,
+          ),
+        ).resolves.toBeUndefined();
+        expect(verify).toHaveBeenCalledWith('jwt');
+      },
+    );
+
+    it('treats a CHANGE_ME_ SMB_CORPORATE_ID as unset', async () => {
+      const { service, verify } = buildService({
+        config: {
+          AUTH_TYPE: 'SSO',
+          SMB_CORPORATE_ID: 'CHANGE_ME_SMB_CORPORATE_ID',
+        },
+      });
+
+      await expect(
+        service.hydrateGraphqlRequest(
+          buildRequest({
+            email: 'alice@example.com',
+            accessToken: 'jwt',
+          }) as never,
           buildResponse() as never,
         ),
       ).resolves.toBeUndefined();

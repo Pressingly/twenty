@@ -394,4 +394,50 @@ describe('MpassTokenVerifier', () => {
     await expect(Promise.all(verifications)).resolves.toHaveLength(2);
     expect(fetchJwksSigningKeys).toHaveBeenCalledTimes(1);
   });
+
+  describe('verified token memo', () => {
+    it('serves a verified token from the memo without a second verification', async () => {
+      const { verifier } = buildVerifier();
+      const token = signToken(accessClaims());
+
+      const first = await verifier.verify(token);
+      const second = await verifier.verify(token);
+
+      expect(second).toBe(first);
+    });
+
+    it('stops serving a memoised token once it expires', async () => {
+      const { verifier, clock } = buildVerifier();
+      const token = signToken(accessClaims({ exp: NOW_SECONDS + 100 }));
+
+      await verifier.verify(token);
+      clock.now += 200_000;
+
+      expect(await rejectionReason(verifier.verify(token))).toBe('expired');
+    });
+
+    it('never memoises a rejected token', async () => {
+      const { verifier } = buildVerifier();
+      const token = signToken(accessClaims({ client_id: 'other-client' }));
+
+      expect(await rejectionReason(verifier.verify(token))).toBe(
+        'wrong_audience',
+      );
+      expect(await rejectionReason(verifier.verify(token))).toBe(
+        'wrong_audience',
+      );
+    });
+  });
+
+  it('skips an unusable JWKS key and keeps the valid ones', () => {
+    const keys = parseJwksSigningKeys({
+      keys: [
+        { kty: 'RSA', kid: 'broken', n: 'not-a-modulus' },
+        { ...signingKeyPair.publicKey.export({ format: 'jwk' }), kid: KEY_ID },
+      ],
+    });
+
+    expect([...keys.keys()]).toEqual([KEY_ID]);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('kid=broken'));
+  });
 });

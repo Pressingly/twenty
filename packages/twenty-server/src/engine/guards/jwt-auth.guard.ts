@@ -42,11 +42,11 @@ export class JwtAuthGuard implements CanActivate {
 
       if (
         this.twentyConfigService.get('AUTH_TYPE') === 'SSO' &&
-        !this.isTrustedProxyIdentityAccepted(
+        !(await this.isTrustedProxyIdentityAccepted(
           request,
           response,
           data.user?.email,
-        )
+        ))
       ) {
         return false;
       }
@@ -83,32 +83,46 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   // A stale session (portal "Logout all" then a different upstream user) is
-  // refused and its cookie cleared so the SPA re-enters proxy-login, which is
-  // where the SMB corporate gate runs.
-  private isTrustedProxyIdentityAccepted(
+  // refused and its cookie cleared so the SPA re-enters proxy-login. Sessions
+  // minted outside proxy-login are still held to the SMB organization.
+  private async isTrustedProxyIdentityAccepted(
     request: Request,
     response: Response,
     jwtEmail: string | undefined,
-  ): boolean {
-    const trustedHeaders = this.moduleRef
-      .get(MpassProxyTrustService, { strict: false })
-      .readTrustedProxyHeaders(request);
-
-    if (
-      !isDefined(jwtEmail) ||
-      matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
-    ) {
+  ): Promise<boolean> {
+    if (!isDefined(jwtEmail)) {
       return true;
     }
 
-    clearSessionCookie(
-      response,
-      this.moduleRef.get(UserSessionCookieService, { strict: false }),
-    );
-    this.logger.warn(
-      'Auth refused: proxy identity differs from JWT user; session cookie cleared',
-    );
+    const mpassProxyTrustService = this.moduleRef.get(MpassProxyTrustService, {
+      strict: false,
+    });
+    const trustedHeaders =
+      mpassProxyTrustService.readTrustedProxyHeaders(request);
 
-    return false;
+    if (
+      !matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
+    ) {
+      clearSessionCookie(
+        response,
+        this.moduleRef.get(UserSessionCookieService, { strict: false }),
+      );
+      this.logger.warn(
+        'Auth refused: proxy identity differs from JWT user; session cookie cleared',
+      );
+
+      return false;
+    }
+
+    const mismatch =
+      await mpassProxyTrustService.findCorporateMismatch(trustedHeaders);
+
+    if (isDefined(mismatch)) {
+      this.logger.warn(`Auth refused: corporate gate reason=${mismatch}`);
+
+      return false;
+    }
+
+    return true;
   }
 }

@@ -4,6 +4,7 @@ export const JWKS_FETCH_TIMEOUT_MS = 2_000;
 export const JWKS_FAILURE_BACKOFF_MS = 30_000;
 export const JWKS_STALE_GRACE_MS = 86_400_000;
 export const CLOCK_SKEW_LEEWAY_SECONDS = 60;
+export const VERIFIED_TOKEN_CACHE_MAX_ENTRIES = 1_000;
 export const ALLOWED_TOKEN_ALGORITHM = 'RS256';
 export const REQUIRED_TOKEN_CLAIMS = [
   'exp',

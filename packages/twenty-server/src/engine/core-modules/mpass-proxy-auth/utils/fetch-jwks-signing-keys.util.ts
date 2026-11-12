@@ -1,9 +1,13 @@
 import { createPublicKey, type JsonWebKey, type KeyObject } from 'crypto';
 
+import { Logger } from '@nestjs/common';
+
 import { isNonEmptyString, isObject } from '@sniptt/guards';
 
 import { JWKS_FETCH_TIMEOUT_MS } from 'src/engine/core-modules/mpass-proxy-auth/constants/mpass-token-verification.constant';
 import { jwksUrl } from 'src/engine/core-modules/mpass-proxy-auth/utils/jwks-url.util';
+
+const logger = new Logger('FetchJwksSigningKeys');
 
 export type JwksSigningKeys = ReadonlyMap<string, KeyObject>;
 
@@ -27,9 +31,15 @@ export const parseJwksSigningKeys = (document: unknown): JwksSigningKeys => {
   }
 
   return new Map(
-    keys
-      .filter(isRsaSigningJwk)
-      .map((jwk) => [jwk.kid, createPublicKey({ key: jwk, format: 'jwk' })]),
+    keys.filter(isRsaSigningJwk).flatMap((jwk): [string, KeyObject][] => {
+      try {
+        return [[jwk.kid, createPublicKey({ key: jwk, format: 'jwk' })]];
+      } catch {
+        logger.warn(`Skipping unusable JWKS key kid=${jwk.kid}`);
+
+        return [];
+      }
+    }),
   );
 };
 

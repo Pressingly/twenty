@@ -188,6 +188,79 @@ describe('MpassProxyTrustService', () => {
     });
   });
 
+  describe('findCorporateMismatch (signed-in requests)', () => {
+    it('neither verifies nor refuses when the gate is off or no token is trusted', async () => {
+      const off = buildService();
+      const on = buildService({ config: { SMB_CORPORATE_ID: 'corp-1' } });
+
+      expect(
+        await off.service.findCorporateMismatch({ accessToken: 'token' }),
+      ).toBeUndefined();
+      expect(await on.service.findCorporateMismatch({})).toBeUndefined();
+      expect(off.verify).not.toHaveBeenCalled();
+      expect(on.verify).not.toHaveBeenCalled();
+    });
+
+    it('logs and lets the request through when verification fails', async () => {
+      const { service } = buildService({
+        config: { SMB_CORPORATE_ID: 'corp-1' },
+        verify: jest
+          .fn()
+          .mockRejectedValue(new InvalidMpassTokenError('jwks_unavailable')),
+      });
+
+      expect(
+        await service.findCorporateMismatch({ accessToken: 'raw.session.jwt' }),
+      ).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('reason=jwks_unavailable'),
+      );
+      expect(warnSpy.mock.calls[0][0]).not.toContain('raw.session.jwt');
+    });
+
+    it.each([
+      [{ 'custom:is_corporate': 'false' }, 'not_corporate'],
+      [
+        { 'custom:is_corporate': 'true', 'custom:corporate_id': 'corp-2' },
+        'wrong_organization',
+      ],
+    ])('refuses verified claims %j', async (claims, expected) => {
+      const { service } = buildService({
+        config: { SMB_CORPORATE_ID: 'corp-1' },
+        verify: jest.fn().mockResolvedValue(claims),
+      });
+
+      expect(
+        await service.findCorporateMismatch({ accessToken: 'token' }),
+      ).toBe(expected);
+    });
+  });
+
+  describe('SMB_CORPORATE_ID handling', () => {
+    it('treats a CHANGE_ME_ placeholder as unset', async () => {
+      const { service, verify } = buildService({
+        config: { SMB_CORPORATE_ID: 'CHANGE_ME_SMB_CORPORATE_ID' },
+      });
+
+      expect(await service.findCorporateRejection({})).toBeUndefined();
+      expect(verify).not.toHaveBeenCalled();
+    });
+
+    it('trims the configured value before comparing', async () => {
+      const { service } = buildService({
+        config: { SMB_CORPORATE_ID: '  corp-1 ' },
+        verify: jest.fn().mockResolvedValue({
+          'custom:is_corporate': 'true',
+          'custom:corporate_id': 'corp-1',
+        }),
+      });
+
+      expect(
+        await service.findCorporateRejection({ accessToken: 'token' }),
+      ).toBeUndefined();
+    });
+  });
+
   describe('onModuleInit', () => {
     it('logs an error when the edge secret is unusable in SSO mode', () => {
       buildService({

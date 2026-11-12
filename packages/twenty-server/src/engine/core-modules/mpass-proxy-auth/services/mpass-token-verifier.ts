@@ -13,6 +13,7 @@ import {
   JWKS_LIFESPAN_MS,
   JWKS_STALE_GRACE_MS,
   REQUIRED_TOKEN_CLAIMS,
+  VERIFIED_TOKEN_CACHE_MAX_ENTRIES,
 } from 'src/engine/core-modules/mpass-proxy-auth/constants/mpass-token-verification.constant';
 import { InvalidMpassTokenError } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
 import { type MpassTokenClaims } from 'src/engine/core-modules/mpass-proxy-auth/types/mpass-token-claims.type';
@@ -20,6 +21,7 @@ import {
   type FetchJwksSigningKeys,
   type JwksSigningKeys,
 } from 'src/engine/core-modules/mpass-proxy-auth/utils/fetch-jwks-signing-keys.util';
+import { VerifiedTokenCache } from 'src/engine/core-modules/mpass-proxy-auth/utils/verified-token-cache';
 import { tokenAudienceMatches } from 'src/engine/core-modules/mpass-proxy-auth/utils/token-audience-matches.util';
 
 type CachedJwks = {
@@ -100,6 +102,7 @@ export class MpassTokenVerifier {
     Promise<JwksSigningKeys>
   >();
   private readonly logger = new Logger(MpassTokenVerifier.name);
+  private readonly verifiedTokens: VerifiedTokenCache;
 
   constructor({
     issuers,
@@ -111,6 +114,10 @@ export class MpassTokenVerifier {
     this.clientId = clientId;
     this.fetchJwksSigningKeys = fetchJwksSigningKeys;
     this.now = now;
+    this.verifiedTokens = new VerifiedTokenCache(
+      VERIFIED_TOKEN_CACHE_MAX_ENTRIES,
+      now,
+    );
   }
 
   get isConfigured(): boolean {
@@ -120,6 +127,12 @@ export class MpassTokenVerifier {
   async verify(token: string): Promise<MpassTokenClaims> {
     if (!this.isConfigured) {
       throw new InvalidMpassTokenError('verifier_unconfigured');
+    }
+
+    const cachedClaims = this.verifiedTokens.get(token);
+
+    if (isDefined(cachedClaims)) {
+      return cachedClaims;
     }
 
     const { issuer, keyId } = readUnverifiedToken(token);
@@ -134,6 +147,8 @@ export class MpassTokenVerifier {
     if (!tokenAudienceMatches(claims, this.clientId)) {
       throw new InvalidMpassTokenError('wrong_audience');
     }
+
+    this.verifiedTokens.set(token, claims);
 
     return claims;
   }

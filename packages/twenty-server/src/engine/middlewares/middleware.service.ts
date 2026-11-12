@@ -124,7 +124,7 @@ export class MiddlewareService {
   public async hydrateRestRequest(request: Request, response?: Response) {
     const data = await this.accessTokenService.validateTokenByRequest(request);
 
-    this.assertMpassProxyIdentity(request, response, data.user?.email);
+    await this.assertMpassProxyIdentity(request, response, data.user?.email);
 
     const metadataVersion = data.workspace
       ? await this.getOrSeedMetadataVersion(data.workspace)
@@ -187,7 +187,7 @@ export class MiddlewareService {
       );
     }
 
-    this.assertMpassProxyIdentity(request, response, data.user?.email);
+    await this.assertMpassProxyIdentity(request, response, data.user?.email);
 
     const metadataVersion = data.workspace
       ? await this.getOrSeedMetadataVersion(data.workspace)
@@ -216,14 +216,17 @@ export class MiddlewareService {
     return workspace.metadataVersion;
   }
 
-  // The SMB corporate gate runs once, in proxy-login, when a session is
-  // established; a later identity change refuses here and re-enters it.
-  private assertMpassProxyIdentity(
+  // Only browser SSO sessions carry a user email; API-key and application
+  // traffic has no upstream identity to reconcile.
+  private async assertMpassProxyIdentity(
     request: Request,
     response: Response | undefined,
     jwtEmail: string | undefined,
-  ): void {
-    if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
+  ): Promise<void> {
+    if (
+      this.twentyConfigService.get('AUTH_TYPE') !== 'SSO' ||
+      !isDefined(jwtEmail)
+    ) {
       return;
     }
 
@@ -231,20 +234,16 @@ export class MiddlewareService {
       this.mpassProxyTrustService.readTrustedProxyHeaders(request);
 
     this.assertProxyIdentityMatchesUser(trustedHeaders, response, jwtEmail);
+    await this.assertCorporateIdMatches(trustedHeaders);
   }
 
   // When oauth2-proxy asserts a different identity than the session was
   // issued for, clear the cookie so the SPA re-enters /auth/sso/proxy-login.
-  // Only browser SSO sessions carry a user email.
   private assertProxyIdentityMatchesUser(
     trustedHeaders: ProxyIdentityHeaders,
     response: Response | undefined,
-    jwtEmail: string | undefined,
+    jwtEmail: string,
   ): void {
-    if (!isDefined(jwtEmail)) {
-      return;
-    }
-
     if (
       matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
     ) {
@@ -259,6 +258,22 @@ export class MiddlewareService {
       'Proxy identity differs from JWT user; session cookie cleared',
       AuthExceptionCode.UNAUTHENTICATED,
     );
+  }
+
+  // Sessions can also be minted outside proxy-login (password sign-in or
+  // reset), so a signed-in request is still held to the SMB organization.
+  private async assertCorporateIdMatches(
+    trustedHeaders: ProxyIdentityHeaders,
+  ): Promise<void> {
+    const mismatch =
+      await this.mpassProxyTrustService.findCorporateMismatch(trustedHeaders);
+
+    if (isDefined(mismatch)) {
+      throw new AuthException(
+        `Access denied: ${mismatch}`,
+        AuthExceptionCode.FORBIDDEN_EXCEPTION,
+      );
+    }
   }
 
   private hasErrorStatus(error: unknown): error is { status: number } {

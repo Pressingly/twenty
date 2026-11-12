@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 
+import { isNonEmptyString } from '@sniptt/guards';
 import { type Request } from 'express';
 import { isDefined } from 'twenty-shared/utils';
 
@@ -12,6 +13,7 @@ import {
   type InvalidMpassTokenReason,
 } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
 import { MpassTokenVerifier } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-token-verifier';
+import { type MpassTokenClaims } from 'src/engine/core-modules/mpass-proxy-auth/types/mpass-token-claims.type';
 import { type ProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/types/proxy-identity-headers.type';
 import { configuredValue } from 'src/engine/core-modules/mpass-proxy-auth/utils/configured-value.util';
 import { isEdgeSecretUsable } from 'src/engine/core-modules/mpass-proxy-auth/utils/is-edge-secret-usable.util';
@@ -24,11 +26,27 @@ import {
 import { readProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/utils/read-proxy-identity-headers.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 
+export type CorporateMismatchReason = 'not_corporate' | 'wrong_organization';
+
 export type CorporateRejectionReason =
   | InvalidMpassTokenReason
-  | 'missing_token'
-  | 'not_corporate'
-  | 'wrong_organization';
+  | CorporateMismatchReason
+  | 'missing_token';
+
+const corporateClaimsMismatch = (
+  claims: MpassTokenClaims,
+  expectedCorporateId: string,
+): CorporateMismatchReason | undefined => {
+  if (claims['custom:is_corporate'] !== 'true') {
+    return 'not_corporate';
+  }
+
+  if (claims['custom:corporate_id'] !== expectedCorporateId) {
+    return 'wrong_organization';
+  }
+
+  return undefined;
+};
 
 const NO_TRUSTED_HEADERS: ProxyIdentityHeaders = {};
 
@@ -83,10 +101,14 @@ export class MpassProxyTrustService implements OnModuleInit {
     return NO_TRUSTED_HEADERS;
   }
 
+  // Strict: proxy-login establishes a session only on a verified token of
+  // this organization, so any verification failure refuses.
   async findCorporateRejection(
     trustedHeaders: ProxyIdentityHeaders,
   ): Promise<CorporateRejectionReason | undefined> {
-    if (!this.isCorporateGateOn()) {
+    const expectedCorporateId = this.expectedCorporateId();
+
+    if (!expectedCorporateId) {
       return undefined;
     }
 
@@ -99,18 +121,7 @@ export class MpassProxyTrustService implements OnModuleInit {
         trustedHeaders.accessToken,
       );
 
-      if (claims['custom:is_corporate'] !== 'true') {
-        return 'not_corporate';
-      }
-
-      if (
-        claims['custom:corporate_id'] !==
-        this.twentyConfigService.get('SMB_CORPORATE_ID')
-      ) {
-        return 'wrong_organization';
-      }
-
-      return undefined;
+      return corporateClaimsMismatch(claims, expectedCorporateId);
     } catch (error) {
       if (error instanceof InvalidMpassTokenError) {
         return error.reason;
@@ -120,8 +131,43 @@ export class MpassProxyTrustService implements OnModuleInit {
     }
   }
 
+  // Lenient, for every request of a signed-in session: only a validly signed
+  // token from another organization refuses. Expiry or a JWKS outage must not
+  // lock out users whose login already passed the strict check.
+  async findCorporateMismatch(
+    trustedHeaders: ProxyIdentityHeaders,
+  ): Promise<CorporateMismatchReason | undefined> {
+    const expectedCorporateId = this.expectedCorporateId();
+
+    if (!expectedCorporateId || !isDefined(trustedHeaders.accessToken)) {
+      return undefined;
+    }
+
+    try {
+      const claims = await this.mpassTokenVerifier.verify(
+        trustedHeaders.accessToken,
+      );
+
+      return corporateClaimsMismatch(claims, expectedCorporateId);
+    } catch (error) {
+      if (!(error instanceof InvalidMpassTokenError)) {
+        throw error;
+      }
+
+      this.logger.warn(
+        `mPass token not verified on a signed-in request; corporate gate skipped reason=${error.reason}`,
+      );
+
+      return undefined;
+    }
+  }
+
   private isCorporateGateOn(): boolean {
-    return Boolean(this.twentyConfigService.get('SMB_CORPORATE_ID'));
+    return isNonEmptyString(this.expectedCorporateId());
+  }
+
+  private expectedCorporateId(): string {
+    return configuredValue(this.twentyConfigService.get('SMB_CORPORATE_ID'));
   }
 
   private edgeSecret(): string {

@@ -632,27 +632,72 @@ describe('JwtAuthGuard', () => {
       expect(services.verify).not.toHaveBeenCalled();
     });
 
-    it('leaves the corporate gate to proxy-login: no per-request token verification', async () => {
-      const request: RequestStub = {
-        get: jest.fn(
-          headerReader({
-            'x-auth-request-email': 'alice@example.com',
-            'x-auth-request-access-token': 'expired.jwt',
-          }),
-        ),
-      };
+    const signedInRequest = (): RequestStub => ({
+      get: jest.fn(
+        headerReader({
+          'x-auth-request-email': 'alice@example.com',
+          'x-auth-request-access-token': 'session.jwt',
+        }),
+      ),
+    });
+
+    const signedInContext = {
+      user: { email: 'alice@example.com' },
+      userWorkspaceId: 'uw-1',
+    };
+
+    it('refuses a signed-in request whose verified token is from another organization', async () => {
       const services = buildServices(
-        { user: { email: 'alice@example.com' }, userWorkspaceId: 'uw-1' },
+        signedInContext,
         { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
-        jest.fn().mockRejectedValue(new InvalidMpassTokenError('expired')),
+        jest.fn().mockResolvedValue({
+          'custom:is_corporate': 'true',
+          'custom:corporate_id': 'corp-2',
+        }),
       );
 
       const result = await buildGuard(services).canActivate(
+        buildExecutionContext(signedInRequest(), { clearCookie: jest.fn() }),
+      );
+
+      expect(result).toBe(false);
+      expect(services.verify).toHaveBeenCalledWith('session.jwt');
+    });
+
+    it.each(['expired', 'jwks_unavailable', 'bad_signature'] as const)(
+      'keeps a signed-in request when verification fails with %s',
+      async (reason) => {
+        const services = buildServices(
+          signedInContext,
+          { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
+          jest.fn().mockRejectedValue(new InvalidMpassTokenError(reason)),
+        );
+
+        const result = await buildGuard(services).canActivate(
+          buildExecutionContext(signedInRequest(), { clearCookie: jest.fn() }),
+        );
+
+        expect(result).toBe(true);
+      },
+    );
+
+    it('reads no proxy headers for API-key traffic', async () => {
+      const request: RequestStub = {
+        get: jest.fn(
+          headerReader({ 'x-auth-request-email': 'mallory@example.com' }),
+        ),
+        bypassesEdge: true,
+      };
+      const services = buildServices(
+        { apiKey: { id: 'k-1' }, workspace: { id: 'w-1' } },
+        { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
+      );
+
+      await buildGuard(services).canActivate(
         buildExecutionContext(request, { clearCookie: jest.fn() }),
       );
 
-      expect(result).toBe(true);
-      expect(services.verify).not.toHaveBeenCalled();
+      expect(request.get).not.toHaveBeenCalledWith('x-auth-request-email');
     });
   });
 
