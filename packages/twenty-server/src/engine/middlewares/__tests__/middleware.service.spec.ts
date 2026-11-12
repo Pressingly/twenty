@@ -2,6 +2,9 @@ import { type AccessTokenService } from 'src/engine/core-modules/auth/token/serv
 import { type ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { type JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
 import { type MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
+import { InvalidMpassTokenError } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
+import { MpassProxyTrustService } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-proxy-trust.service';
+import { type MpassTokenVerifier } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-token-verifier';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { type WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
@@ -18,17 +21,28 @@ type ResponseStub = {
   req: { headers: Record<string, string> };
 };
 
-const buildRequest = (
-  proxyHeaders: { email?: string; user?: string } = {},
-): RequestStub => ({
-  get: jest.fn((header: string) => {
-    if (header === 'x-auth-request-email') return proxyHeaders.email;
-    if (header === 'x-auth-request-user') return proxyHeaders.user;
+const EDGE_SECRET = 'm'.repeat(64);
 
-    return undefined;
-  }),
-  headers: {},
-});
+const buildRequest = (
+  proxyHeaders: {
+    email?: string;
+    user?: string;
+    accessToken?: string;
+    edgeSecret?: string;
+  } = {},
+): RequestStub => {
+  const headers: Record<string, string | undefined> = {
+    'x-auth-request-email': proxyHeaders.email,
+    'x-auth-request-user': proxyHeaders.user,
+    'x-auth-request-access-token': proxyHeaders.accessToken,
+    'x-mpass-edge-secret': proxyHeaders.edgeSecret ?? EDGE_SECRET,
+  };
+
+  return {
+    get: jest.fn((header: string) => headers[header]),
+    headers: {},
+  };
+};
 
 const buildResponse = (): ResponseStub => ({
   clearCookie: jest.fn(),
@@ -39,6 +53,7 @@ type BuildOpts = {
   authContext?: Record<string, unknown>;
   config?: Partial<Record<string, string>>;
   tokenPresent?: boolean;
+  verify?: jest.Mock;
 };
 
 const buildService = ({
@@ -49,6 +64,7 @@ const buildService = ({
   },
   config = { AUTH_TYPE: 'SSO' },
   tokenPresent = true,
+  verify = jest.fn(),
 }: BuildOpts = {}) => {
   const accessTokenService = {
     validateTokenByRequest: jest.fn().mockResolvedValue(authContext),
@@ -67,8 +83,12 @@ const buildService = ({
     extractJwtFromRequest: jest.fn(() => () => (tokenPresent ? 'token' : null)),
   } as unknown as JwtWrapperService;
 
+  const configValues: Partial<Record<string, string>> = {
+    MPASS_EDGE_SECRET: EDGE_SECRET,
+    ...config,
+  };
   const twentyConfigService = {
-    get: jest.fn((key: string) => config[key] ?? ''),
+    get: jest.fn((key: string) => configValues[key] ?? ''),
   } as unknown as TwentyConfigService;
 
   const metricsService = {
@@ -84,8 +104,13 @@ const buildService = ({
       jwtWrapperService,
       twentyConfigService,
       new UserSessionCookieService(twentyConfigService, metricsService),
+      new MpassProxyTrustService(twentyConfigService, {
+        verify,
+        isConfigured: true,
+      } as unknown as MpassTokenVerifier),
     ),
     accessTokenService,
+    verify,
   };
 };
 
@@ -293,6 +318,83 @@ describe('MiddlewareService — SSO proxy identity reconciliation', () => {
       ).resolves.toBeUndefined();
 
       expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+  });
+  describe('edge trust and corporate gate', () => {
+    it('ignores a forged mismatched identity sent without the edge secret', async () => {
+      const { service } = buildService();
+      const request = buildRequest({
+        email: 'mallory@example.com',
+        edgeSecret: '',
+      });
+      const response = buildResponse();
+
+      await expect(
+        service.hydrateGraphqlRequest(request as never, response as never),
+      ).resolves.toBeUndefined();
+
+      expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+
+    it('skips the gate for an API key carrying a forged access token', async () => {
+      const { service, verify } = buildService({
+        authContext: {
+          apiKey: { id: 'ak-1' },
+          workspace: { id: 'w-1', databaseSchema: 'workspace_1' },
+        },
+        config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
+      });
+      const request = buildRequest({
+        accessToken: 'forged.jwt',
+        edgeSecret: '',
+      });
+
+      await expect(
+        service.hydrateRestRequest(request as never, buildResponse() as never),
+      ).resolves.toBeUndefined();
+      expect(verify).not.toHaveBeenCalled();
+    });
+
+    it('refuses an edge request whose token fails verification', async () => {
+      const { service } = buildService({
+        config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
+        verify: jest
+          .fn()
+          .mockRejectedValue(new InvalidMpassTokenError('expired')),
+      });
+      const request = buildRequest({
+        email: 'alice@example.com',
+        accessToken: 'expired.jwt',
+      });
+
+      await expect(
+        service.hydrateGraphqlRequest(
+          request as never,
+          buildResponse() as never,
+        ),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN_EXCEPTION' });
+    });
+
+    it('accepts an edge request with a verified token of this organization', async () => {
+      const { service, verify } = buildService({
+        config: { AUTH_TYPE: 'SSO', SMB_CORPORATE_ID: 'corp-1' },
+        verify: jest.fn().mockResolvedValue({
+          'custom:is_corporate': 'true',
+          'custom:corporate_id': 'corp-1',
+        }),
+      });
+      const request = buildRequest({
+        email: 'alice@example.com',
+        accessToken: 'valid.jwt',
+      });
+
+      await expect(
+        service.hydrateGraphqlRequest(
+          request as never,
+          buildResponse() as never,
+        ),
+      ).resolves.toBeUndefined();
+      expect(verify).toHaveBeenCalledWith('valid.jwt');
     });
   });
 });

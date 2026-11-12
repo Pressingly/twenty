@@ -76,9 +76,11 @@ import { MessagingFolderSyncManagerModule } from 'src/modules/messaging/message-
 import { AuthResolver } from './auth.resolver';
 
 import { AuthService } from './services/auth.service';
+import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/mpass-proxy-auth.module';
 
 @Module({
   imports: [
+    MpassProxyAuthModule,
     JwtModule,
     WorkspaceDomainsModule,
     TokenModule,

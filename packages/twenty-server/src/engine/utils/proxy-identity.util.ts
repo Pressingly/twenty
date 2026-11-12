@@ -1,16 +1,17 @@
 import { Logger } from '@nestjs/common';
 
-import { type Request, type Response } from 'express';
+import { type Response } from 'express';
 
+import { type ProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/types/proxy-identity-headers.type';
 import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { type UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 
 const logger = new Logger('ProxyIdentity');
 
 /**
- * Compare the proxy-asserted identity against an authenticated user's email
- * with bidirectional normalisation. Mirrors SSO proxy-login resolution:
- * prefer `x-auth-request-email`, then fall back to `x-auth-request-user`.
+ * Compare the trusted proxy-asserted identity against an authenticated
+ * user's email. Mirrors SSO proxy-login resolution: prefer
+ * `x-auth-request-email`, then fall back to `x-auth-request-user`.
  *
  * Returns true on match OR when both proxy headers are absent (per
  * proxy-auth-middleware spec: header absence is NOT a logout signal —
@@ -18,11 +19,11 @@ const logger = new Logger('ProxyIdentity');
  * arrive without it).
  */
 export const matchesProxyIdentity = (
-  request: Request,
+  trustedHeaders: ProxyIdentityHeaders,
   jwtEmail: string,
   configService: TwentyConfigService,
 ): boolean => {
-  const headerRaw = resolveProxyIdentity(request);
+  const headerRaw = resolveProxyIdentity(trustedHeaders);
 
   if (!headerRaw) {
     return true;
@@ -37,35 +38,14 @@ export const matchesProxyIdentity = (
     return false;
   }
 
-  // Bidirectional normalisation: both sides MUST be lowercased AND
-  // whitespace-trimmed before comparison. Asymmetric normalisation
-  // (e.g. trimming the header but not the JWT side) is observationally
-  // equivalent to no normalisation — any whitespace-padded value in
-  // the User row (legacy data, fixtures, non-SSO provisioning paths)
-  // would spuriously trigger mismatch and clear the cookie on every
-  // request. Mirrors Plane's `_normalise_email` + Outline's
-  // `normalizeProxyEmail` + `(user.email ?? "").toLowerCase().trim()`
-  // patterns; required by
-  // openspec/specs/proxy-auth-middleware/spec.md
-  // "Match is case- and whitespace-insensitive".
+  // Both sides lowercased and trimmed: asymmetric normalisation would clear
+  // the cookie on every request for whitespace-padded legacy emails.
   return normalizedProxyIdentity === jwtEmail.toLowerCase().trim();
 };
 
-export const resolveProxyIdentity = (request: Request): string | null => {
-  const proxyEmail = request.get('x-auth-request-email')?.trim();
-
-  if (proxyEmail) {
-    return proxyEmail;
-  }
-
-  const proxyUser = request.get('x-auth-request-user')?.trim();
-
-  if (proxyUser) {
-    return proxyUser;
-  }
-
-  return null;
-};
+export const resolveProxyIdentity = (
+  trustedHeaders: ProxyIdentityHeaders,
+): string | null => trustedHeaders.email ?? trustedHeaders.user ?? null;
 
 /**
  * Normalise a raw proxy identity header value into the canonical email
@@ -104,65 +84,6 @@ export const normalizeProxyIdentity = (
 
   return `${trimmed}@${domain}`;
 };
-
-// Layer 2 tenant isolation: verify the caller's mPass access token
-// carries custom:corporate_id matching SMB_CORPORATE_ID. Skipped when
-// the env var is empty OR when the request has no access token header
-// (MCP, API-key, and internal traffic bypass oauth2-proxy).
-export const assertCorporateId = (
-  request: Request,
-  configService: TwentyConfigService,
-): void => {
-  const expectedCorporateId = configService.get('SMB_CORPORATE_ID');
-
-  if (!expectedCorporateId) {
-    return;
-  }
-
-  const accessToken = request.get('x-auth-request-access-token');
-
-  if (!accessToken) {
-    return;
-  }
-
-  try {
-    const parts = accessToken.split('.');
-
-    if (parts.length < 2) {
-      throw new CorporateIdError('Access denied: malformed access token');
-    }
-
-    const payloadB64 = parts[1];
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
-
-    if (payload['custom:is_corporate'] !== 'true') {
-      throw new CorporateIdError('Access denied: not a corporate account');
-    }
-
-    if (payload['custom:corporate_id'] !== expectedCorporateId) {
-      throw new CorporateIdError('Access denied: corporate ID mismatch');
-    }
-  } catch (error) {
-    if (error instanceof CorporateIdError) {
-      throw error;
-    }
-
-    throw new CorporateIdError('Access denied: invalid access token');
-  }
-};
-
-/**
- * Typed error for corporate ID enforcement so callers can distinguish
- * it from other errors and map to a 403 response.
- */
-export class CorporateIdError extends Error {
-  readonly statusCode = 403;
-
-  constructor(message: string) {
-    super(message);
-    this.name = 'CorporateIdError';
-  }
-}
 
 /**
  * Expire the session cookie. Defensive: in some test harnesses

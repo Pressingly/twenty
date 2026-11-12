@@ -18,6 +18,8 @@ const SENSITIVE_HEADER_NAMES = new Set([
   'x-amz-security-token',
   'x-goog-api-key',
   'api-key',
+  'x-mpass-edge-secret',
+  'x-auth-request-access-token',
 ]);
 
 const SENSITIVE_URL_PARAM_NAMES = new Set([
