@@ -82,9 +82,11 @@ import { AiToolCallAnswerModule } from 'src/engine/metadata-modules/ai/ai-tool-c
 import { ClientConfigModule } from './client-config/client-config.module';
 import { EventLogsViewerModule } from './event-logs/event-logs-viewer.module';
 import { FileApiModule } from './file/file-api.module';
+import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/mpass-proxy-auth.module';
 
 @Module({
   imports: [
+    MpassProxyAuthModule,
     EnvironmentModule,
     TwentyConfigModule.forRoot(),
     HealthModule,

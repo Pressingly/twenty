@@ -138,6 +138,8 @@ describe('filterRequestHeaders', () => {
       authorization: 'Bearer token123',
       cookie: 'session=abc',
       'proxy-authorization': 'Basic abc',
+      'x-mpass-edge-secret': 'edge-secret',
+      'x-auth-request-access-token': 'mpass.access.token',
       'x-custom-header': 'custom-value',
       'x-array-header': ['a', 'b'],
       'x-missing': undefined,

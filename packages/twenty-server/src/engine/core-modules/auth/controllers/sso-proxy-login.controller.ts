@@ -2,7 +2,6 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  Headers,
   HttpStatus,
   Logger,
   NotFoundException,
@@ -20,13 +19,16 @@ import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters
 import { LoginTokenService } from 'src/engine/core-modules/auth/token/services/login-token.service';
 import { SsoUserProvisioningService } from 'src/engine/core-modules/auth/services/sso-user-provisioning.service';
 import { resolveSsoReturnPath } from 'src/engine/core-modules/auth/utils/resolve-sso-return-path.util';
+import { MpassProxyTrustService } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-proxy-trust.service';
+import { type ProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/types/proxy-identity-headers.type';
+import { mpassIdForLogs } from 'src/engine/core-modules/mpass-proxy-auth/utils/mpass-id-for-logs.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
 import { PublicEndpointGuard } from 'src/engine/guards/public-endpoint.guard';
 import {
-  CorporateIdError,
-  assertCorporateId,
+  normalizeProxyIdentity,
+  resolveProxyIdentity,
 } from 'src/engine/utils/proxy-identity.util';
 
 @Controller('auth/sso')
@@ -38,70 +40,40 @@ export class SsoProxyLoginController {
     private readonly twentyConfigService: TwentyConfigService,
     private readonly ssoUserProvisioningService: SsoUserProvisioningService,
     private readonly loginTokenService: LoginTokenService,
+    private readonly mpassProxyTrustService: MpassProxyTrustService,
   ) {}
 
-  // SECURITY — the trust chain for X-Auth-Request-Email / X-Auth-Request-User:
-  //   1. The Twenty container exposes :3000 only on the docker network — it
-  //      is not published to the host. Only Traefik can reach it from
-  //      outside the cluster.
-  //   2. Traefik's `twenty-secure` router applies the `strip-auth-headers`
-  //      middleware BEFORE `mpass-auth`. Inbound `X-Auth-Request-*` headers
-  //      from a browser are deleted at the edge.
-  //   3. `mpass-auth` (oauth2-proxy ForwardAuth) re-injects the headers
-  //      from the validated SSO session.
-  // Removing any link of this chain — exposing :3000, dropping
-  // `strip-auth-headers`, or reordering the middleware — makes this endpoint
-  // an authentication-bypass primitive. Every change to the Traefik labels
-  // for `twenty-secure` MUST preserve this ordering. See
-  // foss-server-bundle-devstack/docs/app-rules.md.
+  // Identity headers are trusted only with the edge secret Traefik injects on
+  // twenty-secure after mpass-auth; see MpassProxyTrustService.
   @Get('proxy-login')
   @UseGuards(PublicEndpointGuard, NoPermissionGuard)
-  async proxyLogin(
-    @Req() req: Request,
-    @Headers('x-auth-request-email') headerEmail: string | string[] | undefined,
-    @Headers('x-auth-request-user') headerUser: string | string[] | undefined,
-    @Res() res: Response,
-  ) {
+  async proxyLogin(@Req() req: Request, @Res() res: Response) {
     if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
       throw new NotFoundException();
     }
 
-    // Layer 2 corporate ID enforcement — reject at login time if the
-    // access token's corporate_id does not match this deployment.
-    // Unlike middleware/guard paths, proxy-login is always behind
-    // Traefik ForwardAuth, so a missing header with enforcement on
-    // is suspicious and must be rejected.
-    const expectedCorporateId =
-      this.twentyConfigService.get('SMB_CORPORATE_ID');
-
-    if (expectedCorporateId && !req.get('x-auth-request-access-token')) {
-      this.logger.warn('SSO proxy-login refused: missing access token header');
-
-      throw new ForbiddenException({ error: 'access_denied' });
-    }
-
-    try {
-      assertCorporateId(req, this.twentyConfigService);
-    } catch (error) {
-      if (error instanceof CorporateIdError) {
-        this.logger.warn(`SSO proxy-login refused: ${error.message}`);
-
-        throw new ForbiddenException({ error: 'access_denied' });
-      }
-
-      throw error;
-    }
-
-    const email = this.resolveEmail(headerEmail, headerUser);
+    const trustedHeaders =
+      this.mpassProxyTrustService.readTrustedProxyHeaders(req);
+    const email = this.resolveEmail(trustedHeaders);
 
     if (!email) {
-      // Opaque 404 — same response shape as the AUTH_TYPE!==SSO branch.
-      // A diagnostic 401 would tell an internal-network attacker they hit
-      // a real SSO endpoint and just need to forge a header next.
+      // Same opaque 404 as the non-SSO branch, so a direct caller on the
+      // backend network cannot tell it reached a real SSO endpoint.
       this.logger.warn(
-        'SSO proxy-login called without X-Auth-Request-Email or X-Auth-Request-User headers.',
+        'SSO proxy-login called without trusted X-Auth-Request-Email or X-Auth-Request-User headers.',
       );
       throw new NotFoundException();
+    }
+
+    const rejection =
+      await this.mpassProxyTrustService.findCorporateRejection(trustedHeaders);
+
+    if (isDefined(rejection)) {
+      this.logger.warn(
+        `SSO proxy-login refused: reason=${rejection} mpass_id=${mpassIdForLogs(req)} path=${req.path}`,
+      );
+
+      throw new ForbiddenException({ error: 'access_denied' });
     }
 
     const { user, workspace } =
@@ -121,41 +93,12 @@ export class SsoProxyLoginController {
     );
   }
 
-  private resolveEmail(
-    rawEmail: string | string[] | undefined,
-    rawUser: string | string[] | undefined,
-  ): string | null {
-    const headerEmail = this.firstHeaderValue(rawEmail);
-    const headerUser = this.firstHeaderValue(rawUser);
-    const candidate = (headerEmail || headerUser || '').trim();
+  private resolveEmail(trustedHeaders: ProxyIdentityHeaders): string | null {
+    const candidate = resolveProxyIdentity(trustedHeaders);
 
-    if (!candidate) {
-      return null;
-    }
-
-    if (candidate.includes('@')) {
-      return candidate.toLowerCase();
-    }
-
-    const domain = this.twentyConfigService.get('DEFAULT_EMAIL_DOMAIN');
-
-    if (!domain) {
-      this.logger.warn(
-        'X-Auth-Request-User contains a bare username but DEFAULT_EMAIL_DOMAIN is not configured.',
-      );
-
-      return null;
-    }
-
-    return `${candidate.toLowerCase()}@${domain}`;
-  }
-
-  private firstHeaderValue(value: string | string[] | undefined) {
-    if (Array.isArray(value)) {
-      return value[0] ?? '';
-    }
-
-    return value ?? '';
+    return candidate
+      ? normalizeProxyIdentity(candidate, this.twentyConfigService)
+      : null;
   }
 
   private buildVerifyPath(loginToken: string, returnToPath: unknown): string {

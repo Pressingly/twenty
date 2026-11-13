@@ -13,6 +13,8 @@ import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/
 import { ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { ErrorCode } from 'src/engine/core-modules/graphql/utils/graphql-errors.util';
 import { JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
+import { MpassProxyTrustService } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-proxy-trust.service';
+import { type ProxyIdentityHeaders } from 'src/engine/core-modules/mpass-proxy-auth/types/proxy-identity-headers.type';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { type FlatWorkspace } from 'src/engine/core-modules/workspace/types/flat-workspace.type';
@@ -24,11 +26,7 @@ import {
   handleException,
   handleExceptionAndConvertToGraphQLError,
 } from 'src/engine/utils/global-exception-handler.util';
-import {
-  CorporateIdError,
-  assertCorporateId,
-  matchesProxyIdentity,
-} from 'src/engine/utils/proxy-identity.util';
+import { matchesProxyIdentity } from 'src/engine/utils/proxy-identity.util';
 import { WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
 import { type CustomException } from 'src/utils/custom-exception';
 
@@ -50,6 +48,7 @@ export class MiddlewareService {
     private readonly jwtWrapperService: JwtWrapperService,
     private readonly twentyConfigService: TwentyConfigService,
     private readonly userSessionCookieService: UserSessionCookieService,
+    private readonly mpassProxyTrustService: MpassProxyTrustService,
   ) {}
 
   public isTokenPresent(request: Request): boolean {
@@ -125,8 +124,7 @@ export class MiddlewareService {
   public async hydrateRestRequest(request: Request, response?: Response) {
     const data = await this.accessTokenService.validateTokenByRequest(request);
 
-    this.assertProxyIdentityMatchesUser(request, response, data.user?.email);
-    this.assertCorporateIdMatches(request);
+    await this.assertMpassProxyIdentity(request, response, data.user?.email);
 
     const metadataVersion = data.workspace
       ? await this.getOrSeedMetadataVersion(data.workspace)
@@ -189,8 +187,7 @@ export class MiddlewareService {
       );
     }
 
-    this.assertProxyIdentityMatchesUser(request, response, data.user?.email);
-    this.assertCorporateIdMatches(request);
+    await this.assertMpassProxyIdentity(request, response, data.user?.email);
 
     const metadataVersion = data.workspace
       ? await this.getOrSeedMetadataVersion(data.workspace)
@@ -219,32 +216,37 @@ export class MiddlewareService {
     return workspace.metadataVersion;
   }
 
-  /**
-   * SSO stale-session detection for the GraphQL and REST data API paths.
-   * Mirrors the JwtAuthGuard check applied to the REST controller path. When
-   * oauth2-proxy asserts a different identity than what the session was issued
-   * for, clear the session cookie and refuse — the browser then has no
-   * session on the next request, so the SPA bootstrap hits
-   * /auth/sso/proxy-login and gets a fresh session for the new identity.
-   *
-   * Gating:
-   *   - AUTH_TYPE=SSO       — non-SSO deployments use Twenty's native auth
-   *   - jwtEmail isDefined  — only browser SSO sessions carry a User
-   */
-  private assertProxyIdentityMatchesUser(
+  // Only browser SSO sessions carry a user email; API-key and application
+  // traffic has no upstream identity to reconcile.
+  private async assertMpassProxyIdentity(
     request: Request,
     response: Response | undefined,
     jwtEmail: string | undefined,
+  ): Promise<void> {
+    if (
+      this.twentyConfigService.get('AUTH_TYPE') !== 'SSO' ||
+      !isDefined(jwtEmail)
+    ) {
+      return;
+    }
+
+    const trustedHeaders =
+      this.mpassProxyTrustService.readTrustedProxyHeaders(request);
+
+    this.assertProxyIdentityMatchesUser(trustedHeaders, response, jwtEmail);
+    await this.assertCorporateIdMatches(trustedHeaders);
+  }
+
+  // When oauth2-proxy asserts a different identity than the session was
+  // issued for, clear the cookie so the SPA re-enters /auth/sso/proxy-login.
+  private assertProxyIdentityMatchesUser(
+    trustedHeaders: ProxyIdentityHeaders,
+    response: Response | undefined,
+    jwtEmail: string,
   ): void {
-    if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
-      return;
-    }
-
-    if (!isDefined(jwtEmail)) {
-      return;
-    }
-
-    if (matchesProxyIdentity(request, jwtEmail, this.twentyConfigService)) {
+    if (
+      matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
+    ) {
       return;
     }
 
@@ -258,26 +260,19 @@ export class MiddlewareService {
     );
   }
 
-  // Layer 2 corporate ID enforcement. When SMB_CORPORATE_ID is set,
-  // every authenticated request must carry an access token with matching
-  // custom:corporate_id. Gated on AUTH_TYPE=SSO so non-SSO deployments
-  // are unaffected.
-  private assertCorporateIdMatches(request: Request): void {
-    if (this.twentyConfigService.get('AUTH_TYPE') !== 'SSO') {
-      return;
-    }
+  // Sessions can also be minted outside proxy-login (password sign-in or
+  // reset), so a signed-in request is still held to the SMB organization.
+  private async assertCorporateIdMatches(
+    trustedHeaders: ProxyIdentityHeaders,
+  ): Promise<void> {
+    const mismatch =
+      await this.mpassProxyTrustService.findCorporateMismatch(trustedHeaders);
 
-    try {
-      assertCorporateId(request, this.twentyConfigService);
-    } catch (error) {
-      if (error instanceof CorporateIdError) {
-        throw new AuthException(
-          error.message,
-          AuthExceptionCode.FORBIDDEN_EXCEPTION,
-        );
-      }
-
-      throw error;
+    if (isDefined(mismatch)) {
+      throw new AuthException(
+        `Access denied: ${mismatch}`,
+        AuthExceptionCode.FORBIDDEN_EXCEPTION,
+      );
     }
   }
 

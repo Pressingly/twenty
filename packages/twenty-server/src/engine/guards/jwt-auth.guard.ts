@@ -10,12 +10,11 @@ import { type Request, type Response } from 'express';
 import { isDefined } from 'twenty-shared/utils';
 
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
+import { MpassProxyTrustService } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-proxy-trust.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { bindDataToRequestObject } from 'src/engine/utils/bind-data-to-request-object.util';
 import {
-  CorporateIdError,
-  assertCorporateId,
   clearSessionCookie,
   matchesProxyIdentity,
 } from 'src/engine/utils/proxy-identity.util';
@@ -41,61 +40,15 @@ export class JwtAuthGuard implements CanActivate {
       const data =
         await this.accessTokenService.validateTokenByRequest(request);
 
-      // SSO stale-session detection (proxy-auth-middleware Rule 2). When
-      // oauth2-proxy asserts a different identity than what this session was
-      // issued for, the session cookie is stale.
-      //
-      // Repro: portal "Logout all" clears the shared _oauth2_proxy cookie
-      // and Cognito SSO but NOT Twenty's session cookie on its subdomain.
-      // A different user then logs in upstream and refreshes the Twenty tab.
-      // Without this check, validateTokenByRequest happily resolves the
-      // stale session and we serve the previous user.
-      //
-      // On mismatch: clear the session cookie BEFORE returning false so
-      // the browser stops sending it. The frontend bootstrap then has no
-      // session → routes through /auth/sso/proxy-login → a new session is
-      // issued for the new upstream user.
-      //
-      // Gating:
-      //   - AUTH_TYPE=SSO  — non-SSO deployments use Twenty's native auth,
-      //                     no upstream identity to compare against
-      //   - data.user      — only browser SSO sessions carry a User; API
-      //                     keys, application contexts, and tokens without
-      //                     a resolved user bypass this check unchanged
       if (
         this.twentyConfigService.get('AUTH_TYPE') === 'SSO' &&
-        isDefined(data.user?.email) &&
-        !matchesProxyIdentity(
+        !(await this.isTrustedProxyIdentityAccepted(
           request,
-          data.user.email,
-          this.twentyConfigService,
-        )
-      ) {
-        clearSessionCookie(
           response,
-          this.moduleRef.get(UserSessionCookieService, { strict: false }),
-        );
-        this.logger.warn(
-          `Auth refused: proxy identity differs from JWT user; session cookie cleared`,
-        );
-
+          data.user?.email,
+        ))
+      ) {
         return false;
-      }
-
-      // Layer 2 corporate ID enforcement — when SMB_CORPORATE_ID is set
-      // and AUTH_TYPE=SSO, verify the access token's custom:corporate_id.
-      if (this.twentyConfigService.get('AUTH_TYPE') === 'SSO') {
-        try {
-          assertCorporateId(request, this.twentyConfigService);
-        } catch (error) {
-          if (error instanceof CorporateIdError) {
-            this.logger.warn(`Auth refused: ${error.message}`);
-
-            return false;
-          }
-
-          throw error;
-        }
       }
 
       const metadataVersion = data.workspace
@@ -127,5 +80,49 @@ export class JwtAuthGuard implements CanActivate {
 
       return false;
     }
+  }
+
+  // A stale session (portal "Logout all" then a different upstream user) is
+  // refused and its cookie cleared so the SPA re-enters proxy-login. Sessions
+  // minted outside proxy-login are still held to the SMB organization.
+  private async isTrustedProxyIdentityAccepted(
+    request: Request,
+    response: Response,
+    jwtEmail: string | undefined,
+  ): Promise<boolean> {
+    if (!isDefined(jwtEmail)) {
+      return true;
+    }
+
+    const mpassProxyTrustService = this.moduleRef.get(MpassProxyTrustService, {
+      strict: false,
+    });
+    const trustedHeaders =
+      mpassProxyTrustService.readTrustedProxyHeaders(request);
+
+    if (
+      !matchesProxyIdentity(trustedHeaders, jwtEmail, this.twentyConfigService)
+    ) {
+      clearSessionCookie(
+        response,
+        this.moduleRef.get(UserSessionCookieService, { strict: false }),
+      );
+      this.logger.warn(
+        'Auth refused: proxy identity differs from JWT user; session cookie cleared',
+      );
+
+      return false;
+    }
+
+    const mismatch =
+      await mpassProxyTrustService.findCorporateMismatch(trustedHeaders);
+
+    if (isDefined(mismatch)) {
+      this.logger.warn(`Auth refused: corporate gate reason=${mismatch}`);
+
+      return false;
+    }
+
+    return true;
   }
 }

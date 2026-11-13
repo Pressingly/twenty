@@ -2715,11 +2715,72 @@ export class ConfigVariables {
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
-      'Cognito corporate_id for Layer 2 tenant isolation. When set, every authenticated request must carry an X-Auth-Request-Access-Token JWT whose custom:is_corporate="true" and custom:corporate_id matches this value. Empty = skip check (backward compatible).',
+      'Cognito corporate_id for Layer 2 tenant isolation. When set, the forwarded X-Auth-Request-Access-Token is verified against the mPass JWKS and must carry custom:is_corporate="true" and a matching custom:corporate_id: strictly at SSO proxy-login, and on signed-in requests a verified token of another organization is refused. Empty = skip check (backward compatible); a CHANGE_ME_ placeholder refuses every mPass login.',
     type: ConfigVariableType.STRING,
   })
   @IsOptional()
   SMB_CORPORATE_ID = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Secret Traefik injects as X-Mpass-Edge-Secret on the SSO router. X-Auth-Request-* identity headers are trusted only on requests carrying it; unset or shorter than 32 characters trusts none, which disables SSO login.',
+    isEnvOnly: true,
+    isSensitive: true,
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  MPASS_EDGE_SECRET = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Cognito issuer whose JWKS verifies the forwarded mPass token when SMB_CORPORATE_ID is set. Falls back to COGNITO_AWS_REGION and COGNITO_USER_POOL_ID.',
+    isEnvOnly: true,
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  MPASS_COGNITO_ISSUER_URL = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'AWS region of the Cognito user pool, used to build the issuer when MPASS_COGNITO_ISSUER_URL is unset.',
+    isEnvOnly: true,
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  COGNITO_AWS_REGION = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Cognito user pool id, used to build the issuer when MPASS_COGNITO_ISSUER_URL is unset.',
+    isEnvOnly: true,
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  COGNITO_USER_POOL_ID = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'Optional second trusted issuer: mpass-auth-proxy, which re-signs id_tokens when email capture is on. Its JWKS is read from <issuer>/.well-known/jwks.json.',
+    isEnvOnly: true,
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  MPASS_TOKEN_ISSUER_URL = '';
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'mPass OIDC client id the forwarded token must be issued to (client_id on access tokens, aud on id_tokens).',
+    isEnvOnly: true,
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  MPASS_OIDC_CLIENT_ID = '';
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,

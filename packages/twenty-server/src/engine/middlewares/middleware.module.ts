@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { TokenModule } from 'src/engine/core-modules/auth/token/token.module';
 import { JwtModule } from 'src/engine/core-modules/jwt/jwt.module';
+import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/mpass-proxy-auth.module';
 import { TwentyConfigModule } from 'src/engine/core-modules/twenty-config/twenty-config.module';
 import { WorkspaceManyOrAllFlatEntityMapsCacheModule } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.module';
 import { ApiAccessLogMiddleware } from 'src/engine/middlewares/api-access-log.middleware';
@@ -18,6 +19,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     JwtModule,
     TwentyConfigModule,
     UserSessionModule,
+    MpassProxyAuthModule,
   ],
   providers: [
     MiddlewareService,

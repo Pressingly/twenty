@@ -8,6 +8,8 @@ const baseInput: WorkflowHttpRequestActionInput = {
   headers: {
     'content-type': 'application/json',
     Authorization: 'Bearer super-secret-token',
+    'X-Mpass-Edge-Secret': 'edge-secret',
+    'X-Auth-Request-Access-Token': 'mpass.access.token',
   },
   body: { hello: 'world' },
 };
@@ -37,6 +39,12 @@ describe('buildHttpRequestStepLog', () => {
     }
 
     expect(stepLog.details.request.headers.Authorization).toBe('[redacted]');
+    expect(stepLog.details.request.headers['X-Mpass-Edge-Secret']).toBe(
+      '[redacted]',
+    );
+    expect(stepLog.details.request.headers['X-Auth-Request-Access-Token']).toBe(
+      '[redacted]',
+    );
     expect(stepLog.details.request.headers['content-type']).toBe(
       'application/json',
     );
