@@ -4,10 +4,13 @@ import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.ent
 import { SmbWorkspaceBootstrapService } from 'src/engine/workspace-manager/smb-workspace-bootstrap/services/smb-workspace-bootstrap.service';
 
 const CUSTOM_APPLICATION = { id: 'custom-app-id' };
+const STANDARD_APPLICATION = { id: 'standard-app-id' };
 
 const buildService = (overrides?: {
   existingWorkspace?: Partial<WorkspaceEntity> | null;
   existingMemberRole?: { id: string } | null;
+  otherWorkspaces?: Partial<WorkspaceEntity>[];
+  hasStandardObjects?: boolean;
 }) => {
   const entityManager = {
     queryRunner: { id: 'query-runner' },
@@ -17,6 +20,7 @@ const buildService = (overrides?: {
   };
   const workspaceRepository = {
     findOne: jest.fn().mockResolvedValue(overrides?.existingWorkspace ?? null),
+    find: jest.fn().mockResolvedValue(overrides?.otherWorkspaces ?? []),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
   const roleRepository = {
@@ -24,6 +28,11 @@ const buildService = (overrides?: {
   };
   const coreDataSource = {
     transaction: jest.fn(async (work) => work(entityManager)),
+    getRepository: jest.fn(() => ({
+      exists: jest
+        .fn()
+        .mockResolvedValue(overrides?.hasStandardObjects ?? false),
+    })),
   };
   const applicationService = {
     createWorkspaceCustomApplication: jest.fn().mockResolvedValue({}),
@@ -31,6 +40,7 @@ const buildService = (overrides?: {
     findWorkspaceTwentyStandardAndCustomApplicationOrThrow: jest
       .fn()
       .mockResolvedValue({
+        twentyStandardFlatApplication: STANDARD_APPLICATION,
         workspaceCustomFlatApplication: CUSTOM_APPLICATION,
       }),
   };
@@ -231,15 +241,50 @@ describe('SmbWorkspaceBootstrapService', () => {
     });
   });
 
-  it('only flips unfinished activations to ACTIVE', async () => {
-    const { service, entityManager } = buildService({
-      existingWorkspace: {
-        id: 'suspended-id',
-        activationStatus: WorkspaceActivationStatus.SUSPENDED,
-        defaultRoleId: null,
-      },
-      existingMemberRole: { id: 'member-role' },
+  it('skips the standard sync when a resumed workspace already has standard objects', async () => {
+    const { service, twentyStandardApplicationService, roleService } =
+      buildService({
+        existingWorkspace: {
+          id: 'pending-id',
+          activationStatus: WorkspaceActivationStatus.PENDING_CREATION,
+          defaultRoleId: null,
+        },
+        hasStandardObjects: true,
+      });
+
+    await expect(service.bootstrap('askii')).resolves.toMatchObject({
+      outcome: 'resumed',
     });
+    expect(
+      twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow,
+    ).not.toHaveBeenCalled();
+    expect(roleService.createWorkspaceCustomApplicationRole).toHaveBeenCalled();
+  });
+
+  it('leaves a finished workspace untouched even without a default role', async () => {
+    const { service, twentyStandardApplicationService, workspaceRepository } =
+      buildService({
+        existingWorkspace: {
+          id: 'suspended-id',
+          activationStatus: WorkspaceActivationStatus.SUSPENDED,
+          defaultRoleId: null,
+        },
+      });
+
+    const result = await service.bootstrap('askii');
+
+    expect(result).toEqual({
+      workspaceId: 'suspended-id',
+      outcome: 'already-bootstrapped',
+    });
+    expect(
+      twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow,
+    ).not.toHaveBeenCalled();
+    expect(workspaceRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('only flips unfinished activations to ACTIVE', async () => {
+    const { service, entityManager } = buildService();
 
     await service.bootstrap('askii');
 
@@ -249,6 +294,17 @@ describe('SmbWorkspaceBootstrapService', () => {
       WorkspaceActivationStatus.PENDING_CREATION,
       WorkspaceActivationStatus.ONGOING_CREATION,
     ]);
+  });
+
+  it('refuses to create a second workspace when another subdomain exists', async () => {
+    const { service, entityManager } = buildService({
+      otherWorkspaces: [{ subdomain: 'apple' }],
+    });
+
+    await expect(service.bootstrap('askii')).rejects.toThrow(
+      'Workspace "apple" already exists; refusing to create a second workspace "askii"',
+    );
+    expect(entityManager.save).not.toHaveBeenCalled();
   });
 
   it('does not fail when a post-activation job cannot be enqueued', async () => {

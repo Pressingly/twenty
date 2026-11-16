@@ -17,6 +17,7 @@ import { UpgradeMigrationService } from 'src/engine/core-modules/upgrade/service
 import { UpgradeSequenceReaderService } from 'src/engine/core-modules/upgrade/services/upgrade-sequence-reader.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { CoreEntityCacheService } from 'src/engine/core-entity-cache/services/core-entity-cache.service';
+import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { RoleEntity } from 'src/engine/metadata-modules/role/role.entity';
 import { RoleService } from 'src/engine/metadata-modules/role/role.service';
 import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
@@ -27,9 +28,9 @@ import { WorkspaceSchemaService } from 'src/engine/workspace-datasource/workspac
 import { SMB_WORKSPACE_FEATURE_FLAGS } from 'src/engine/workspace-manager/smb-workspace-bootstrap/constants/smb-workspace-feature-flags.constant';
 import { buildSmbWorkspaceDisplayName } from 'src/engine/workspace-manager/smb-workspace-bootstrap/utils/build-smb-workspace-display-name.util';
 import {
-  isSmbWorkspaceBootstrapped,
+  isSmbWorkspaceActivationUnfinished,
   UNFINISHED_ACTIVATION_STATUSES,
-} from 'src/engine/workspace-manager/smb-workspace-bootstrap/utils/is-smb-workspace-bootstrapped.util';
+} from 'src/engine/workspace-manager/smb-workspace-bootstrap/utils/is-smb-workspace-activation-unfinished.util';
 import { TwentyStandardApplicationService } from 'src/engine/workspace-manager/twenty-standard-application/services/twenty-standard-application.service';
 
 export type SmbWorkspaceBootstrapOutcome =
@@ -78,23 +79,54 @@ export class SmbWorkspaceBootstrapService {
     });
 
     if (isDefined(existingWorkspace)) {
-      if (isSmbWorkspaceBootstrapped(existingWorkspace)) {
-        return {
-          workspaceId: existingWorkspace.id,
-          outcome: 'already-bootstrapped',
-        };
-      }
-
-      await this.activate(existingWorkspace.id);
-
-      return { workspaceId: existingWorkspace.id, outcome: 'resumed' };
+      return await this.resumeOrSkip(existingWorkspace);
     }
+
+    await this.assertNoOtherWorkspace(subdomain);
 
     const workspaceId = await this.createPendingWorkspace(subdomain);
 
     await this.activate(workspaceId);
 
     return { workspaceId, outcome: 'created' };
+  }
+
+  private async resumeOrSkip(
+    workspace: WorkspaceEntity,
+  ): Promise<SmbWorkspaceBootstrapResult> {
+    if (!isSmbWorkspaceActivationUnfinished(workspace)) {
+      if (!isDefined(workspace.defaultRoleId)) {
+        this.logger.warn(
+          `Workspace ${workspace.id} is ${workspace.activationStatus} without a default role; leaving it untouched.`,
+        );
+      }
+
+      return { workspaceId: workspace.id, outcome: 'already-bootstrapped' };
+    }
+
+    await this.activate(workspace.id);
+
+    return { workspaceId: workspace.id, outcome: 'resumed' };
+  }
+
+  // SMB stacks are single-tenant: a second workspace would silently capture
+  // every SSO sign-in while the real data stays in the first one.
+  private async assertNoOtherWorkspace(subdomain: string): Promise<void> {
+    const otherWorkspaces = await this.workspaceRepository.find({
+      select: { subdomain: true },
+    });
+
+    if (otherWorkspaces.length === 0) {
+      return;
+    }
+
+    const otherSubdomains = otherWorkspaces
+      .map((workspace) => workspace.subdomain)
+      .join(', ');
+
+    throw new Error(
+      `Workspace "${otherSubdomains}" already exists; refusing to create a second workspace "${subdomain}". Rename it to "${subdomain}" or set SMB_DEFAULT_WORKSPACE_NAME to its subdomain.`,
+    );
   }
 
   private async createPendingWorkspace(subdomain: string): Promise<string> {
@@ -137,14 +169,24 @@ export class SmbWorkspaceBootstrapService {
       workspaceId,
     });
 
-    await this.twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow(
-      { workspaceId },
-    );
-
-    const { workspaceCustomFlatApplication } =
+    const { twentyStandardFlatApplication, workspaceCustomFlatApplication } =
       await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
         { workspaceId },
       );
+
+    const isStandardApplicationSynchronized = await this.coreDataSource
+      .getRepository(ObjectMetadataEntity)
+      .exists({
+        where: { workspaceId, applicationId: twentyStandardFlatApplication.id },
+      });
+
+    // The sync is one migration, so any standard object means it completed;
+    // re-running it over a synced workspace fails its own validation.
+    if (!isStandardApplicationSynchronized) {
+      await this.twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow(
+        { workspaceId },
+      );
+    }
 
     await this.roleService.createWorkspaceCustomApplicationRole({
       workspaceId,
