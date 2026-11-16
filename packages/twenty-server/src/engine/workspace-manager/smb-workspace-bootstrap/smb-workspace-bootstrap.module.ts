@@ -14,6 +14,7 @@ import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspac
 import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/workspace-cache-storage.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 import { WorkspaceDataSourceModule } from 'src/engine/workspace-datasource/workspace-datasource.module';
+import { SmbWorkspaceActivationService } from 'src/engine/workspace-manager/smb-workspace-bootstrap/services/smb-workspace-activation.service';
 import { SmbWorkspaceBootstrapService } from 'src/engine/workspace-manager/smb-workspace-bootstrap/services/smb-workspace-bootstrap.service';
 import { TwentyStandardApplicationModule } from 'src/engine/workspace-manager/twenty-standard-application/twenty-standard-application.module';
 
@@ -33,6 +34,7 @@ import { TwentyStandardApplicationModule } from 'src/engine/workspace-manager/tw
     WorkspaceDataSourceModule,
   ],
   providers: [
+    SmbWorkspaceActivationService,
     SmbWorkspaceBootstrapService,
     provideWorkspaceScopedRepository(RoleEntity),
   ],

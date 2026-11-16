@@ -135,6 +135,41 @@ export class TwentyStandardApplicationService {
     });
   }
 
+  // For a bootstrap that stopped after the sync migration committed: re-running
+  // the full sync then fails validation, but these follow-up steps are safe.
+  async completeTwentyStandardApplicationSetupOrThrow({
+    workspaceId,
+  }: {
+    workspaceId: string;
+  }): Promise<void> {
+    const { twentyStandardFlatApplication } =
+      await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
+        { workspaceId },
+      );
+
+    if (!isDefined(twentyStandardFlatApplication.defaultRoleId)) {
+      await this.setStandardApplicationDefaultRoleOrThrow({
+        workspaceId,
+        twentyStandardApplicationId: twentyStandardFlatApplication.id,
+      });
+    }
+
+    const { allFlatEntityMaps } =
+      computeTwentyStandardApplicationAllFlatEntityMaps({
+        now: new Date().toISOString(),
+        workspaceId,
+        twentyStandardApplicationId: twentyStandardFlatApplication.id,
+        isWorkspaceCreation: true,
+      });
+
+    await this.seedStandardObjectInitialViewsOrThrow({
+      workspaceId,
+      standardObjectMetadataUniversalIdentifiers: Object.keys(
+        allFlatEntityMaps.flatObjectMetadataMaps.byUniversalIdentifier,
+      ),
+    });
+  }
+
   private async setStandardApplicationDefaultRoleOrThrow({
     workspaceId,
     twentyStandardApplicationId,

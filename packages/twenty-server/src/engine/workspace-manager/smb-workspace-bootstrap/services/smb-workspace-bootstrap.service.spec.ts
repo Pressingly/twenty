@@ -1,78 +1,59 @@
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
+import { QueryFailedError } from 'typeorm';
 
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
+import { SEED_APPLE_WORKSPACE_ID } from 'src/engine/workspace-manager/dev-seeder/core/constants/seeder-workspaces.constant';
 import { SmbWorkspaceBootstrapService } from 'src/engine/workspace-manager/smb-workspace-bootstrap/services/smb-workspace-bootstrap.service';
 
-const CUSTOM_APPLICATION = { id: 'custom-app-id' };
-const STANDARD_APPLICATION = { id: 'standard-app-id' };
+const pendingWorkspace = (
+  overrides?: Partial<WorkspaceEntity>,
+): Partial<WorkspaceEntity> => ({
+  id: 'pending-id',
+  subdomain: 'askii',
+  inviteHash: 'random-hash',
+  activationStatus: WorkspaceActivationStatus.PENDING_CREATION,
+  defaultRoleId: undefined,
+  deletedAt: undefined,
+  ...overrides,
+});
 
 const buildService = (overrides?: {
   existingWorkspace?: Partial<WorkspaceEntity> | null;
-  existingMemberRole?: { id: string } | null;
   otherWorkspaces?: Partial<WorkspaceEntity>[];
-  hasStandardObjects?: boolean;
+  claimedRows?: number[];
+  rereadWorkspace?: Partial<WorkspaceEntity>;
+  saveError?: Error;
 }) => {
+  const claimedRows = [...(overrides?.claimedRows ?? [1])];
   const entityManager = {
     queryRunner: { id: 'query-runner' },
     create: jest.fn((_entity, values) => values),
-    save: jest.fn(async (_entity, values) => values),
-    update: jest.fn().mockResolvedValue({ affected: 1 }),
+    save: jest.fn(async (_entity, values) => {
+      if (overrides?.saveError) {
+        throw overrides.saveError;
+      }
+
+      return values;
+    }),
   };
   const workspaceRepository = {
     findOne: jest.fn().mockResolvedValue(overrides?.existingWorkspace ?? null),
+    findOneByOrFail: jest
+      .fn()
+      .mockResolvedValue(overrides?.rereadWorkspace ?? pendingWorkspace()),
     find: jest.fn().mockResolvedValue(overrides?.otherWorkspaces ?? []),
-    update: jest.fn().mockResolvedValue({ affected: 1 }),
-  };
-  const roleRepository = {
-    findOne: jest.fn().mockResolvedValue(overrides?.existingMemberRole ?? null),
+    update: jest.fn(
+      async (_criteria: Record<string, unknown>, _values: unknown) => ({
+        affected: claimedRows.shift() ?? 1,
+      }),
+    ),
   };
   const coreDataSource = {
     transaction: jest.fn(async (work) => work(entityManager)),
-    getRepository: jest.fn(() => ({
-      exists: jest
-        .fn()
-        .mockResolvedValue(overrides?.hasStandardObjects ?? false),
-    })),
   };
   const applicationService = {
     createWorkspaceCustomApplication: jest.fn().mockResolvedValue({}),
-    createTwentyStandardApplication: jest.fn().mockResolvedValue({}),
-    findWorkspaceTwentyStandardAndCustomApplicationOrThrow: jest
-      .fn()
-      .mockResolvedValue({
-        twentyStandardFlatApplication: STANDARD_APPLICATION,
-        workspaceCustomFlatApplication: CUSTOM_APPLICATION,
-      }),
   };
-  const workspaceSchemaService = {
-    createWorkspaceDBSchema: jest.fn().mockResolvedValue('workspace_schema'),
-  };
-  const twentyStandardApplicationService = {
-    synchronizeTwentyStandardApplicationOrThrow: jest
-      .fn()
-      .mockResolvedValue(undefined),
-  };
-  const roleService = {
-    createWorkspaceCustomApplicationRole: jest
-      .fn()
-      .mockResolvedValue(undefined),
-    createMemberRole: jest.fn().mockResolvedValue({ id: 'new-member-role' }),
-  };
-  const featureFlagService = {
-    enableFeatureFlags: jest.fn().mockResolvedValue(undefined),
-  };
-  const upgradeMigrationService = {
-    getLastAttemptedInstanceCommandOrThrow: jest
-      .fn()
-      .mockResolvedValue({ name: 'instance-command' }),
-    markAsWorkspaceInitial: jest.fn().mockResolvedValue(undefined),
-  };
-  const upgradeSequenceReaderService = {
-    getInitialCursorForNewWorkspace: jest
-      .fn()
-      .mockReturnValue({ name: 'initial-cursor', status: 'completed' }),
-  };
-  const twentyConfigService = { get: jest.fn().mockReturnValue('v26.11.2') };
   const workspaceCacheService = {
     invalidateAndRecompute: jest.fn().mockResolvedValue(undefined),
   };
@@ -82,59 +63,37 @@ const buildService = (overrides?: {
   const coreEntityCacheService = {
     invalidate: jest.fn().mockResolvedValue(undefined),
   };
-  const preInstalledAppsService = {
-    enqueueInstallOnWorkspace: jest.fn().mockResolvedValue(undefined),
-  };
-  const sdkClientGenerationService = {
-    enqueueSdkClientGenerationForWorkspace: jest
-      .fn()
-      .mockResolvedValue(undefined),
+  const smbWorkspaceActivationService = {
+    activate: jest.fn().mockResolvedValue(undefined),
   };
 
   const service = new SmbWorkspaceBootstrapService(
     workspaceRepository as any,
-    roleRepository as any,
     coreDataSource as any,
     applicationService as any,
-    workspaceSchemaService as any,
-    twentyStandardApplicationService as any,
-    roleService as any,
-    featureFlagService as any,
-    upgradeMigrationService as any,
-    upgradeSequenceReaderService as any,
-    twentyConfigService as any,
     workspaceCacheService as any,
     workspaceCacheStorageService as any,
     coreEntityCacheService as any,
-    preInstalledAppsService as any,
-    sdkClientGenerationService as any,
+    smbWorkspaceActivationService as any,
   );
 
   return {
     service,
     entityManager,
     workspaceRepository,
-    roleRepository,
     applicationService,
-    twentyStandardApplicationService,
-    roleService,
-    featureFlagService,
-    upgradeMigrationService,
-    sdkClientGenerationService,
+    smbWorkspaceActivationService,
   };
 };
 
 describe('SmbWorkspaceBootstrapService', () => {
-  it('creates a pending workspace with no demo identity, then activates it', async () => {
+  it('creates an already-claimed workspace without a public invite link, then activates it', async () => {
     const {
       service,
       entityManager,
-      applicationService,
-      twentyStandardApplicationService,
-      roleService,
       workspaceRepository,
-      featureFlagService,
-      upgradeMigrationService,
+      applicationService,
+      smbWorkspaceActivationService,
     } = buildService();
 
     const result = await service.bootstrap('askii');
@@ -143,14 +102,14 @@ describe('SmbWorkspaceBootstrapService', () => {
 
     const savedWorkspace = entityManager.save.mock.calls[0][1];
 
-    expect(entityManager.save.mock.calls[0][0]).toBe(WorkspaceEntity);
     expect(savedWorkspace).toMatchObject({
       id: result.workspaceId,
       subdomain: 'askii',
       displayName: 'Askii',
-      activationStatus: WorkspaceActivationStatus.PENDING_CREATION,
+      isPublicInviteLinkEnabled: false,
+      activationStatus: WorkspaceActivationStatus.ONGOING_CREATION,
     });
-    expect(savedWorkspace.inviteHash).not.toBe('apple.dev-invite-hash');
+    expect(savedWorkspace.inviteHash).not.toMatch(/dev-invite-hash$/);
     expect(savedWorkspace.logo).toBeUndefined();
     expect(
       applicationService.createWorkspaceCustomApplication,
@@ -161,114 +120,32 @@ describe('SmbWorkspaceBootstrapService', () => {
       },
       entityManager.queryRunner,
     );
-
-    expect(
-      twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow,
-    ).toHaveBeenCalledWith({ workspaceId: result.workspaceId });
-    expect(
-      roleService.createWorkspaceCustomApplicationRole,
-    ).toHaveBeenCalledWith({
-      workspaceId: result.workspaceId,
-      workspaceCustomFlatApplication: CUSTOM_APPLICATION,
-    });
-    expect(roleService.createMemberRole).toHaveBeenCalledTimes(1);
-    expect(workspaceRepository.update).toHaveBeenCalledWith(
-      result.workspaceId,
-      { defaultRoleId: 'new-member-role' },
-    );
-    expect(featureFlagService.enableFeatureFlags).toHaveBeenCalledWith(
-      expect.arrayContaining(['IS_AI_CHAT_INBOX_ENABLED']),
+    expect(smbWorkspaceActivationService.activate).toHaveBeenCalledWith(
       result.workspaceId,
     );
-    expect(entityManager.update).toHaveBeenCalledWith(
-      WorkspaceEntity,
-      expect.objectContaining({ id: result.workspaceId }),
-      { activationStatus: WorkspaceActivationStatus.ACTIVE },
-    );
-    expect(upgradeMigrationService.markAsWorkspaceInitial).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'initial-cursor',
-        workspaceId: result.workspaceId,
-      }),
+    expect(workspaceRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({ withDeleted: true }),
     );
   });
 
-  it('is a no-op for an active workspace with a default role', async () => {
-    const {
-      service,
-      entityManager,
-      twentyStandardApplicationService,
-      workspaceRepository,
-    } = buildService({
-      existingWorkspace: {
-        id: 'existing-id',
-        activationStatus: WorkspaceActivationStatus.ACTIVE,
-        defaultRoleId: 'member-role',
-      },
-    });
+  it('looks the subdomain up including soft-deleted workspaces', async () => {
+    const { service, workspaceRepository } = buildService();
 
-    const result = await service.bootstrap('askii');
+    await service.bootstrap('askii');
 
-    expect(result).toEqual({
-      workspaceId: 'existing-id',
-      outcome: 'already-bootstrapped',
-    });
-    expect(entityManager.save).not.toHaveBeenCalled();
-    expect(workspaceRepository.update).not.toHaveBeenCalled();
-    expect(
-      twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow,
-    ).not.toHaveBeenCalled();
-  });
-
-  it('resumes an interrupted activation and reuses an existing member role', async () => {
-    const { service, entityManager, roleService, workspaceRepository } =
-      buildService({
-        existingWorkspace: {
-          id: 'pending-id',
-          activationStatus: WorkspaceActivationStatus.PENDING_CREATION,
-          defaultRoleId: null,
-        },
-        existingMemberRole: { id: 'existing-member-role' },
-      });
-
-    const result = await service.bootstrap('askii');
-
-    expect(result).toEqual({ workspaceId: 'pending-id', outcome: 'resumed' });
-    expect(entityManager.save).not.toHaveBeenCalled();
-    expect(roleService.createMemberRole).not.toHaveBeenCalled();
-    expect(workspaceRepository.update).toHaveBeenCalledWith('pending-id', {
-      defaultRoleId: 'existing-member-role',
+    expect(workspaceRepository.findOne).toHaveBeenCalledWith({
+      where: { subdomain: 'askii' },
+      withDeleted: true,
     });
   });
 
-  it('skips the standard sync when a resumed workspace already has standard objects', async () => {
-    const { service, twentyStandardApplicationService, roleService } =
+  it('is a no-op for a finished workspace, even without a default role', async () => {
+    const { service, workspaceRepository, smbWorkspaceActivationService } =
       buildService({
-        existingWorkspace: {
-          id: 'pending-id',
-          activationStatus: WorkspaceActivationStatus.PENDING_CREATION,
-          defaultRoleId: null,
-        },
-        hasStandardObjects: true,
-      });
-
-    await expect(service.bootstrap('askii')).resolves.toMatchObject({
-      outcome: 'resumed',
-    });
-    expect(
-      twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow,
-    ).not.toHaveBeenCalled();
-    expect(roleService.createWorkspaceCustomApplicationRole).toHaveBeenCalled();
-  });
-
-  it('leaves a finished workspace untouched even without a default role', async () => {
-    const { service, twentyStandardApplicationService, workspaceRepository } =
-      buildService({
-        existingWorkspace: {
+        existingWorkspace: pendingWorkspace({
           id: 'suspended-id',
           activationStatus: WorkspaceActivationStatus.SUSPENDED,
-          defaultRoleId: null,
-        },
+        }),
       });
 
     const result = await service.bootstrap('askii');
@@ -277,55 +154,156 @@ describe('SmbWorkspaceBootstrapService', () => {
       workspaceId: 'suspended-id',
       outcome: 'already-bootstrapped',
     });
-    expect(
-      twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow,
-    ).not.toHaveBeenCalled();
     expect(workspaceRepository.update).not.toHaveBeenCalled();
+    expect(smbWorkspaceActivationService.activate).not.toHaveBeenCalled();
   });
 
-  it('only flips unfinished activations to ACTIVE', async () => {
-    const { service, entityManager } = buildService();
+  it('claims a pending workspace before resuming its activation', async () => {
+    const { service, workspaceRepository, smbWorkspaceActivationService } =
+      buildService({ existingWorkspace: pendingWorkspace() });
 
-    await service.bootstrap('askii');
+    const result = await service.bootstrap('askii');
 
-    const [, criteria] = entityManager.update.mock.calls[0];
-
-    expect(criteria.activationStatus.value).toEqual([
-      WorkspaceActivationStatus.PENDING_CREATION,
-      WorkspaceActivationStatus.ONGOING_CREATION,
-    ]);
+    expect(result).toEqual({ workspaceId: 'pending-id', outcome: 'resumed' });
+    expect(workspaceRepository.update).toHaveBeenCalledWith(
+      {
+        id: 'pending-id',
+        activationStatus: WorkspaceActivationStatus.PENDING_CREATION,
+      },
+      { activationStatus: WorkspaceActivationStatus.ONGOING_CREATION },
+    );
+    expect(smbWorkspaceActivationService.activate).toHaveBeenCalledWith(
+      'pending-id',
+    );
   });
 
-  it('refuses to create a second workspace when another subdomain exists', async () => {
-    const { service, entityManager } = buildService({
-      otherWorkspaces: [{ subdomain: 'apple' }],
+  it('reclaims an ONGOING workspace only through the stale-claim update', async () => {
+    const { service, workspaceRepository } = buildService({
+      existingWorkspace: pendingWorkspace({
+        activationStatus: WorkspaceActivationStatus.ONGOING_CREATION,
+      }),
+      claimedRows: [0, 1],
+    });
+
+    await expect(service.bootstrap('askii')).resolves.toMatchObject({
+      outcome: 'resumed',
+    });
+
+    const [staleCriteria] = workspaceRepository.update.mock.calls[1];
+
+    expect(staleCriteria).toMatchObject({
+      activationStatus: WorkspaceActivationStatus.ONGOING_CREATION,
+    });
+    expect(staleCriteria.updatedAt).toBeDefined();
+  });
+
+  it('reports a bootstrap in progress when the claim is held by another run', async () => {
+    const { service, smbWorkspaceActivationService } = buildService({
+      existingWorkspace: pendingWorkspace({
+        activationStatus: WorkspaceActivationStatus.ONGOING_CREATION,
+      }),
+      claimedRows: [0, 0],
+      rereadWorkspace: pendingWorkspace({
+        activationStatus: WorkspaceActivationStatus.ONGOING_CREATION,
+      }),
     });
 
     await expect(service.bootstrap('askii')).rejects.toThrow(
-      'Workspace "apple" already exists; refusing to create a second workspace "askii"',
+      'Another workspace:bootstrap-smb is activating workspace "askii"',
     );
-    expect(entityManager.save).not.toHaveBeenCalled();
+    expect(smbWorkspaceActivationService.activate).not.toHaveBeenCalled();
   });
 
-  it('does not fail when a post-activation job cannot be enqueued', async () => {
-    const { service, sdkClientGenerationService } = buildService();
+  it('is a no-op when the other run finished before the claim', async () => {
+    const { service } = buildService({
+      existingWorkspace: pendingWorkspace(),
+      claimedRows: [0, 0],
+      rereadWorkspace: pendingWorkspace({
+        activationStatus: WorkspaceActivationStatus.ACTIVE,
+      }),
+    });
 
-    sdkClientGenerationService.enqueueSdkClientGenerationForWorkspace.mockRejectedValueOnce(
-      new Error('redis down'),
-    );
-
-    await expect(service.bootstrap('askii')).resolves.toMatchObject({
-      outcome: 'created',
+    await expect(service.bootstrap('askii')).resolves.toEqual({
+      workspaceId: 'pending-id',
+      outcome: 'already-bootstrapped',
     });
   });
 
-  it('propagates a failed standard application sync', async () => {
-    const { service, twentyStandardApplicationService } = buildService();
+  it('releases the claim back to PENDING_CREATION when activation fails', async () => {
+    const { service, workspaceRepository, smbWorkspaceActivationService } =
+      buildService({ existingWorkspace: pendingWorkspace() });
 
-    twentyStandardApplicationService.synchronizeTwentyStandardApplicationOrThrow.mockRejectedValueOnce(
+    smbWorkspaceActivationService.activate.mockRejectedValueOnce(
       new Error('sync failed'),
     );
 
     await expect(service.bootstrap('askii')).rejects.toThrow('sync failed');
+    expect(workspaceRepository.update).toHaveBeenLastCalledWith(
+      {
+        id: 'pending-id',
+        activationStatus: WorkspaceActivationStatus.ONGOING_CREATION,
+      },
+      { activationStatus: WorkspaceActivationStatus.PENDING_CREATION },
+    );
+  });
+
+  it.each([
+    ['the seed workspace id', { id: SEED_APPLE_WORKSPACE_ID }],
+    ['a dev-seed invite hash', { inviteHash: 'apple.dev-invite-hash' }],
+  ])(
+    'refuses to resume an unfinished legacy dev-seed workspace (%s)',
+    async (_label, legacyFields) => {
+      const { service, smbWorkspaceActivationService } = buildService({
+        existingWorkspace: pendingWorkspace(legacyFields),
+      });
+
+      await expect(service.bootstrap('askii')).rejects.toThrow(
+        'unfinished dev-seed workspace; reset the Twenty database',
+      );
+      expect(smbWorkspaceActivationService.activate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses a soft-deleted workspace with the same subdomain', async () => {
+    const { service, smbWorkspaceActivationService } = buildService({
+      existingWorkspace: pendingWorkspace({
+        activationStatus: WorkspaceActivationStatus.ACTIVE,
+        deletedAt: new Date(),
+      }),
+    });
+
+    await expect(service.bootstrap('askii')).rejects.toThrow(
+      'is soft-deleted; restore or hard-delete it first',
+    );
+    expect(smbWorkspaceActivationService.activate).not.toHaveBeenCalled();
+  });
+
+  it('refuses to create a second workspace when another subdomain exists', async () => {
+    const { service, entityManager } = buildService({
+      otherWorkspaces: [
+        { subdomain: 'apple' },
+        { subdomain: 'old', deletedAt: new Date() },
+      ],
+    });
+
+    await expect(service.bootstrap('askii')).rejects.toThrow(
+      'Workspace "apple, old (soft-deleted)" already exists; refusing to create a second workspace "askii"',
+    );
+    expect(entityManager.save).not.toHaveBeenCalled();
+  });
+
+  it('reports a concurrent creation instead of a raw unique violation', async () => {
+    const uniqueViolation = Object.assign(
+      new QueryFailedError('INSERT', [], new Error('duplicate key')),
+      { code: '23505' },
+    );
+    const { service, smbWorkspaceActivationService } = buildService({
+      saveError: uniqueViolation,
+    });
+
+    await expect(service.bootstrap('askii')).rejects.toThrow(
+      'was created concurrently by another bootstrap',
+    );
+    expect(smbWorkspaceActivationService.activate).not.toHaveBeenCalled();
   });
 });
