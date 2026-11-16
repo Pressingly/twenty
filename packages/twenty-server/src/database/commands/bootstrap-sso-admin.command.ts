@@ -27,14 +27,12 @@ type BootstrapSsoAdminOptions = {
 // existing userWorkspace, even if the user signed in via SSO first and was
 // auto-provisioned as Member through the workspace's defaultRoleId.
 //
-// Wired into the foss-server-bundle-devstack provisioning pipeline at
-// `provision/provision-twenty.sh`, which runs `workspace:seed:dev --light`
-// (creates the SMB workspace + standard roles) and then this command.
-// Both steps are idempotent on re-runs.
+// Run after `workspace:bootstrap-smb`, which creates the SMB workspace and
+// its standard roles. Both steps are idempotent on re-runs.
 @Command({
   name: 'workspace:bootstrap-sso-admin',
   description:
-    'Pre-seed a Cognito-known email as the Admin user of the SMB workspace. Run once after `workspace:seed:dev --light` (see foss-server-bundle-devstack/provision/provision-twenty.sh).',
+    'Pre-seed a Cognito-known email as the Admin user of the SMB workspace. Run once after `workspace:bootstrap-smb`.',
 })
 export class BootstrapSsoAdminCommand extends CommandRunner {
   private readonly logger = new Logger(BootstrapSsoAdminCommand.name);
@@ -87,7 +85,7 @@ export class BootstrapSsoAdminCommand extends CommandRunner {
 
     if (!workspace) {
       throw new Error(
-        `Workspace with subdomain="${subdomain}" not found. Run \`workspace:seed:dev --light\` first.`,
+        `Workspace with subdomain="${subdomain}" not found. Run \`workspace:bootstrap-smb\` first.`,
       );
     }
 
