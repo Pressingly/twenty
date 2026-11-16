@@ -63,7 +63,7 @@ export class SsoUserProvisioningService {
 
     if (!workspace) {
       this.logger.error(
-        `SSO landing workspace (subdomain="${subdomain}") missing — the seeder should have created it on first init.`,
+        `SSO landing workspace (subdomain="${subdomain}") missing — run workspace:bootstrap-smb to create it.`,
       );
       throw new AuthException(
         'SSO workspace not provisioned',

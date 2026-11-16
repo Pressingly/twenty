@@ -2,6 +2,7 @@ import { AgentHistoryMigrationModule } from 'src/database/commands/agent-history
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { BootstrapSmbWorkspaceCommand } from 'src/database/commands/bootstrap-smb-workspace.command';
 import { BootstrapSsoAdminCommand } from 'src/database/commands/bootstrap-sso-admin.command';
 import { WorkspaceIteratorModule } from 'src/database/commands/command-runners/workspace-iterator.module';
 import { CronRegisterAllCommand } from 'src/database/commands/cron-register-all.command';
@@ -55,6 +56,7 @@ import { TrashCleanupModule } from 'src/engine/trash-cleanup/trash-cleanup.modul
 import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/workspace-cache-storage.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 import { DevSeederModule } from 'src/engine/workspace-manager/dev-seeder/dev-seeder.module';
+import { SmbWorkspaceBootstrapModule } from 'src/engine/workspace-manager/smb-workspace-bootstrap/smb-workspace-bootstrap.module';
 import { WorkspaceCleanerModule } from 'src/engine/workspace-manager/workspace-cleaner/workspace-cleaner.module';
 import { WorkspaceManagerModule } from 'src/engine/workspace-manager/workspace-manager.module';
 import { WorkspaceMigrationModule } from 'src/engine/workspace-manager/workspace-migration/workspace-migration.module';
@@ -88,6 +90,7 @@ import { AutomatedTriggerModule } from 'src/modules/workflow/workflow-trigger/au
     FieldMetadataModule,
     ObjectMetadataModule,
     DevSeederModule,
+    SmbWorkspaceBootstrapModule,
     WorkspaceManagerModule,
     WorkspaceCacheStorageModule,
     ApiKeyModule,
@@ -119,6 +122,7 @@ import { AutomatedTriggerModule } from 'src/modules/workflow/workflow-trigger/au
     EmailingDomainModule,
   ],
   providers: [
+    BootstrapSmbWorkspaceCommand,
     BootstrapSsoAdminCommand,
     DataSeedWorkspaceCommand,
     ConfirmationQuestion,
