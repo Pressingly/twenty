@@ -344,7 +344,7 @@ describe('MCP tool catalog (integration)', () => {
       }
     });
 
-    it('should flag the tools that overwrite or delete as destructive', async () => {
+    it('should flag every write as destructive', async () => {
       const destructiveHintByToolName = Object.fromEntries(
         (await listMcpTools(adminApiKeyToken, GENERIC_MODE_PATH)).map(
           (tool) => [tool.name, tool.annotations?.destructiveHint],
@@ -352,16 +352,16 @@ describe('MCP tool catalog (integration)', () => {
       );
 
       expect(destructiveHintByToolName).toMatchObject({
-        create_records: false,
+        create_records: true,
         update_record: true,
         update_records: true,
         upsert_records: true,
         delete_records: true,
         merge_records: true,
-        create_object_metadata: false,
+        create_object_metadata: true,
         update_object_metadata: true,
         delete_object_metadata: true,
-        create_complete_workflow: false,
+        create_complete_workflow: true,
         delete_workflow: true,
         get_views: false,
       });
