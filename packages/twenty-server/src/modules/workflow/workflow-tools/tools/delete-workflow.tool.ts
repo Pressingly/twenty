@@ -23,6 +23,7 @@ export const createDeleteWorkflowTool = (
   context: WorkflowToolContext,
 ) => ({
   name: 'delete_workflow' as const,
+  isDestructive: true,
   description:
     'Delete a workflow by its core workflow ID. This also removes its versions, runs and automated triggers, and deactivates any active version. Use list_workflows to find the coreWorkflowId.',
   inputSchema: deleteWorkflowSchema,
@@ -34,6 +35,7 @@ export const createDeleteWorkflowTool = (
       const coreWorkflow = await deps.coreWorkflowListService.findOneById({
         workspaceId,
         userWorkspaceId: context.userWorkspaceId,
+        callerApplication: undefined,
         coreWorkflowId,
       });
 

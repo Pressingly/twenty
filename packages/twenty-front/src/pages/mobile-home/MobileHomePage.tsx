@@ -1,4 +1,6 @@
-import { MobileHomeAiChatSection } from '@/ai/components/MobileHomeAiChatSection';
+import { GettingStartedSidebarCard } from '@/getting-started/components/GettingStartedSidebarCard';
+import { MobileHomeInboxSection } from '@/inbox/components/MobileHomeInboxSection';
+import { useActiveNavigationMenuTab } from '@/navigation-menu-item/display/hooks/useActiveNavigationMenuTab';
 import { MainNavigationDrawerNavigationContent } from '@/navigation/components/MainNavigationDrawerNavigationContent';
 import { useDefaultHomePagePath } from '@/navigation/hooks/useDefaultHomePagePath';
 import { useHasPermissionFlag } from '@/settings/roles/hooks/useHasPermissionFlag';
@@ -8,6 +10,7 @@ import { NavigationDrawerScrollableContent } from '@/ui/navigation/navigation-dr
 import { useIsMobile } from 'twenty-ui/utilities';
 import { styled } from '@linaria/react';
 import { Navigate } from 'react-router-dom';
+import { isDefined } from 'twenty-shared/utils';
 import { themeCssVariables } from 'twenty-ui/theme';
 import { PermissionFlagType } from '~/generated-metadata/graphql';
 
@@ -32,6 +35,7 @@ export const MobileHomePage = () => {
   const isMobile = useIsMobile();
   const { defaultHomePagePath } = useDefaultHomePagePath();
   const hasAiPermission = useHasPermissionFlag(PermissionFlagType.AI);
+  const activeNavigationMenuTab = useActiveNavigationMenuTab();
 
   // Desktop keeps the drawer, so the page has nothing to show there.
   if (!isMobile) {
@@ -47,7 +51,10 @@ export const MobileHomePage = () => {
       <NavigationDrawerScrollableContent>
         <StyledSections>
           <MainNavigationDrawerNavigationContent />
-          {hasAiPermission && <MobileHomeAiChatSection />}
+          <GettingStartedSidebarCard />
+          {hasAiPermission && !isDefined(activeNavigationMenuTab) && (
+            <MobileHomeInboxSection />
+          )}
         </StyledSections>
       </NavigationDrawerScrollableContent>
     </StyledContainer>

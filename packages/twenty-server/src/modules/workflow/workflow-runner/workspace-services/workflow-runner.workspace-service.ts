@@ -32,7 +32,6 @@ import { type RunWorkflowJobData } from 'src/modules/workflow/workflow-runner/ty
 import { buildRetryStepInfos } from 'src/modules/workflow/workflow-runner/utils/build-retry-step-infos.util';
 import { buildRunWorkflowJobOptions } from 'src/modules/workflow/workflow-runner/utils/build-run-workflow-job-options.util';
 import { getRunnableStepIds } from 'src/modules/workflow/workflow-runner/utils/get-runnable-step-ids.util';
-import { WorkflowThrottlingWorkspaceService } from 'src/modules/workflow/workflow-runner/workflow-run-queue/workspace-services/workflow-throttling.workspace-service';
 import { WorkflowRunJobScopeWorkspaceService } from 'src/modules/workflow/workflow-runner/workflow-run/workflow-run-job-scope.workspace-service';
 import { WorkflowRunWorkspaceService } from 'src/modules/workflow/workflow-runner/workflow-run/workflow-run.workspace-service';
 
@@ -43,7 +42,6 @@ export class WorkflowRunnerWorkspaceService {
     @InjectMessageQueue(MessageQueue.workflowQueue)
     private readonly messageQueueService: MessageQueueService,
     private readonly workflowVersionStepOperationsWorkspaceService: WorkflowVersionStepOperationsWorkspaceService,
-    private readonly workflowThrottlingWorkspaceService: WorkflowThrottlingWorkspaceService,
     private readonly workflowExecutionContextService: WorkflowExecutionContextService,
     private readonly workflowRunJobScopeWorkspaceService: WorkflowRunJobScopeWorkspaceService,
   ) {}
@@ -198,24 +196,23 @@ export class WorkflowRunnerWorkspaceService {
       return undefined;
     }
 
-    const applicationBoundExecutionContext =
-      await this.workflowExecutionContextService
-        .getApplicationBoundExecutionContext({ workflowRun, workspaceId })
-        .catch((error: unknown) => {
-          if (error instanceof WorkflowStepExecutorException) {
-            throw new WorkflowVersionStepException(
-              error.message,
-              WorkflowVersionStepExceptionCode.INVALID_REQUEST,
-              {
-                userFriendlyMessage: msg`The permissions of this run no longer allow submitting this form.`,
-              },
-            );
-          }
+    const formRecordReadContext = await this.workflowExecutionContextService
+      .getFormRecordReadContext({ workflowRun, workspaceId })
+      .catch((error: unknown) => {
+        if (error instanceof WorkflowStepExecutorException) {
+          throw new WorkflowVersionStepException(
+            error.message,
+            WorkflowVersionStepExceptionCode.INVALID_REQUEST,
+            {
+              userFriendlyMessage: msg`The permissions of this run no longer allow submitting this form.`,
+            },
+          );
+        }
 
-          throw error;
-        });
+        throw error;
+      });
 
-    return applicationBoundExecutionContext ?? undefined;
+    return formRecordReadContext ?? undefined;
   }
 
   async stopWorkflowRun(workspaceId: string, workflowRunId: string) {
@@ -226,7 +223,6 @@ export class WorkflowRunnerWorkspaceService {
       });
 
     const stoppableStatuses = [
-      WorkflowRunStatus.NOT_STARTED,
       WorkflowRunStatus.ENQUEUED,
       WorkflowRunStatus.RUNNING,
     ];
@@ -237,8 +233,6 @@ export class WorkflowRunnerWorkspaceService {
         status: workflowRun.status,
       };
     }
-
-    const wasNotStarted = workflowRun.status === WorkflowRunStatus.NOT_STARTED;
 
     let newStatus: WorkflowRunStatus;
 
@@ -280,13 +274,6 @@ export class WorkflowRunnerWorkspaceService {
         });
         newStatus = WorkflowRunStatus.STOPPED;
       }
-    }
-
-    // Only after the stop is persisted, so a persistence failure can't desync the throttle counter
-    if (wasNotStarted) {
-      await this.workflowThrottlingWorkspaceService.decreaseWorkflowRunNotStartedCount(
-        workspaceId,
-      );
     }
 
     return {

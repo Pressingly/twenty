@@ -2,6 +2,10 @@ import {
   APPLICATION_PACKAGE_YARN_LOCK_PATH,
   type Manifest,
 } from 'twenty-shared/application';
+import {
+  getSharedDependenciesBuildManifestPath,
+  getSharedDependenciesTypeReferencesPath,
+} from 'twenty-shared/front-component-build';
 import { FileFolder } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
@@ -68,11 +72,27 @@ export const buildApplicationFileList = (
     manifest.application.frontComponentSharedDependencies;
 
   if (isDefined(sharedDependencies)) {
-    files.push({
-      relativePath: sharedDependencies.builtPath,
-      fileFolder: FileFolder.BuiltFrontComponent,
-      isRequired: true,
-    });
+    files.push(
+      {
+        relativePath: sharedDependencies.builtPath,
+        fileFolder: FileFolder.BuiltFrontComponent,
+        isRequired: true,
+      },
+      {
+        relativePath: getSharedDependenciesBuildManifestPath(
+          sharedDependencies.builtPath,
+        ),
+        fileFolder: FileFolder.Dependencies,
+        isRequired: false,
+      },
+      {
+        relativePath: getSharedDependenciesTypeReferencesPath(
+          sharedDependencies.builtPath,
+        ),
+        fileFolder: FileFolder.Dependencies,
+        isRequired: false,
+      },
+    );
   }
 
   for (const publicAsset of manifest.publicAssets ?? []) {
@@ -81,6 +101,23 @@ export const buildApplicationFileList = (
       fileFolder: FileFolder.PublicAsset,
       isRequired: true,
     });
+  }
+
+  for (const sourceFile of manifest.sourceFiles ?? []) {
+    const existingFile = files.find(
+      (file) =>
+        file.fileFolder === FileFolder.Source &&
+        file.relativePath === sourceFile.filePath,
+    );
+    if (isDefined(existingFile)) {
+      existingFile.isRequired = true;
+    } else {
+      files.push({
+        relativePath: sourceFile.filePath,
+        fileFolder: FileFolder.Source,
+        isRequired: true,
+      });
+    }
   }
 
   return files;

@@ -1,8 +1,7 @@
 import { type ConnectedAccount } from '@/accounts/types/ConnectedAccount';
 import { SettingsAppPreferencesRemoveConnectionDialog } from '@/settings/app-preferences/components/SettingsAppPreferencesRemoveConnectionDialog';
 import { SettingsApplicationConnectionName } from '@/settings/applications/components/SettingsApplicationConnectionName';
-import { getApplicationPreferencesGeneralPath } from '@/settings/app-preferences/utils/getApplicationPreferencesGeneralPath';
-import { useTriggerAppOAuth } from '@/settings/applications/hooks/useTriggerAppOAuth';
+import { useStartAppConnection } from '@/settings/applications/hooks/useStartAppConnection';
 import { isApplicationConnectionReconnectNeeded } from '@/settings/applications/utils/isApplicationConnectionReconnectNeeded';
 import { useDialog } from '@/ui/layout/dialog/hooks/useDialog';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
@@ -14,19 +13,23 @@ import { IconDotsVertical, IconRefresh, IconTrash } from 'twenty-ui/icon';
 
 type SettingsAppPreferencesConnectionRowDropdownMenuProps = {
   applicationId: string;
-  providerName: string;
+  connectionProviderName: string;
+  connectionProviderType: string;
   connection: ConnectedAccount;
   canStartAuthorization: boolean;
+  reconnectRedirectLocation: string;
 };
 
 export const SettingsAppPreferencesConnectionRowDropdownMenu = ({
   applicationId,
-  providerName,
+  connectionProviderName,
+  connectionProviderType,
   connection,
   canStartAuthorization,
+  reconnectRedirectLocation,
 }: SettingsAppPreferencesConnectionRowDropdownMenuProps) => {
   const { t } = useLingui();
-  const { triggerAppOAuth } = useTriggerAppOAuth();
+  const { startAppConnection } = useStartAppConnection();
   const { openDialog } = useDialog();
   const removeDialogId = `remove-app-connection-modal-${connection.id}`;
 
@@ -50,12 +53,12 @@ export const SettingsAppPreferencesConnectionRowDropdownMenu = ({
                 <Dropdown.ActionItem
                   startIcon={<IconRefresh />}
                   onClick={() =>
-                    triggerAppOAuth({
+                    startAppConnection({
                       applicationId,
-                      providerName,
+                      connectionProviderName,
+                      connectionProviderType,
                       reconnectingConnectedAccountId: connection.id,
-                      redirectLocation:
-                        getApplicationPreferencesGeneralPath(applicationId),
+                      redirectLocation: reconnectRedirectLocation,
                     })
                   }
                 >{t`Reconnect`}</Dropdown.ActionItem>

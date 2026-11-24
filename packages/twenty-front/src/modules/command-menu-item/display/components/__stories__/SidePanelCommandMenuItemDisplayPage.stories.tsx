@@ -44,6 +44,7 @@ import {
 } from '~/generated-metadata/graphql';
 import { ToastStoryContainer } from '~/testing/components/ToastStoryContainer';
 import { ContextStoreDecorator } from '~/testing/decorators/ContextStoreDecorator';
+import { ChatObjectMetadataDecorator } from '~/testing/decorators/ChatObjectMetadataDecorator';
 import { ObjectMetadataItemsDecorator } from '~/testing/decorators/ObjectMetadataItemsDecorator';
 import { ToastDecorator } from '~/testing/decorators/ToastDecorator';
 import { mockedCompanyRecords } from '~/testing/mock-data/generated/data/companies/mock-companies-data';
@@ -78,6 +79,7 @@ const createCommandMenuItem = (
   conditionalAvailabilityExpression: null,
   availabilityType: CommandMenuItemAvailabilityType.GLOBAL,
   availabilityObjectMetadataId: null,
+  availabilityCoreObjectName: null,
   payload: null,
   ...overrides,
 });
@@ -193,7 +195,7 @@ const createDecorator = ({
   permissionFlags,
 }: CreateDecoratorParams): Decorator => {
   const currentUserWorkspace = isDefined(permissionFlags)
-    ? { permissionFlags, objectsPermissions: [] }
+    ? { permissionFlags, objectRecordsPermissions: [] }
     : null;
 
   return (Story) => {
@@ -273,6 +275,7 @@ const meta: Meta<typeof SidePanelCommandMenuItemDisplayPage> = {
     }),
   decorators: [
     ContextStoreDecorator,
+    ChatObjectMetadataDecorator,
     ObjectMetadataItemsDecorator,
     ToastDecorator,
   ],

@@ -1,30 +1,34 @@
+import {
+  SETTINGS_GENERAL_TAB_ID,
+  SETTINGS_VARIABLES_TAB_ID,
+} from 'twenty-shared/application';
 import { getApplicationDisplayName } from '@/applications/utils/getApplicationDisplayName';
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
 import { SettingsAppPreferencesGeneralTab } from '@/settings/app-preferences/components/SettingsAppPreferencesGeneralTab';
-import { APPLICATION_PREFERENCES_GENERAL_TAB_ID } from '@/settings/app-preferences/constants/ApplicationPreferencesGeneralTabId';
+import { MY_APPLICATION_HEALTH_CHECK_RUNNER } from '@/settings/app-preferences/constants/MyApplicationHealthCheckRunner';
 import { SETTINGS_APPLICATION_PREFERENCES_TAB_LIST_COMPONENT_ID } from '@/settings/app-preferences/constants/SettingsApplicationPreferencesTabListComponentId';
 import { type ApplicationWithPreferences } from '@/settings/app-preferences/types/ApplicationWithPreferences';
-import { APPLICATION_VARIABLES_TAB_ID } from '@/settings/applications/constants/ApplicationVariablesTabId';
+import { SettingsApplicationHealthCheckBanner } from '@/settings/applications/components/SettingsApplicationHealthCheckBanner';
+import { SettingsApplicationHealthCheckEffect } from '@/settings/applications/components/SettingsApplicationHealthCheckEffect';
+import { useSaveApplicationVariablesAndRecheckHealth } from '@/settings/applications/hooks/useSaveApplicationVariablesAndRecheckHealth';
 import { getApplicationConfigurationTabId } from '@/settings/applications/utils/getApplicationConfigurationTabId';
+import { getSettingsMenuItemLegacyTabIdRedirect } from '@/settings/applications/utils/getSettingsMenuItemLegacyTabIdRedirect';
+import { getSettingsMenuItemTabId } from '@/settings/applications/utils/getSettingsMenuItemTabId';
 import { hasApplicationVariablesTab } from '@/settings/applications/utils/hasApplicationVariablesTab';
 import { useSettingsActiveTabId } from '@/settings/components/layout/useSettingsActiveTabId';
 import type { SingleTabProps } from '@/ui/layout/tab-list/types/SingleTabProps';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { useMutation } from '@apollo/client/react';
 import { useLingui } from '@lingui/react/macro';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { SettingsPath } from 'twenty-shared/types';
 import {
   getSettingsPath,
   isDefined,
   isNonEmptyArray,
 } from 'twenty-shared/utils';
-import {
-  IconDeviceFloppy,
-  IconSettings,
-  IconVariable,
-  useIcons,
-} from 'twenty-ui/icon';
+import { IconDeviceFloppy, IconSettings, IconVariable } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 import { Button } from 'twenty-ui/primitives/input';
 import {
   ApplicationVariableScope,
@@ -36,6 +40,7 @@ import { SettingsApplicationDetailVariablesTab } from '@/settings/applications/c
 import { SettingsApplicationMissingConfigurationBanner } from '@/settings/applications/components/SettingsApplicationMissingConfigurationBanner';
 import { SettingsApplicationDetailPageLayout } from '@/settings/applications/components/SettingsApplicationDetailPageLayout';
 import { SettingsApplicationStoppedBanner } from '@/settings/applications/components/SettingsApplicationStoppedBanner';
+import { parseTabRouteHash } from '@/ui/layout/tab-list/utils/parseTabRouteHash';
 
 type SettingsApplicationPreferencesDetailProps = {
   applicationWithPreferences: ApplicationWithPreferences;
@@ -56,6 +61,7 @@ export const SettingsApplicationPreferencesDetail = ({
   const { getIcon } = useIcons();
   const currentWorkspace = useAtomStateValue(currentWorkspaceState);
   const navigate = useNavigate();
+  const { search, hash } = useLocation();
 
   const [updateMyUserApplicationVariable] = useMutation(
     UpdateMyUserApplicationVariableDocument,
@@ -83,6 +89,15 @@ export const SettingsApplicationPreferencesDetail = ({
     refetchApplicationVariables: refetchApplicationsWithPreferences,
   });
 
+  const hasMissingRequiredVariables = isNonEmptyArray(missingRequiredVariables);
+
+  const { saveApplicationVariablesAndRecheckHealth } =
+    useSaveApplicationVariablesAndRecheckHealth({
+      applicationId: application.id,
+      runner: MY_APPLICATION_HEALTH_CHECK_RUNNER,
+      saveApplicationVariables,
+    });
+
   const hasVariablesTab = hasApplicationVariablesTab({
     settingsMenuItems,
     displayedApplicationVariables: variables,
@@ -90,21 +105,21 @@ export const SettingsApplicationPreferencesDetail = ({
 
   const tabs: SingleTabProps[] = [
     {
-      id: APPLICATION_PREFERENCES_GENERAL_TAB_ID,
+      id: SETTINGS_GENERAL_TAB_ID,
       title: t`General`,
       Icon: IconSettings,
     },
     ...(hasVariablesTab
       ? [
           {
-            id: APPLICATION_VARIABLES_TAB_ID,
+            id: SETTINGS_VARIABLES_TAB_ID,
             title: t`Variables`,
             Icon: IconVariable,
           },
         ]
       : []),
     ...settingsMenuItems.map((settingsMenuItem) => ({
-      id: settingsMenuItem.universalIdentifier,
+      id: getSettingsMenuItemTabId(settingsMenuItem),
       title: settingsMenuItem.title,
       Icon: getIcon(settingsMenuItem.icon, 'IconAdjustments'),
     })),
@@ -128,8 +143,20 @@ export const SettingsApplicationPreferencesDetail = ({
   });
 
   const activeSettingsMenuItem = settingsMenuItems.find(
-    (settingsMenuItem) => settingsMenuItem.universalIdentifier === activeTabId,
+    (settingsMenuItem) =>
+      getSettingsMenuItemTabId(settingsMenuItem) === activeTabId,
   );
+
+  const legacyTabIdRedirect = getSettingsMenuItemLegacyTabIdRedirect({
+    settingsMenuItems,
+    hashTabId: parseTabRouteHash(hash).tabId,
+  });
+
+  if (isDefined(legacyTabIdRedirect)) {
+    return (
+      <Navigate to={{ search, hash: `#${legacyTabIdRedirect}` }} replace />
+    );
+  }
 
   return (
     <SettingsApplicationDetailPageLayout
@@ -150,13 +177,13 @@ export const SettingsApplicationPreferencesDetail = ({
       tabListComponentInstanceId={tabListComponentInstanceId}
       tabListAriaLabel={t`${appName} preferences`}
       actionButton={
-        activeTabId === APPLICATION_VARIABLES_TAB_ID ? (
+        activeTabId === SETTINGS_VARIABLES_TAB_ID ? (
           <Button
             startIcon={<IconDeviceFloppy />}
             variant="solid"
             color="accent"
             size="sm"
-            onClick={saveApplicationVariables}
+            onClick={saveApplicationVariablesAndRecheckHealth}
             disabled={
               !hasUnsavedApplicationVariables || isSavingApplicationVariables
             }
@@ -180,17 +207,43 @@ export const SettingsApplicationPreferencesDetail = ({
             }
           />
         )}
+      {!hasMissingRequiredVariables && (
+        <>
+          <SettingsApplicationHealthCheckEffect
+            key={application.id}
+            applicationId={application.id}
+            runner={MY_APPLICATION_HEALTH_CHECK_RUNNER}
+          />
+          <SettingsApplicationHealthCheckBanner
+            applicationId={application.id}
+            healthCheckFamilyState={
+              MY_APPLICATION_HEALTH_CHECK_RUNNER.healthCheckFamilyState
+            }
+            fallbackLocation={
+              activeTabId === SETTINGS_GENERAL_TAB_ID
+                ? undefined
+                : getSettingsPath(
+                    SettingsPath.AppPreferencesApp,
+                    { applicationId: application.id },
+                    undefined,
+                    SETTINGS_GENERAL_TAB_ID,
+                  )
+            }
+          />
+        </>
+      )}
       <SettingsApplicationStoppedBanner
         applicationUniversalIdentifier={application.universalIdentifier}
       />
-      {activeTabId === APPLICATION_PREFERENCES_GENERAL_TAB_ID && (
+      {activeTabId === SETTINGS_GENERAL_TAB_ID && (
         <SettingsAppPreferencesGeneralTab
           application={application}
           displayName={appName}
           connectionProviders={connectionProviders}
+          settingsMenuItems={settingsMenuItems}
         />
       )}
-      {activeTabId === APPLICATION_VARIABLES_TAB_ID && (
+      {activeTabId === SETTINGS_VARIABLES_TAB_ID && (
         <SettingsApplicationDetailVariablesTab
           applicationVariables={draftApplicationVariables}
           onVariableChange={setApplicationVariableValue}

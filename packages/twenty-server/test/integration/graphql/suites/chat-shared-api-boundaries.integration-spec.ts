@@ -1,3 +1,6 @@
+import { writeChatMemberMessage } from 'test/integration/ai/utils/write-chat-member-message.util';
+import { AgentChatMemberMessagePlacement } from 'src/engine/metadata-modules/ai/ai-chat/enums/agent-chat-member-message-placement.enum';
+import { updateFeatureFlag } from 'test/integration/metadata/suites/utils/update-feature-flag.util';
 import { randomUUID } from 'node:crypto';
 
 import { configureChatParticipationModels } from 'test/integration/ai/utils/configure-chat-participation-models.util';
@@ -16,7 +19,7 @@ import { waitForAllJobsToFinish } from 'test/integration/utils/wait-for-all-jobs
 import { FeatureFlagKey, RecordShareAccessLevel } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
-import { DatabaseEventAction } from 'src/engine/api/graphql/graphql-query-runner/enums/database-event-action';
+import { DatabaseEventAction } from 'src/engine/workspace-event-emitter/enums/database-event-action';
 import { type RedisClientService } from 'src/engine/core-modules/redis-client/redis-client.service';
 import { type AgentChatEventPublisherService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-event-publisher.service';
 import { type AgentChatQueueService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-queue.service';
@@ -26,6 +29,17 @@ import { AgentTurnStatus } from 'src/engine/metadata-modules/ai/ai-history/enums
 import { type WorkspaceEventEmitter } from 'src/engine/workspace-event-emitter/workspace-event-emitter';
 import { USER_WORKSPACE_DATA_SEED_IDS } from 'src/engine/workspace-manager/dev-seeder/core/utils/seed-user-workspaces.util';
 import { WORKSPACE_MEMBER_DATA_SEED_IDS } from 'src/engine/workspace-manager/dev-seeder/data/constants/workspace-member-data-seeds.constant';
+
+const setRecordSharingEnabled = (value: boolean) =>
+  updateFeatureFlag({
+    featureFlag: FeatureFlagKey.IS_RECORD_LEVEL_SHARING_ENABLED,
+    value,
+    expectToFail: false,
+  });
+
+beforeAll(() => setRecordSharingEnabled(true));
+
+afterAll(() => setRecordSharingEnabled(false));
 
 describe('Shared conversation API boundaries', () => {
   let context: Awaited<ReturnType<typeof createChatParticipationTestContext>>;
@@ -144,12 +158,19 @@ describe('Shared conversation API boundaries', () => {
 
   it('denies a viewer send, restore, queued deletion and cancellation while allowing an editor to delete a queued message', async () => {
     const threadId = await context.createThread(false);
-    const queued = await queue.queueMessage({
-      workspaceId: context.workspaceId,
-      threadId,
-      workspaceMemberId: context.workspaceMemberId,
-      userWorkspaceId: context.userWorkspaceId,
-      text: 'An existing queued message',
+    const queued = await writeChatMemberMessage({
+      actor: {
+        workspaceId: context.workspaceId,
+        workspaceMemberId: context.workspaceMemberId,
+        userWorkspaceId: context.userWorkspaceId,
+      },
+      thread: await context.threadService.getWritableThread({
+        workspaceId: context.workspaceId,
+        workspaceMemberId: context.workspaceMemberId,
+        threadId,
+      }),
+      message: { text: 'An existing queued message' },
+      placement: AgentChatMemberMessagePlacement.QUEUED,
     });
     const streamId = randomUUID();
 
@@ -238,6 +259,7 @@ describe('Shared conversation API boundaries', () => {
     const response = await sendChatParticipationMessage({
       threadId,
       messageId,
+      isAssistantMentioned: true,
     });
 
     expect(response.body.errors).toBeUndefined();
@@ -301,6 +323,7 @@ describe('Shared conversation API boundaries', () => {
     });
 
     expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.sendChatMessage.streamId).toBeNull();
     expect(
       response.body.data.sendChatMessage.mentionedParticipantWorkspaceMemberIds,
     ).toEqual([recipientId]);
@@ -370,6 +393,7 @@ describe('Shared conversation API boundaries', () => {
     const response = await sendChatParticipationMessage({
       threadId,
       messageId,
+      isAssistantMentioned: true,
       token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
     });
 
@@ -404,34 +428,34 @@ describe('Shared conversation API boundaries', () => {
     });
   });
 
-  it('does not let ownership bypass a revoked update permission', async () => {
+  it('lets the owner keep writing in their thread after their role loses the update permission', async () => {
     const threadId = context.registerThread();
 
-    await context.threadService.createThread({
-      id: threadId,
-      workspaceId: context.workspaceId,
-      workspaceMemberId: WORKSPACE_MEMBER_DATA_SEED_IDS.JONY,
-    });
-    await runWithReadOnlyChatPermission({
-      workspaceId: context.workspaceId,
-      userWorkspaceId: USER_WORKSPACE_DATA_SEED_IDS.JONY,
-      work: async () => {
-        const readable = await readThread(threadId);
-        const sent = await sendChatParticipationMessage({
-          threadId,
-          token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
-        });
+    await setRecordSharingEnabled(false);
 
-        expect(readable.body.errors).toBeUndefined();
-        expect(sent.body.errors).toBeDefined();
-        expect(
-          await context.chatService.hasMessages({
+    try {
+      await context.threadService.createThread({
+        id: threadId,
+        workspaceId: context.workspaceId,
+        workspaceMemberId: WORKSPACE_MEMBER_DATA_SEED_IDS.JONY,
+      });
+      await runWithReadOnlyChatPermission({
+        workspaceId: context.workspaceId,
+        userWorkspaceId: USER_WORKSPACE_DATA_SEED_IDS.JONY,
+        work: async () => {
+          const readable = await readThread(threadId);
+          const sent = await sendChatParticipationMessage({
             threadId,
-            workspaceId: context.workspaceId,
-          }),
-        ).toBe(false);
-      },
-    });
+            token: APPLE_JONY_MEMBER_ACCESS_TOKEN,
+          });
+
+          expect(readable.body.errors).toBeUndefined();
+          expect(sent.body.errors).toBeUndefined();
+        },
+      });
+    } finally {
+      await setRecordSharingEnabled(true);
+    }
   });
 
   it('cannot take over a chat ID that another member creates concurrently', async () => {
@@ -443,7 +467,7 @@ describe('Shared conversation API boundaries', () => {
     const [{ backendProcessId }]: { backendProcessId: number }[] =
       await runner.query('SELECT pg_backend_pid() AS "backendProcessId"');
     await runner.query(
-      `INSERT INTO "${context.schema}"."agentChatThread" (id, "workspaceMemberId") VALUES ($1, $2)`,
+      `INSERT INTO "${context.schema}"."agentChatThread" (id, "workspaceMemberId", "_isPrivate") VALUES ($1, $2, true)`,
       [threadId, context.workspaceMemberId],
     );
     const sending = sendChatParticipationMessage({

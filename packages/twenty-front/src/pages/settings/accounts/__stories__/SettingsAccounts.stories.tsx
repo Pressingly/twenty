@@ -22,10 +22,12 @@ import {
   CONNECTED_ACCOUNTS,
   FATHOM_ACCOUNT_ID,
   FATHOM_APPLICATION_ID,
+  FATHOM_ONLY_ACCOUNT_ID,
   GOOGLE_ACCOUNT_ID,
   GOOGLE_MESSAGE_CHANNEL_ID,
   MESSAGE_CHANNELS,
   MICROSOFT_ACCOUNT_ID,
+  USER_SETTINGS_APPLICATION_PREFERENCES_GRAPHQL_HANDLER,
   deleteConnectedAccount,
   disconnectConnectedAccount,
   seedAccountGroupsStory,
@@ -53,7 +55,7 @@ const meta: Meta<PageDecoratorArgs> = {
   component: SettingsAccounts,
   decorators: [PageDecorator],
   args: {
-    routePath: '/settings/accounts',
+    routePath: '/settings/app-preferences',
   },
   parameters: {
     layout: 'fullscreen',
@@ -127,18 +129,6 @@ const accountsTabStory: Story = {
   args: { ...accountGroupsStory.args, routeHash: '#accounts' },
 };
 
-export const Default: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await canvas.findByText('Connected accounts', undefined, {
-      timeout: 3000,
-    });
-
-    expect(canvas.queryByText('Apps preferences')).not.toBeInTheDocument();
-  },
-};
-
 export const AppsTabOpensByDefault: Story = {
   ...accountGroupsStory,
   play: async ({ canvasElement }) => {
@@ -205,6 +195,26 @@ export const AccountsGroupedByEmail: Story = {
     ).not.toBeInTheDocument();
 
     expect(canvas.queryByText('support@apple.dev')).not.toBeInTheDocument();
+  },
+};
+
+export const AccountsTabKeepsUsedByOnMobile: Story = {
+  ...accountsTabStory,
+  parameters: {
+    ...accountsTabStory.parameters,
+    viewport: { defaultViewport: 'mobile1' },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await canvas.findByText('tim@apple.dev', undefined, { timeout: 3000 });
+
+    expect(canvas.getByText('Used by')).toBeVisible();
+    expect(
+      getTableRow(canvasElement, 'tim@apple.dev').getByRole('img', {
+        name: 'Fathom',
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -296,11 +306,11 @@ export const AccountsTabWithoutAccountsOffersConnectCards: Story = {
     const canvas = within(canvasElement);
 
     expect(
-      await canvas.findByText('Connect with Gmail and Calendar', undefined, {
+      await canvas.findByText('Connect with Google', undefined, {
         timeout: 3000,
       }),
     ).toBeVisible();
-    expect(canvas.getByText('Connect with Outlook')).toBeVisible();
+    expect(canvas.getByText('Connect with Microsoft')).toBeVisible();
     const linearCard = await canvas.findByText(
       'Connect with Linear',
       undefined,
@@ -368,6 +378,32 @@ export const RowOpensAccountPage: Story = {
         'Navigated to /settings/app-preferences/accounts/:connectedAccountId',
       ),
     ).toBeVisible();
+  },
+};
+
+export const AppOnlyAccountWithAppSettingsOpensAccountPage: Story = {
+  ...accountsTabStory,
+  parameters: {
+    msw: {
+      handlers: [
+        USER_SETTINGS_APPLICATION_PREFERENCES_GRAPHQL_HANDLER,
+        ...ACCOUNT_GROUPS_GRAPHQL_HANDLERS,
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    expect(
+      await canvas.findByRole(
+        'link',
+        { name: 'notes@apple.dev' },
+        { timeout: 3000 },
+      ),
+    ).toHaveAttribute(
+      'href',
+      `/settings/app-preferences/accounts/${FATHOM_ONLY_ACCOUNT_ID}`,
+    );
   },
 };
 
@@ -673,12 +709,10 @@ export const InstalledAppsFlagReconnectAndMissingConfiguration: Story = {
     await canvas.findByText('Fathom', undefined, { timeout: 3000 });
 
     expect(
-      await getTableRow(canvasElement, 'Fathom').findByText(
-        'Missing configuration',
-      ),
+      await getTableRow(canvasElement, 'Fathom').findByText('Setup incomplete'),
     ).toBeVisible();
     expect(
-      await getTableRow(canvasElement, 'Linear').findByText('Reconnect needed'),
+      await getTableRow(canvasElement, 'Linear').findByText('Sync failed'),
     ).toBeVisible();
     expect(
       getStatusCell({ canvasElement, text: 'Granola' }),
@@ -703,7 +737,7 @@ export const InstalledAppWithoutMyConnectionShowsNotConnectedHint: Story = {
 
     const fathomRow = getTableRow(canvasElement, 'Fathom');
 
-    expect(fathomRow.getByText('Missing configuration')).toBeVisible();
+    expect(fathomRow.getByText('Setup incomplete')).toBeVisible();
     expect(fathomRow.queryByText('Not connected')).not.toBeInTheDocument();
     expect(
       getStatusCell({ canvasElement, text: 'Granola' }),
@@ -769,7 +803,7 @@ export const ConnectionsLoadErrorHidesStatusesUntilRetry: Story = {
     ).toBeVisible();
     expect(canvas.getByText('Linear')).toBeVisible();
     expect(canvas.queryByText('Not connected')).not.toBeInTheDocument();
-    expect(canvas.queryByText('Missing configuration')).not.toBeInTheDocument();
+    expect(canvas.queryByText('Setup incomplete')).not.toBeInTheDocument();
 
     await userEvent.click(canvas.getByRole('button', { name: 'Retry' }));
 

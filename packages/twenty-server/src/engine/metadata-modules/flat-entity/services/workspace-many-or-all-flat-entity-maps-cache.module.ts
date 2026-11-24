@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { WorkspaceFieldIdByObjectIdAndNameCacheService } from 'src/engine/metadata-modules/flat-field-metadata/services/workspace-field-id-by-object-id-and-name-cache.service';
+import { WorkspaceObjectIdByNameCacheService } from 'src/engine/metadata-modules/flat-object-metadata/services/workspace-object-id-by-name-cache.service';
 import { WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
 import { WorkspaceFlatFieldMetadataMapCacheService } from 'src/engine/metadata-modules/flat-field-metadata/services/workspace-flat-field-metadata-map-cache.service';
 import { WorkspaceOrmFlatFieldMetadataMapCacheService } from 'src/engine/metadata-modules/flat-field-metadata/services/workspace-orm-flat-field-metadata-map-cache.service';
@@ -14,6 +16,7 @@ import { WorkspaceFlatPageLayoutMapCacheService } from 'src/engine/metadata-modu
 import { WorkspaceFlatPermissionFlagMapCacheService } from 'src/engine/metadata-modules/flat-permission-flag/services/workspace-flat-permission-flag-map-cache.service';
 import { WorkspaceFlatRolePermissionFlagMapCacheService } from 'src/engine/metadata-modules/flat-role-permission-flag/services/workspace-flat-role-permission-flag-map-cache.service';
 import { WorkspaceFlatRowLevelPermissionPredicateGroupMapCacheService } from 'src/engine/metadata-modules/flat-row-level-permission-predicate/services/workspace-flat-row-level-permission-predicate-group-map-cache.service';
+import { WorkspaceFlatRowLevelPermissionRuleMapCacheService } from 'src/engine/metadata-modules/flat-row-level-permission-predicate/services/workspace-flat-row-level-permission-rule-map-cache.service';
 import { WorkspaceFlatRowLevelPermissionPredicateMapCacheService } from 'src/engine/metadata-modules/flat-row-level-permission-predicate/services/workspace-flat-row-level-permission-predicate-map-cache.service';
 import { WorkspaceFlatViewFieldGroupMapCacheService } from 'src/engine/metadata-modules/flat-view-field-group/services/workspace-flat-view-field-group-map-cache.service';
 import { WorkspaceFlatViewFieldMapCacheService } from 'src/engine/metadata-modules/flat-view-field/services/workspace-flat-view-field-map-cache.service';
@@ -25,6 +28,7 @@ import { WorkspaceFlatTimelineActivityTypeMapCacheService } from 'src/engine/met
 import { WorkspaceFlatAgentChatChannelMapCacheService } from 'src/engine/metadata-modules/flat-agent-chat-channel/services/workspace-flat-agent-chat-channel-map-cache.service';
 import { WorkspaceFlatAgentChatChannelRoleMapCacheService } from 'src/engine/metadata-modules/flat-agent-chat-channel-role/services/workspace-flat-agent-chat-channel-role-map-cache.service';
 import { WorkspaceFlatSettingsMenuItemMapCacheService } from 'src/engine/metadata-modules/flat-settings-menu-item/services/workspace-flat-settings-menu-item-map-cache.service';
+import { WorkspaceFlatFieldMetadataOptionMapCacheService } from 'src/engine/metadata-modules/flat-field-metadata-option/services/workspace-flat-field-metadata-option-map-cache.service';
 import { WorkspaceFlatRelatedRecordPathMapCacheService } from 'src/engine/metadata-modules/flat-related-record-path/services/workspace-flat-related-record-path-map-cache.service';
 import { WorkspaceFlatValidationRuleMapCacheService } from 'src/engine/metadata-modules/flat-validation-rule/services/workspace-flat-validation-rule-map-cache.service';
 import { WorkspaceFlatViewSortMapCacheService } from 'src/engine/metadata-modules/flat-view-sort/services/workspace-flat-view-sort-map-cache.service';
@@ -34,6 +38,8 @@ import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache
 @Module({
   imports: [WorkspaceCacheModule],
   providers: [
+    WorkspaceFieldIdByObjectIdAndNameCacheService,
+    WorkspaceObjectIdByNameCacheService,
     WorkspaceManyOrAllFlatEntityMapsCacheService,
     WorkspaceFlatObjectMetadataMapCacheService,
     WorkspaceFlatViewMapCacheService,
@@ -56,10 +62,12 @@ import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache
     WorkspaceFlatPageLayoutWidgetMapCacheService,
     WorkspaceFlatRowLevelPermissionPredicateMapCacheService,
     WorkspaceFlatRowLevelPermissionPredicateGroupMapCacheService,
+    WorkspaceFlatRowLevelPermissionRuleMapCacheService,
     WorkspaceFlatTimelineActivityTypeMapCacheService,
     WorkspaceFlatSettingsMenuItemMapCacheService,
     WorkspaceFlatAgentChatChannelMapCacheService,
     WorkspaceFlatAgentChatChannelRoleMapCacheService,
+    WorkspaceFlatFieldMetadataOptionMapCacheService,
     WorkspaceFlatRelatedRecordPathMapCacheService,
     WorkspaceFlatValidationRuleMapCacheService,
     WorkspaceFlatMcpServerMapCacheService,

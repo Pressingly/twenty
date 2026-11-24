@@ -1,7 +1,15 @@
+import { ToolCategory } from 'twenty-shared/ai';
+
+import { PUBLISH_FRONT_COMPONENT_TOOL } from 'src/engine/metadata-modules/ai/ai-front-component/constants/publish-front-component-tool.constant';
 import { type ToolIndexEntry } from 'src/engine/core-modules/tool-provider/types/tool-index-entry.type';
 import { resolveProposedToolCall } from 'src/engine/metadata-modules/ai/ai-agent-execution/pausing-tools/utils/resolve-proposed-tool-call.util';
 
 const RECORD_ID = '20202020-1c25-4d02-bf25-6aeccf7ea419';
+const COMPONENT_DRAFT = {
+  draftId: RECORD_ID,
+  checksum: 'reviewed-checksum',
+  isCurrent: true,
+};
 
 const APPROVAL_BY_OPERATION = {
   create_one: { template: 'recordCreate' },
@@ -32,8 +40,20 @@ const EMAIL_BODY = {
   content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hi' }] }],
 };
 
+const PUBLISH_TOOL_ENTRY: ToolIndexEntry = {
+  ...PUBLISH_FRONT_COMPONENT_TOOL,
+  label: 'Save component',
+  description: '',
+  category: ToolCategory.ACTION,
+  executionRef: {
+    kind: 'static',
+    toolId: PUBLISH_FRONT_COMPONENT_TOOL.name,
+  },
+};
+
 const findTool = async (toolName: string) =>
   [
+    PUBLISH_TOOL_ENTRY,
     buildCrudEntry('create_one_opportunity', 'create_one'),
     buildCrudEntry('update_one_opportunity', 'update_one'),
     buildCrudEntry('delete_one_opportunity', 'delete_one'),
@@ -63,6 +83,131 @@ const foundRecord = (record: Record<string, unknown>) =>
   });
 
 describe('resolveProposedToolCall', () => {
+  it('checks the draft without publishing before proposing its exact revision', async () => {
+    const executeTool = jest.fn().mockResolvedValue({
+      success: true,
+      message: 'Component draft retrieved.',
+      result: COMPONENT_DRAFT,
+    });
+    const resolution = await resolveProposedToolCall({
+      input: {
+        toolName: PUBLISH_TOOL_ENTRY.name,
+        arguments: { draftId: RECORD_ID, checksum: 'reviewed-checksum' },
+        summary: 'Save the reviewed component',
+      },
+      findTool,
+      executeTool,
+    });
+
+    expect(executeTool).toHaveBeenCalledTimes(1);
+    expect(executeTool).toHaveBeenCalledWith({
+      toolName: 'inspect_front_component',
+      args: { draftId: RECORD_ID },
+    });
+    expect(resolution).toMatchObject({
+      proposal: {
+        toolName: PUBLISH_TOOL_ENTRY.name,
+        template: 'frontComponent',
+        arguments: { draftId: RECORD_ID, checksum: 'reviewed-checksum' },
+      },
+    });
+  });
+
+  it.each([
+    {
+      message: 'Could not inspect the draft.',
+      error: 'Component draft not found or expired.',
+    },
+    { message: 'Tool "inspect_front_component" is not available here.' },
+  ])('refuses a draft that cannot be inspected: %j', async (failure) => {
+    const resolution = await resolveProposedToolCall({
+      input: {
+        toolName: PUBLISH_TOOL_ENTRY.name,
+        arguments: { draftId: RECORD_ID, checksum: COMPONENT_DRAFT.checksum },
+        summary: 'Save the reviewed component',
+      },
+      findTool,
+      executeTool: jest.fn().mockResolvedValue({ success: false, ...failure }),
+    });
+
+    expect(resolution).toEqual({ error: failure.error ?? failure.message });
+  });
+
+  it.each([
+    { ...COMPONENT_DRAFT, isCurrent: false },
+    { ...COMPONENT_DRAFT, checksum: 'different-revision' },
+  ])('refuses a superseded or mismatched revision: %j', async (draft) => {
+    const resolution = await resolveProposedToolCall({
+      input: {
+        toolName: PUBLISH_TOOL_ENTRY.name,
+        arguments: { draftId: RECORD_ID, checksum: COMPONENT_DRAFT.checksum },
+        summary: 'Save the reviewed component',
+      },
+      findTool,
+      executeTool: jest.fn().mockResolvedValue({
+        success: true,
+        message: 'Component draft retrieved.',
+        result: draft,
+      }),
+    });
+
+    expect(resolution).toEqual({
+      error:
+        'This preview changed. Propose the draftId and checksum of the latest revision.',
+    });
+  });
+
+  it.each([undefined, { ...COMPONENT_DRAFT, draftId: 'another-draft' }])(
+    'refuses an inspection result that does not identify the requested draft: %j',
+    async (draft) => {
+      const resolution = await resolveProposedToolCall({
+        input: {
+          toolName: PUBLISH_TOOL_ENTRY.name,
+          arguments: { draftId: RECORD_ID, checksum: COMPONENT_DRAFT.checksum },
+          summary: 'Save the reviewed component',
+        },
+        findTool,
+        executeTool: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'Component draft retrieved.',
+          result: draft,
+        }),
+      });
+
+      expect(resolution).toEqual({
+        error:
+          'Could not read the component draft. Use the draftId returned by preview_front_component.',
+      });
+    },
+  );
+
+  it.each([
+    { draftId: undefined, checksum: 'reviewed-checksum' },
+    { draftId: '', checksum: 'reviewed-checksum' },
+    { draftId: 42, checksum: 'reviewed-checksum' },
+    { draftId: RECORD_ID, checksum: undefined },
+    { draftId: RECORD_ID, checksum: '' },
+    { draftId: RECORD_ID, checksum: 42 },
+  ])(
+    'refuses a component publication with invalid arguments %j',
+    async (toolArguments) => {
+      const resolution = await resolveProposedToolCall({
+        input: {
+          toolName: PUBLISH_TOOL_ENTRY.name,
+          arguments: toolArguments,
+          summary: 'Save the reviewed component',
+        },
+        findTool,
+        executeTool: jest.fn(),
+      });
+
+      expect(resolution).toEqual({
+        error:
+          'arguments.draftId and arguments.checksum must identify the component draft.',
+      });
+    },
+  );
+
   it('refuses a tool the proposer cannot call', async () => {
     expect(
       await resolveProposedToolCall({
@@ -132,7 +277,7 @@ describe('resolveProposedToolCall', () => {
           arguments: {
             recipients: { to: 'tim@apple.dev', cc: '', bcc: '' },
             subject: 'Renewal',
-            body: '<p>Quote attached</p>',
+            body: { type: 'html', html: '<p>Quote attached</p>' },
             files: [
               {
                 id: '20202020-9b5e-4d0c-a4a8-7c4bd7d1e001',

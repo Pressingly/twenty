@@ -15,9 +15,11 @@ export type {
   AgentTrigger,
   AgentTriggerManifest,
 } from './agentTriggerType';
+export type { AiRunUsage } from './aiRunUsageType';
 export type { AppConnection } from './appConnectionType';
 export type { AppKeyValueScope } from './appKeyValueScopeType';
 export type { AppKeyValue } from './appKeyValueType';
+export type { ApplicationBillingPrice } from './applicationBillingPriceType';
 export type {
   RecurringChargePeriod,
   RecurringChargeUnit,
@@ -73,6 +75,7 @@ export {
 } from './applicationVariablesType';
 export type { AppMessageChannel } from './appMessageChannelType';
 export type { AppMessageFolder } from './appMessageFolderType';
+export type { ArchiveInboxThreadInput } from './archiveInboxThreadInputType';
 export type { AssetManifest } from './assetManifestType';
 export type {
   BillableOperationManifest,
@@ -84,6 +87,11 @@ export type { ConnectionProviderType } from './connectionProviderType';
 export { AGENT_TRIGGER_EVENT_NAME_PATTERN } from './constants/AgentTriggerEventNamePattern';
 export { AGENT_TRIGGER_LIMITS } from './constants/AgentTriggerLimits';
 export { AGENT_TRIGGER_TYPES } from './constants/AgentTriggerTypes';
+export { APPLICATION_SOURCE_FILE_EXTENSIONS } from './constants/application-source-file-extensions';
+export { APPLICATION_BILLING_PRICE_CURRENCIES } from './constants/ApplicationBillingPriceCurrencies';
+export { APPLICATION_BILLING_PRICE_PERIODS } from './constants/ApplicationBillingPricePeriods';
+export { APPLICATION_BILLING_PRICE_TYPES } from './constants/ApplicationBillingPriceTypes';
+export { APPLICATION_BILLING_PRICE_UNITS } from './constants/ApplicationBillingPriceUnits';
 export { APPLICATION_FILE_UPLOAD_BATCH_SIZE } from './constants/ApplicationFileUploadBatchSize';
 export { APPLICATION_PACKAGE_YARN_LOCK_PATH } from './constants/ApplicationPackageYarnLockPath';
 export { ASSETS_DIR } from './constants/AssetDirectory';
@@ -95,9 +103,19 @@ export { FRONT_COMPONENT_SHARED_DEPENDENCIES_BUILT_PATH } from './constants/Fron
 export { FRONT_COMPONENT_SHARED_DEPENDENCIES_IMPORT_SPECIFIER } from './constants/FrontComponentSharedDependenciesImportSpecifier';
 export { FRONT_COMPONENT_WIDGET_PAGE_LAYOUT_TYPES } from './constants/FrontComponentWidgetPageLayoutTypes';
 export { GENERATED_DIR } from './constants/GeneratedDirectory';
+export { GETTING_STARTED_APP_UNIVERSAL_IDENTIFIERS } from './constants/GettingStartedAppUniversalIdentifiers';
+export { MARKETPLACE_APP_MCP_SERVER_URL_PLACEHOLDER } from './constants/MarketplaceAppMcpServerUrlPlaceholder';
+export { MAX_APPLICATION_BILLING_PRICE_AMOUNT_CENTS } from './constants/MaxApplicationBillingPriceAmountCents';
+export { MAX_APP_MESSAGE_ATTACHMENTS_PER_MESSAGE } from './constants/MaxAppMessageAttachmentsPerMessage';
 export { MINIMUM_UNIVERSAL_IDENTIFIER_UUID_VERSION } from './constants/MinimumUniversalIdentifierUuidVersion';
 export { NODE_ESM_CJS_BANNER } from './constants/NodeEsmCjsBanner';
 export { OUTPUT_DIR } from './constants/OutputDirectory';
+export { RESERVED_SETTINGS_MENU_ITEM_SLUGS } from './constants/ReservedSettingsMenuItemSlugs';
+export { SETTINGS_APPLICATION_CONNECTIONS_SECTION_ID } from './constants/SettingsApplicationConnectionsSectionId';
+export { SETTINGS_GENERAL_TAB_ID } from './constants/SettingsGeneralTabId';
+export { SETTINGS_MENU_ITEM_SLUG_MAX_LENGTH } from './constants/SettingsMenuItemSlugMaxLength';
+export { SETTINGS_VARIABLES_TAB_ID } from './constants/SettingsVariablesTabId';
+export { TWENTY_PUBLIC_APP_UNIVERSAL_IDENTIFIERS } from './constants/TwentyPublicAppUniversalIdentifiers';
 export { TWENTY_STANDARD_APPLICATION_NAME } from './constants/TwentyStandardApplicationName';
 export { TWENTY_STANDARD_APPLICATION_UNIVERSAL_IDENTIFIER } from './constants/TwentyStandardApplicationUniversalIdentifier';
 export type {
@@ -111,6 +129,7 @@ export type { CustomConnectionProviderConfig } from './customConnectionProviderC
 export { computeDeterministicUuid } from './deterministic-identifier/compute-deterministic-uuid.util';
 export type { DeterministicEntityNamespace } from './deterministic-identifier/deterministic-entity-namespace.type';
 export { getAgentUniversalIdentifier } from './deterministic-identifier/get-agent-universal-identifier.util';
+export { getApplicationGrantRoleUniversalIdentifier } from './deterministic-identifier/get-application-grant-role-universal-identifier.util';
 export { getApplicationVariableUniversalIdentifier } from './deterministic-identifier/get-application-variable-universal-identifier.util';
 export { getConnectionProviderUniversalIdentifier } from './deterministic-identifier/get-connection-provider-universal-identifier.util';
 export { getFieldPermissionUniversalIdentifier } from './deterministic-identifier/get-field-permission-universal-identifier.util';
@@ -130,9 +149,11 @@ export { getObjectPermissionUniversalIdentifier } from './deterministic-identifi
 export { getObjectUniversalIdentifier } from './deterministic-identifier/get-object-universal-identifier.util';
 export { getPageLayoutUniversalIdentifier } from './deterministic-identifier/get-page-layout-universal-identifier.util';
 export { getPermissionFlagUniversalIdentifier } from './deterministic-identifier/get-permission-flag-universal-identifier.util';
+export { getRelatedRecordPathUniversalIdentifier } from './deterministic-identifier/get-related-record-path-universal-identifier.util';
 export { getRolePermissionFlagUniversalIdentifier } from './deterministic-identifier/get-role-permission-flag-universal-identifier.util';
 export { getRoleTargetUniversalIdentifier } from './deterministic-identifier/get-role-target-universal-identifier.util';
 export { getRoleUniversalIdentifier } from './deterministic-identifier/get-role-universal-identifier.util';
+export { getRowLevelPermissionRuleUniversalIdentifier } from './deterministic-identifier/get-row-level-permission-rule-universal-identifier.util';
 export { getSearchFieldUniversalIdentifier } from './deterministic-identifier/get-search-field-universal-identifier.util';
 export { getSelectOptionUniversalIdentifier } from './deterministic-identifier/get-select-option-universal-identifier.util';
 export { getSkillUniversalIdentifier } from './deterministic-identifier/get-skill-universal-identifier.util';
@@ -143,6 +164,7 @@ export { getSystemPageLayoutWidgetUniversalIdentifier } from './deterministic-id
 export { getSystemRecordFormPageLayoutUniversalIdentifier } from './deterministic-identifier/get-system-record-form-page-layout-universal-identifier.util';
 export { getSystemRecordPageLayoutUniversalIdentifier } from './deterministic-identifier/get-system-record-page-layout-universal-identifier.util';
 export { getSystemRelationFieldUniversalIdentifier } from './deterministic-identifier/get-system-relation-field-universal-identifier.util';
+export { getSystemSideEffectRoleTargetUniversalIdentifier } from './deterministic-identifier/get-system-side-effect-role-target-universal-identifier.util';
 export { getSystemViewFieldGroupUniversalIdentifier } from './deterministic-identifier/get-system-view-field-group-universal-identifier.util';
 export { getSystemViewFieldUniversalIdentifier } from './deterministic-identifier/get-system-view-field-universal-identifier.util';
 export type { SystemViewKey } from './deterministic-identifier/get-system-view-universal-identifier.util';
@@ -163,11 +185,13 @@ export type {
   EnqueueJobResult,
   EnqueueJobItem,
   EnqueueJobsInput,
+  EnqueuedJob,
   EnqueueJobsResult,
   JobStatusState,
   JobStatusResult,
 } from './enqueueJobType';
 export { SyncableEntity } from './enums/syncable-entities.enum';
+export type { EventTriggerManifestSettings } from './eventTriggerManifestSettingsType';
 export type { FieldManifestOptions } from './fieldManifestOptionsType';
 export type {
   RegularFieldManifest,
@@ -183,6 +207,8 @@ export type {
   FrontComponentManifest,
 } from './frontComponentManifestType';
 export type { FrontComponentSharedDependenciesManifest } from './frontComponentSharedDependenciesManifestType';
+export { generateJsonFieldsSchema } from './generateJsonFieldsSchema';
+export type { GenerateResult } from './generateType';
 export type { HealthCheckLogicFunctionApplicationManifest } from './healthCheckLogicFunctionApplicationType';
 export type {
   IdentifyAccountPayload,
@@ -192,6 +218,13 @@ export type {
 export type { InboxThreadRecordInput } from './inboxThreadRecordInputType';
 export type { IndexFieldManifest } from './indexFieldManifestType';
 export type { IndexManifest } from './indexManifestType';
+export { isApplicationBillingPrice } from './isApplicationBillingPrice';
+export { isApplicationBillingPriceAmount } from './isApplicationBillingPriceAmount';
+export { isApplicationBillingPriceCurrency } from './isApplicationBillingPriceCurrency';
+export { isApplicationBillingPricePeriod } from './isApplicationBillingPricePeriod';
+export { isApplicationBillingPriceType } from './isApplicationBillingPriceType';
+export { isApplicationBillingPriceUnit } from './isApplicationBillingPriceUnit';
+export { isRecordEventTriggerManifestSettings } from './isRecordEventTriggerManifestSettings';
 export type {
   LogicFunctionManifest,
   CronTriggerSettings,
@@ -199,7 +232,10 @@ export type {
   HttpRouteTriggerSettings,
 } from './logicFunctionManifestType';
 export type { TranslationsManifest, Manifest } from './manifestType';
+export type { MarkAppThreadAsReadPayload } from './markAppThreadAsReadType';
 export type { McpServerManifest } from './mcpServerManifestType';
+export type { MessagingProviderConversationStyle } from './messagingProviderConversationStyleType';
+export { MESSAGING_PROVIDER_CONVERSATION_STYLES } from './messagingProviderConversationStyleType';
 export type { MessagingProviderManifest } from './messagingProviderManifestType';
 export type { NavigationMenuItemManifest } from './navigationMenuItemManifestType';
 export type {
@@ -208,11 +244,18 @@ export type {
 } from './normalizedPageLayoutManifestType';
 export { normalizePageLayoutTabManifest } from './normalizePageLayoutTabManifest';
 export type { OAuthConnectionProviderConfig } from './oauthConnectionProviderConfigType';
+export type { OAuthDiscoveryConnectionProviderConfig } from './oauthDiscoveryConnectionProviderConfigType';
 export type { OAuthProviderTokenRequestContentType } from './oauthProviderTokenRequestContentType.type';
 export type { ObjectFieldManifest } from './objectFieldManifest.type';
 export type { ObjectManifest } from './objectManifestType';
-export type { ObjectPermissionAction } from './objectPermissionActionType';
-export { OBJECT_PERMISSION_ACTIONS } from './objectPermissionActionType';
+export type {
+  ObjectPermissionAction,
+  DisableableObjectPermissionAction,
+} from './objectPermissionActionType';
+export {
+  OBJECT_PERMISSION_ACTIONS,
+  DISABLEABLE_OBJECT_PERMISSION_ACTIONS,
+} from './objectPermissionActionType';
 export type {
   PageLayoutWidgetManifest,
   StandalonePageLayoutWidgetManifest,
@@ -225,14 +268,38 @@ export type {
 } from './permissionFlagManifestType';
 export type { PostInstallLogicFunctionApplicationManifest } from './postInstallLogicFunctionApplicationType';
 export type { PreInstallLogicFunctionApplicationManifest } from './preInstallLogicFunctionApplicationType';
+export type { RecordEventTriggerManifestAction } from './recordEventTriggerManifestActionType';
+export type { RecordEventTriggerManifestSettings } from './recordEventTriggerManifestSettingsType';
+export type { RelatedRecordPathManifest } from './relatedRecordPathManifestType';
 export type { RoleManifestGrant } from './roleManifestGrantType';
 export type {
-  ObjectPermissionManifest,
-  FieldPermissionManifest,
-  RowLevelPermissionPredicateGroupManifest,
-  RowLevelPermissionPredicateManifest,
+  LegacyObjectPermissionManifest,
+  LegacyFieldPermissionManifest,
+  LegacyRowLevelPermissionPredicateGroupManifest,
+  RowLevelPermissionRulePredicateManifest,
+  LegacyRowLevelPermissionPredicateManifest,
+  RowLevelPermissionRulePredicateGroupManifest,
+  FieldRestrictionsManifest,
+  RowLevelRecordsPermissionsManifest,
+  AllRecordsPermissionsManifest,
+  ObjectRecordsPermissionsManifest,
+  RoleRecordsPermissionsManifest,
+  RowLevelPermissionRuleManifest,
+  LegacyRoleRecordsPermissionsManifest,
   RoleManifest,
+  LegacyCompliantRoleManifest,
 } from './roleManifestType';
+export { LEGACY_ROLE_RECORDS_PERMISSIONS_MANIFEST_KEYS } from './roleManifestType';
+export type {
+  ObjectPermissionGrant,
+  FieldPermissionGrant,
+  RolePermissionGrants,
+} from './rolePermissionGrantsSchema';
+export {
+  objectPermissionGrantSchema,
+  fieldPermissionGrantSchema,
+  rolePermissionGrantsSchema,
+} from './rolePermissionGrantsSchema';
 export type { RunAgentMessageAttachment } from './runAgentMessageAttachmentType';
 export type {
   RunAgentMessageRole,
@@ -243,6 +310,8 @@ export type {
 } from './runAgentType';
 export type {
   SendAppMessageRecipient,
+  SendAppMessageAttachment,
+  SendAppMessageEmail,
   SendAppMessagePayload,
   SendAppMessageResult,
 } from './sendAppMessageType';
@@ -263,8 +332,10 @@ export {
   DEFAULT_SETTINGS_MENU_ITEM_SCOPE,
 } from './settingsMenuItemManifestType';
 export type { SkillManifest } from './skillManifestType';
+export type { SourceFileManifest } from './sourceFileManifestType';
 export type { StoredCustomConnectionProviderConfig } from './storedCustomConnectionProviderConfigType';
 export type { StoredOAuthConnectionProviderConfig } from './storedOAuthConnectionProviderConfigType';
+export type { StoredOAuthDiscoveryConnectionProviderConfig } from './storedOAuthDiscoveryConnectionProviderConfigType';
 export type { SyncableEntityOptions } from './syncableEntityOptionsType';
 export type {
   TimelineActivityTypeEmitThroughManifest,
@@ -276,6 +347,7 @@ export type { UninstallLogicFunctionApplicationManifest } from './uninstallLogic
 export type { UsageOperationTypeValue } from './usageOperationTypesType';
 export {
   USAGE_OPERATION_TYPES,
+  DEFAULT_APP_USAGE_OPERATION_TYPE,
   isUsageOperationTypeValue,
 } from './usageOperationTypesType';
 export {
@@ -284,20 +356,46 @@ export {
 } from './utils/applicationVariableValueSerialization';
 export { computeDependencyFileChecksum } from './utils/computeDependencyFileChecksum';
 export { computePackageJsonChecksum } from './utils/computePackageJsonChecksum';
-export type { EffectiveObjectPermissions } from './utils/getEffectiveObjectPermissionsFromRoleManifest';
+export type {
+  RowLevelPermissionRuleLink,
+  FlattenedRowLevelPermissionPredicateGroupManifest,
+  FlattenedRowLevelPermissionPredicateManifest,
+  FlattenedRowLevelPermissionRuleManifests,
+} from './utils/flattenRowLevelPermissionRuleManifests';
+export { flattenRowLevelPermissionRuleManifests } from './utils/flattenRowLevelPermissionRuleManifests';
+export { getDeclaredLegacyRoleRecordsPermissionsKeys } from './utils/getDeclaredLegacyRoleRecordsPermissionsKeys';
+export type {
+  EffectiveObjectPermissions,
+  ObjectRecordsPermissionGrants,
+} from './utils/getEffectiveObjectPermissionsFromRoleManifest';
 export {
   ROLE_LEVEL_FLAG_BY_OBJECT_PERMISSION_ACTION,
   getEffectiveObjectPermissionsFromRoleManifest,
 } from './utils/getEffectiveObjectPermissionsFromRoleManifest';
+export { getReachableObjectPermissionsFromRoleManifest } from './utils/getReachableObjectPermissionsFromRoleManifest';
+export { getRecordsPermissionsFromRoleManifest } from './utils/getRecordsPermissionsFromRoleManifest';
 export { getRoleManifestGrantsNotCoveredBy } from './utils/getRoleManifestGrantsNotCoveredBy';
+export { getRowLevelPermissionPredicatesFromRoleManifest } from './utils/getRowLevelPermissionPredicatesFromRoleManifest';
 export { getRowLevelRestrictionSignature } from './utils/getRowLevelRestrictionSignature';
+export { hasRunAgentMessageContentOrAttachments } from './utils/hasRunAgentMessageContentOrAttachments';
 export { isConnectionProviderScope } from './utils/isConnectionProviderScope';
 export { isFrontComponentWidgetPageLayoutType } from './utils/isFrontComponentWidgetPageLayoutType';
+export { isReservedSettingsMenuItemSlug } from './utils/isReservedSettingsMenuItemSlug';
 export {
   RESERVED_SETTINGS_MENU_ITEM_TITLES,
   isReservedSettingsMenuItemTitle,
 } from './utils/isReservedSettingsMenuItemTitle';
+export { isRestorableApplicationSourcePath } from './utils/isRestorableApplicationSourcePath';
+export { isRestorableFrontComponentSourcePath } from './utils/isRestorableFrontComponentSourcePath';
+export { isSourceFileManifestList } from './utils/isSourceFileManifestList';
+export { isValidSettingsMenuItemSlug } from './utils/isValidSettingsMenuItemSlug';
 export { isValidUniversalIdentifier } from './utils/isValidUniversalIdentifier';
+export { nestRowLevelPermissionRuleManifests } from './utils/nestRowLevelPermissionRuleManifests';
+export type { LegacyRoleObjectDefaults } from './utils/normalizeLegacyCompliantRoleManifest';
+export { normalizeLegacyCompliantRoleManifest } from './utils/normalizeLegacyCompliantRoleManifest';
+export { normalizeNavigationMenuItemManifest } from './utils/normalizeNavigationMenuItemManifest';
+export { resolveObjectPermissionValue } from './utils/resolveObjectPermissionValue';
+export type { ValidationRuleManifest } from './validationRuleManifestType';
 export type {
   ViewManifestFilterValue,
   ViewFieldManifest,

@@ -10,7 +10,6 @@ import { isImapSmtpCaldavEnabledState } from '@/client-config/states/isImapSmtpC
 import { isMicrosoftCalendarEnabledState } from '@/client-config/states/isMicrosoftCalendarEnabledState';
 import { isMicrosoftMessagingEnabledState } from '@/client-config/states/isMicrosoftMessagingEnabledState';
 import { jotaiStore } from '@/ui/utilities/state/jotai/jotaiStore';
-import { FeatureFlagKey } from '~/generated-metadata/graphql';
 import { graphqlMocks } from '~/testing/graphqlMocks';
 import { mockedApolloClient } from '~/testing/mockedApolloClient';
 import {
@@ -28,6 +27,8 @@ const CREATED_AT = '2026-09-01T00:00:00.000Z';
 export const GOOGLE_ACCOUNT_ID = '20202020-1a2b-4c3d-8e4f-000000000011';
 export const MICROSOFT_ACCOUNT_ID = '20202020-1a2b-4c3d-8e4f-000000000014';
 export const GOOGLE_MESSAGE_CHANNEL_ID = '20202020-1a2b-4c3d-8e4f-000000000031';
+export const GOOGLE_CALENDAR_CHANNEL_ID =
+  '20202020-1a2b-4c3d-8e4f-000000000041';
 export const FATHOM_ONLY_ACCOUNT_ID = '20202020-1a2b-4c3d-8e4f-000000000013';
 export const FATHOM_ACCOUNT_ID = '20202020-1a2b-4c3d-8e4f-000000000012';
 const MY_SHARED_ACCOUNT_ID = '20202020-1a2b-4c3d-8e4f-000000000015';
@@ -83,6 +84,7 @@ const buildMessageChannel = (
   excludeNonProfessionalEmails: false,
   excludeGroupEmails: false,
   isSyncEnabled: true,
+  messagingProviderUniversalIdentifier: null,
   syncStatus: 'ACTIVE',
   syncStage: 'MESSAGE_LIST_FETCH_PENDING',
   syncStageStartedAt: null,
@@ -207,15 +209,74 @@ export const MESSAGE_CHANNELS = [
 ];
 
 export const CALENDAR_CHANNELS = [
-  buildCalendarChannel(
-    '20202020-1a2b-4c3d-8e4f-000000000041',
-    GOOGLE_ACCOUNT_ID,
-  ),
+  buildCalendarChannel(GOOGLE_CALENDAR_CHANNEL_ID, GOOGLE_ACCOUNT_ID),
   buildCalendarChannel(
     '20202020-1a2b-4c3d-8e4f-000000000042',
     MICROSOFT_ACCOUNT_ID,
   ),
 ];
+
+export const FATHOM_USER_SETTINGS_MENU_ITEM_ID =
+  '20202020-1a2b-4c3d-8e4f-000000000051';
+export const FATHOM_USER_SETTINGS_FRONT_COMPONENT_ID =
+  '20202020-1a2b-4c3d-8e4f-000000000052';
+export const GRANOLA_USER_SETTINGS_MENU_ITEM_ID =
+  '20202020-1a2b-4c3d-8e4f-000000000053';
+const GRANOLA_USER_SETTINGS_FRONT_COMPONENT_ID =
+  '20202020-1a2b-4c3d-8e4f-000000000054';
+
+const buildUserSettingsApplicationPreferences = ({
+  applicationId,
+  settingsMenuItemId,
+  frontComponentId,
+  slug,
+}: {
+  applicationId: string;
+  settingsMenuItemId: string;
+  frontComponentId: string;
+  slug: string;
+}) => ({
+  __typename: 'ApplicationPreferences',
+  applicationId,
+  connectionProviders: [],
+  variables: [],
+  settingsMenuItems: [
+    {
+      __typename: 'SettingsMenuItem',
+      id: settingsMenuItemId,
+      universalIdentifier: settingsMenuItemId,
+      applicationId,
+      frontComponentId,
+      title: 'My settings',
+      icon: 'IconUser',
+      position: 1,
+      scope: 'USER',
+      slug,
+    },
+  ],
+});
+
+export const USER_SETTINGS_APPLICATION_PREFERENCES_GRAPHQL_HANDLER =
+  graphql.query('MyApplicationPreferences', () =>
+    HttpResponse.json({
+      data: {
+        myApplicationPreferences: [
+          buildUserSettingsApplicationPreferences({
+            applicationId: FATHOM_APPLICATION_ID,
+            settingsMenuItemId: FATHOM_USER_SETTINGS_MENU_ITEM_ID,
+            frontComponentId: FATHOM_USER_SETTINGS_FRONT_COMPONENT_ID,
+            slug: 'emails',
+          }),
+          buildUserSettingsApplicationPreferences({
+            applicationId: GRANOLA_APPLICATION_ID,
+            settingsMenuItemId: GRANOLA_USER_SETTINGS_MENU_ITEM_ID,
+            frontComponentId: GRANOLA_USER_SETTINGS_FRONT_COMPONENT_ID,
+            slug: 'my-settings',
+          }),
+        ],
+      },
+    }),
+  );
 
 const deletedAccountIds = new Set<string>();
 
@@ -323,6 +384,7 @@ export const seedAccountGroupsStory = async () => {
         description: 'Records, transcribes and summarizes your meetings.',
         logoUrl: null,
         createdAt: '2024-01-01T00:00:00.000Z',
+        runHealthCheckOnUserPreferences: true,
       },
       {
         id: GRANOLA_APPLICATION_ID,
@@ -331,12 +393,7 @@ export const seedAccountGroupsStory = async () => {
         description: 'Takes notes during your calls.',
         logoUrl: null,
         createdAt: '2024-01-01T00:00:00.000Z',
-      },
-    ],
-    featureFlags: [
-      {
-        key: FeatureFlagKey.IS_APP_PREFERENCES_ENABLED,
-        value: true,
+        runHealthCheckOnUserPreferences: true,
       },
     ],
   });

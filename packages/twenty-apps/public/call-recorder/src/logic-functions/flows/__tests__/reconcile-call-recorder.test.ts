@@ -1,4 +1,3 @@
-import { type CoreApiClient } from 'twenty-client-sdk/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { computeCallRecordingIdForMeeting } from 'src/logic-functions/domain/compute-call-recording-id-for-meeting.util';
@@ -307,7 +306,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     );
     vi.stubEnv('RECALL_API_KEY', 'recall-api-key');
     vi.stubEnv('RECALL_REGION', 'us-west-2');
-    vi.stubEnv('CALL_RECORDER_USE_WORKSPACE_LOGO', 'false');
+    vi.stubEnv('CALL_RECORDER_STYLE', 'NONE');
     enqueueJobsMock.mockReset();
     fetchMock.mockReset();
     fetchMock.mockImplementation(
@@ -340,7 +339,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -387,7 +386,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -413,7 +412,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -439,7 +438,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -455,7 +454,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     expect(recallBotCreateCalls()).toHaveLength(1);
   });
 
-  it('updates an existing in-progress recording', async () => {
+  it('updates an existing in-progress recording without updating its dispatched bot', async () => {
     const client = buildFakeCoreApiClient({
       calendarEvents: [
         buildCalendarEvent({
@@ -478,7 +477,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -497,6 +496,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
         recordingRequestStatus: 'REQUESTED',
       }),
     ]);
+    expect(recallBotUpdateCalls()).toEqual([]);
   });
 
   it('updates an existing policy-managed scheduled call recording', async () => {
@@ -521,7 +521,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -561,8 +561,11 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
       expect.objectContaining({
         jobs: [
           {
-            jobId: `credit-check.${buildCustomerSyncCallRecordingId()}.recall-bot-1.${new Date(FUTURE_RECALL_BOT_JOIN_AT).getTime()}`,
-            payload: { callRecordingId: buildCustomerSyncCallRecordingId() },
+            jobId: `credit-check.${buildCustomerSyncCallRecordingId()}.recall-bot-1.${new Date(FUTURE_RECALL_BOT_JOIN_AT).getTime()}.${new Date('2026-01-01T12:44:00.000Z').getTime()}`,
+            payload: {
+              callRecordingId: buildCustomerSyncCallRecordingId(),
+              bookedJoinAt: FUTURE_RECALL_BOT_JOIN_AT,
+            },
           },
         ],
       }),
@@ -587,7 +590,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -626,7 +629,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     enqueueJobsMock.mockRejectedValueOnce(enqueueError);
     const reconcile = () =>
       reconcileCallRecorderForCalendarEventIds({
-        client: client as unknown as CoreApiClient,
+        client,
         calendarEventIds: ['calendar-event-1'],
         now: NOW,
       });
@@ -670,7 +673,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -722,7 +725,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const resultPromise = reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -746,7 +749,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     ]);
   });
 
-  it('does not reset the status of a recording whose bot is already live', async () => {
+  it('does not reset the status or update the bot of a recording whose bot is already live', async () => {
     const client = buildFakeCoreApiClient({
       calendarEvents: [
         buildCalendarEvent({
@@ -768,7 +771,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -786,6 +789,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
         status: 'JOINING',
       }),
     ]);
+    expect(recallBotUpdateCalls()).toEqual([]);
   });
 
   it('resets a NOT_RECORDED recording to SCHEDULED and clears its reason for an upcoming meeting', async () => {
@@ -807,7 +811,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -839,7 +843,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -871,7 +875,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -905,7 +909,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: [],
       removedOccurrences: [
         {
@@ -936,9 +940,9 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
   });
 
   it('cancels the old occurrence and creates a fresh recording when the meeting moves to a new time', async () => {
-    const NEW_STARTS_AT = '2026-01-02T13:00:00.000Z';
-    const NEW_RECALL_BOT_JOIN_AT = '2026-01-02T12:59:00.000Z';
-    const NEW_ENDS_AT = '2026-01-02T14:00:00.000Z';
+    const NEW_STARTS_AT = '2026-01-01T17:00:00.000Z';
+    const NEW_RECALL_BOT_JOIN_AT = '2026-01-01T16:59:00.000Z';
+    const NEW_ENDS_AT = '2026-01-01T18:00:00.000Z';
     const client = buildFakeCoreApiClient({
       calendarEvents: [
         buildCalendarEvent({
@@ -961,7 +965,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       removedOccurrences: [
         {
@@ -1002,6 +1006,101 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
         externalBotId: 'recall-bot-1',
       }),
     ]);
+  });
+
+  it('does not send a second bot when a live meeting is moved to an earlier start', async () => {
+    const LIVE_STARTS_AT = '2026-01-01T11:45:00.000Z';
+    const client = buildFakeCoreApiClient({
+      calendarEvents: [
+        buildCalendarEvent({
+          startsAt: '2026-01-01T11:30:00.000Z',
+          endsAt: '2026-01-01T13:00:00.000Z',
+        }),
+      ],
+      callRecordings: [
+        {
+          id: buildCustomerSyncCallRecordingId(LIVE_STARTS_AT),
+          title: 'Customer Sync',
+          status: 'RECORDING',
+          recordingRequestStatus: 'REQUESTED',
+          calendarEventId: 'calendar-event-1',
+          externalBotId: 'recall-bot-live',
+        },
+      ],
+    });
+
+    const result = await reconcileCallRecorderForCalendarEventIds({
+      client,
+      calendarEventIds: ['calendar-event-1'],
+      removedOccurrences: [
+        {
+          calendarEventId: 'calendar-event-1',
+          realMeetingKey: `link:meet.google.com/customer-sync:${LIVE_STARTS_AT}`,
+          startsAt: LIVE_STARTS_AT,
+        },
+      ],
+      now: NOW,
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ action: 'SKIPPED' }),
+      expect.objectContaining({
+        action: 'SKIPPED',
+        callRecordingId: buildCustomerSyncCallRecordingId(LIVE_STARTS_AT),
+      }),
+    ]);
+    expect(recallBotCreateCalls()).toEqual([]);
+    expect(recallBotDeleteCalls()).toEqual([]);
+    expect(client.callRecordings).toEqual([
+      expect.objectContaining({
+        id: buildCustomerSyncCallRecordingId(LIVE_STARTS_AT),
+        status: 'RECORDING',
+        externalBotId: 'recall-bot-live',
+      }),
+    ]);
+  });
+
+  it('books a bot for the new start when a live meeting is moved to a later start', async () => {
+    const LIVE_STARTS_AT = '2026-01-01T11:45:00.000Z';
+    const client = buildFakeCoreApiClient({
+      calendarEvents: [buildCalendarEvent()],
+      callRecordings: [
+        {
+          id: buildCustomerSyncCallRecordingId(LIVE_STARTS_AT),
+          title: 'Customer Sync',
+          status: 'RECORDING',
+          recordingRequestStatus: 'REQUESTED',
+          calendarEventId: 'calendar-event-1',
+          externalBotId: 'recall-bot-live',
+        },
+      ],
+    });
+
+    const result = await reconcileCallRecorderForCalendarEventIds({
+      client,
+      calendarEventIds: ['calendar-event-1'],
+      removedOccurrences: [
+        {
+          calendarEventId: 'calendar-event-1',
+          realMeetingKey: `link:meet.google.com/customer-sync:${LIVE_STARTS_AT}`,
+          startsAt: LIVE_STARTS_AT,
+        },
+      ],
+      now: NOW,
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ action: 'SKIPPED' }),
+      expect.objectContaining({
+        action: 'CREATED',
+        callRecordingId: buildCustomerSyncCallRecordingId(),
+      }),
+    ]);
+    expect(recallBotCreateCalls()).toHaveLength(1);
+    expect(JSON.parse(recallBotCreateCalls()[0][1].body ?? '')).toEqual(
+      expect.objectContaining({ join_at: FUTURE_RECALL_BOT_JOIN_AT }),
+    );
+    expect(recallBotDeleteCalls()).toEqual([]);
   });
 
   it('reconciles the remaining meetings when one meeting fails', async () => {
@@ -1047,7 +1146,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1', 'calendar-event-2'],
       now: NOW,
     });
@@ -1095,7 +1194,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -1145,7 +1244,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -1200,7 +1299,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -1234,7 +1333,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });
@@ -1256,7 +1355,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     await Promise.all(
       Array.from({ length: 4 }, () =>
         reconcileCallRecorderForCalendarEventIds({
-          client: client as unknown as CoreApiClient,
+          client,
           calendarEventIds: ['calendar-event-1'],
           now: NOW,
         }),
@@ -1290,7 +1389,7 @@ describe('reconcileCallRecorderForCalendarEventIds', () => {
     });
 
     const result = await reconcileCallRecorderForCalendarEventIds({
-      client: client as unknown as CoreApiClient,
+      client,
       calendarEventIds: ['calendar-event-1'],
       now: NOW,
     });

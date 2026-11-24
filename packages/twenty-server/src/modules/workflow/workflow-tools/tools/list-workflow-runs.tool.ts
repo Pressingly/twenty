@@ -2,7 +2,6 @@ import { isDefined } from 'twenty-shared/utils';
 import { type FindOptionsWhere } from 'typeorm';
 import { z } from 'zod';
 
-import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
 import {
   WorkflowRunStatus,
   type WorkflowRunWorkspaceEntity,
@@ -40,23 +39,26 @@ const listWorkflowRunsSchema = z.object({
 type ListWorkflowRunsInput = z.infer<typeof listWorkflowRunsSchema>;
 
 export const createListWorkflowRunsTool = (
-  deps: Pick<WorkflowToolDependencies, 'workspaceOrmManager'>,
+  deps: {
+    workspaceOrmManager: Pick<
+      WorkflowToolDependencies['workspaceOrmManager'],
+      'executeInWorkspaceContext' | 'getRepository'
+    >;
+  },
   context: WorkflowToolContext,
 ) => ({
   name: 'list_workflow_runs' as const,
+  isReadOnly: true,
   description:
     'List workflow runs, optionally filtered by core workflow and/or status, ordered from most to least recent. Use this to find the relevant run (for example the latest failed run of a workflow) before inspecting it in detail with get_workflow_run.',
   inputSchema: listWorkflowRunsSchema,
   execute: async (parameters: ListWorkflowRunsInput) => {
     try {
-      const authContext = buildSystemAuthContext(context.workspaceId);
-
       return await deps.workspaceOrmManager.executeInWorkspaceContext(
         async () => {
           const workflowRunRepository =
             deps.workspaceOrmManager.getRepository<WorkflowRunWorkspaceEntity>(
               'workflowRun',
-              context.rolePermissionConfig,
             );
 
           const where: FindOptionsWhere<WorkflowRunWorkspaceEntity> = {};
@@ -89,7 +91,7 @@ export const createListWorkflowRunsTool = (
             })),
           };
         },
-        authContext,
+        context.authContext,
       );
     } catch (error) {
       return {

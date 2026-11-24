@@ -9,6 +9,8 @@ const METADATA_NAMES_WITHOUT_MANIFEST_REPRESENTATION: AllMetadataName[] = [
 const WORKSPACE_BOUND_PROPERTIES = [
   'userWorkspaceId',
   'apiKeyId',
+  'webhookId',
+  'targetApplicationId',
   'workflowVersionId',
   'coreWorkflowVersionId',
   'targetRecordId',
@@ -16,7 +18,9 @@ const WORKSPACE_BOUND_PROPERTIES = [
 
 type ProbedPropertyName =
   | (typeof WORKSPACE_BOUND_PROPERTIES)[number]
-  | 'frontComponentUniversalIdentifier';
+  | 'frontComponentUniversalIdentifier'
+  | 'workflowId'
+  | 'agentId';
 
 type ProbedFlatEntity = {
   universalIdentifier: string;
@@ -26,9 +30,11 @@ type ProbedFlatEntity = {
 export const canManifestExpressFlatEntity = ({
   metadataName,
   flatEntity,
+  parentFlatRole,
 }: {
   metadataName: AllMetadataName;
   flatEntity: ProbedFlatEntity;
+  parentFlatRole?: ProbedFlatEntity;
 }): boolean => {
   if (METADATA_NAMES_WITHOUT_MANIFEST_REPRESENTATION.includes(metadataName)) {
     return false;
@@ -42,7 +48,29 @@ export const canManifestExpressFlatEntity = ({
     return false;
   }
 
-  if (metadataName === 'role' && flatEntity.isEditable === false) {
+  if (
+    metadataName === 'role' &&
+    isDefined(flatEntity.isEditable) &&
+    !flatEntity.isEditable
+  ) {
+    return false;
+  }
+
+  if (
+    metadataName === 'navigationMenuItem' &&
+    (isDefined(flatEntity.workflowId) || isDefined(flatEntity.agentId))
+  ) {
+    return false;
+  }
+
+  // What a role holds is only in a manifest if the role itself is
+  if (
+    isDefined(parentFlatRole) &&
+    !canManifestExpressFlatEntity({
+      metadataName: 'role',
+      flatEntity: parentFlatRole,
+    })
+  ) {
     return false;
   }
 

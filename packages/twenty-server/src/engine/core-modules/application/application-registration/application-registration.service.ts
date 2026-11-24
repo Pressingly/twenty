@@ -8,6 +8,7 @@ import { isNonEmptyString } from '@sniptt/guards';
 import * as bcrypt from 'bcrypt';
 import isEqual from 'lodash.isequal';
 import {
+  type ApplicationBilling,
   TWENTY_STANDARD_APPLICATION_UNIVERSAL_IDENTIFIER,
   type Manifest,
 } from 'twenty-shared/application';
@@ -15,6 +16,7 @@ import { FileFolder } from 'twenty-shared/types';
 import { isDefined, isNonEmptyArray, isValidUuid } from 'twenty-shared/utils';
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
 import {
+  In,
   IsNull,
   type DeepPartial,
   type FindOptionsWhere,
@@ -25,6 +27,7 @@ import { v4 } from 'uuid';
 
 import { CoreEntityCacheService } from 'src/engine/core-entity-cache/services/core-entity-cache.service';
 import { shouldRefreshApplicationRegistrationOnInstall } from 'src/engine/core-modules/application/application-install/utils/should-refresh-application-registration-on-install.util';
+import { type BundledApplication } from 'src/engine/core-modules/application/application-bundled/types/bundled-application.type';
 import { MARKETPLACE_CATALOG_CACHE_ENTITY_ID } from 'src/engine/core-modules/application/application-marketplace/constants/marketplace-apps-cache.constant';
 import { MARKETPLACE_FEATURED_APPLICATIONS } from 'src/engine/core-modules/application/application-marketplace/constants/marketplace-featured-applications.constant';
 import { ALL_OAUTH_SCOPES } from 'src/engine/core-modules/application/application-oauth/constants/oauth-scopes';
@@ -36,6 +39,7 @@ import {
 import { findReservedVariableNamesInApplicationManifest } from 'src/engine/core-modules/application/utils/find-reserved-variable-names-in-application-manifest.util';
 import { ApplicationRegistrationAssetUrlService } from 'src/engine/core-modules/application/application-registration/application-registration-asset-url.service';
 import { ApplicationRegistrationLookupService } from 'src/engine/core-modules/application/application-registration/application-registration-lookup/application-registration-lookup.service';
+import { isVerifiedOAuthClientUniversalIdentifier } from 'src/engine/core-modules/application/application-oauth/verified-oauth-client/utils/is-verified-oauth-client-universal-identifier.util';
 import { ApplicationRegistrationEntity } from 'src/engine/core-modules/application/application-registration/application-registration.entity';
 import { APPLICATION_REGISTRATION_WITHOUT_MANIFEST_SELECT } from 'src/engine/core-modules/application/application-registration/constants/application-registration-without-manifest-select.constant';
 import {
@@ -51,7 +55,6 @@ import { type ApplicationRegistrationStatsDTO } from 'src/engine/core-modules/ap
 import { type ClaimableApplicationRegistrationDTO } from 'src/engine/core-modules/application/application-registration/dtos/claimable-application-registration.dto';
 import { type CreateApplicationRegistrationInput } from 'src/engine/core-modules/application/application-registration/dtos/create-application-registration.input';
 import { type PaginatedApplicationRegistrationsDTO } from 'src/engine/core-modules/application/application-registration/dtos/paginated-application-registrations.dto';
-import { type PublicApplicationRegistrationDTO } from 'src/engine/core-modules/application/application-registration/dtos/public-application-registration.dto';
 import {
   type UpdateApplicationRegistrationInput,
   type UpdateApplicationRegistrationPayload,
@@ -85,7 +88,6 @@ import { type CreditUsedItemDTO } from 'src/engine/core-modules/usage/dtos/credi
 import { UsageAnalyticsService } from 'src/engine/core-modules/usage/services/usage-analytics.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { WorkspaceEventBroadcaster } from 'src/engine/subscriptions/workspace-event-broadcaster/workspace-event-broadcaster.service';
-import { TWENTY_CLI_APPLICATION_REGISTRATION } from 'src/engine/workspace-manager/twenty-standard-application/constants/twenty-cli-application-registration.constant';
 
 const BCRYPT_SALT_ROUNDS = 10;
 
@@ -101,7 +103,7 @@ export type UpsertApplicationRegistrationFromCatalogParams = {
   universalIdentifier: string;
   name: string;
   sourceType: ApplicationRegistrationSourceType;
-  sourcePackage: string;
+  sourcePackage: string | null;
   latestAvailableVersion: string | null;
   manifest: Manifest;
 };
@@ -117,6 +119,7 @@ export type ApplicationRegistrationCatalogCard = {
   category: string | null;
   logoUrl: string | null;
   requiredServerVersionRange: string | null;
+  hasMcpServers: boolean;
 };
 
 @Injectable()
@@ -327,7 +330,7 @@ export class ApplicationRegistrationService {
         ),
       );
 
-    if (isPreInstalledOnly === true) {
+    if (isPreInstalledOnly) {
       queryBuilder.andWhere('registration."isPreInstalled" = true');
     }
 
@@ -451,46 +454,6 @@ export class ApplicationRegistrationService {
     return registration;
   }
 
-  async findOneByClientId(
-    clientId: string,
-  ): Promise<ApplicationRegistrationEntity | null> {
-    return this.applicationRegistrationRepository.findOne({
-      where: { oAuthClientId: clientId },
-    });
-  }
-
-  async findPublicByClientId(
-    clientId: string,
-  ): Promise<PublicApplicationRegistrationDTO | null> {
-    const registration = await this.applicationRegistrationRepository.findOne({
-      where: { oAuthClientId: clientId },
-      select: [
-        'id',
-        'name',
-        'logo',
-        'logoFileId',
-        'sourceType',
-        'sourcePackage',
-        'latestAvailableVersion',
-        'websiteUrl',
-        'oAuthScopes',
-      ],
-    });
-
-    if (!registration) {
-      return null;
-    }
-
-    return {
-      id: registration.id,
-      name: registration.name,
-      logoUrl:
-        this.applicationRegistrationAssetUrlService.buildLogoUrl(registration),
-      websiteUrl: registration.websiteUrl,
-      oAuthScopes: registration.oAuthScopes,
-    };
-  }
-
   async createWithClientSecret({
     input,
     ownerWorkspaceId,
@@ -541,7 +504,8 @@ export class ApplicationRegistrationService {
     if (
       isDefined(existingByUid) ||
       fields.universalIdentifier.toLowerCase() ===
-        TWENTY_STANDARD_APPLICATION_UNIVERSAL_IDENTIFIER
+        TWENTY_STANDARD_APPLICATION_UNIVERSAL_IDENTIFIER ||
+      isVerifiedOAuthClientUniversalIdentifier(fields.universalIdentifier)
     ) {
       throw new ApplicationRegistrationException(
         `Universal identifier ${fields.universalIdentifier} is already claimed`,
@@ -629,15 +593,21 @@ export class ApplicationRegistrationService {
 
     const updateData: Record<string, unknown> = {};
 
-    if (isDefined(update.name)) updateData.name = update.name;
-    if (isDefined(update.oAuthRedirectUris))
+    if (isDefined(update.name)) {
+      updateData.name = update.name;
+    }
+    if (isDefined(update.oAuthRedirectUris)) {
       updateData.oAuthRedirectUris = update.oAuthRedirectUris;
-    if (isDefined(update.oAuthScopes))
+    }
+    if (isDefined(update.oAuthScopes)) {
       updateData.oAuthScopes = update.oAuthScopes;
-    if (isDefined(instanceFlags.isListed))
+    }
+    if (isDefined(instanceFlags.isListed)) {
       updateData.isListed = instanceFlags.isListed;
-    if (isDefined(instanceFlags.isPreInstalled))
+    }
+    if (isDefined(instanceFlags.isPreInstalled)) {
       updateData.isPreInstalled = instanceFlags.isPreInstalled;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return;
@@ -922,6 +892,14 @@ export class ApplicationRegistrationService {
         params.universalIdentifier,
       );
 
+    if (isVerifiedOAuthClientUniversalIdentifier(params.universalIdentifier)) {
+      this.logger.warn(
+        `Skipping catalog entry from package ${params.sourcePackage}: universal identifier ${params.universalIdentifier} is reserved for a verified OAuth client`,
+      );
+
+      return null;
+    }
+
     if (
       isDefined(existing) &&
       existing.sourceType !== ApplicationRegistrationSourceType.NPM
@@ -972,6 +950,42 @@ export class ApplicationRegistrationService {
     return this.createFromCatalog(params, {
       isListed: isDefined(featuredSourcePackage),
     });
+  }
+
+  async upsertBundled({
+    version,
+    manifest,
+  }: Pick<
+    BundledApplication,
+    'version' | 'manifest'
+  >): Promise<ApplicationRegistrationEntity | null> {
+    const params: UpsertApplicationRegistrationFromCatalogParams = {
+      universalIdentifier: manifest.application.universalIdentifier,
+      name: manifest.application.displayName,
+      sourceType: ApplicationRegistrationSourceType.BUNDLED,
+      sourcePackage: null,
+      latestAvailableVersion: version,
+      manifest,
+    };
+
+    const existing =
+      await this.applicationRegistrationLookupService.findOneByUniversalIdentifierGlobal(
+        params.universalIdentifier,
+      );
+
+    if (!isDefined(existing)) {
+      return this.createFromCatalog(params, { isListed: true });
+    }
+
+    if (existing.sourceType !== ApplicationRegistrationSourceType.BUNDLED) {
+      this.logger.warn(
+        `Skipping bundled application ${params.name}: universal identifier ${params.universalIdentifier} is registered from source ${existing.sourceType}`,
+      );
+
+      return null;
+    }
+
+    return this.updateFromCatalog(existing, params);
   }
 
   private async updateFromCatalog(
@@ -1058,10 +1072,17 @@ export class ApplicationRegistrationService {
     return registration;
   }
 
-  async findOrCreateCliRegistration(): Promise<ApplicationRegistrationEntity> {
+  async findOrCreateBuiltInRegistrationOrThrow({
+    universalIdentifier,
+    name,
+    oAuthScopes,
+  }: Pick<
+    ApplicationRegistrationEntity,
+    'universalIdentifier' | 'name' | 'oAuthScopes'
+  >): Promise<ApplicationRegistrationEntity> {
     const existing =
       await this.applicationRegistrationLookupService.findOneByUniversalIdentifierGlobal(
-        TWENTY_CLI_APPLICATION_REGISTRATION.universalIdentifier,
+        universalIdentifier,
       );
 
     if (isDefined(existing)) {
@@ -1073,13 +1094,12 @@ export class ApplicationRegistrationService {
       .insert()
       .into(ApplicationRegistrationEntity)
       .values({
-        universalIdentifier:
-          TWENTY_CLI_APPLICATION_REGISTRATION.universalIdentifier,
-        name: TWENTY_CLI_APPLICATION_REGISTRATION.name,
+        universalIdentifier,
+        name,
         oAuthClientId: v4(),
         oAuthClientSecretHash: null,
         oAuthRedirectUris: [],
-        oAuthScopes: TWENTY_CLI_APPLICATION_REGISTRATION.oAuthScopes,
+        oAuthScopes,
         ownerWorkspaceId: null,
         sourceType: ApplicationRegistrationSourceType.OAUTH_ONLY,
         createdByUserId: null,
@@ -1094,12 +1114,12 @@ export class ApplicationRegistrationService {
 
     const registration =
       await this.applicationRegistrationLookupService.findOneByUniversalIdentifierGlobal(
-        TWENTY_CLI_APPLICATION_REGISTRATION.universalIdentifier,
+        universalIdentifier,
       );
 
     if (!isDefined(registration)) {
       throw new ApplicationException(
-        'Failed to create the Twenty CLI application registration',
+        `Failed to create the built-in application registration ${universalIdentifier}`,
         ApplicationExceptionCode.APPLICATION_NOT_FOUND,
       );
     }
@@ -1125,7 +1145,10 @@ export class ApplicationRegistrationService {
         'manifest',
       ],
       where: {
-        sourceType: ApplicationRegistrationSourceType.NPM,
+        sourceType: In([
+          ApplicationRegistrationSourceType.NPM,
+          ApplicationRegistrationSourceType.BUNDLED,
+        ]),
       },
     });
 
@@ -1142,6 +1165,7 @@ export class ApplicationRegistrationService {
         this.applicationRegistrationAssetUrlService.buildLogoUrl(registration),
       requiredServerVersionRange:
         registration.manifest?.application?.requiredServerVersionRange ?? null,
+      hasMcpServers: isNonEmptyArray(registration.manifest?.mcpServers),
     }));
   }
 
@@ -1299,12 +1323,13 @@ export class ApplicationRegistrationService {
     periodEnd: Date;
   }): Promise<CreditUsedItemDTO[] | null> {
     try {
-      const installations = await this.findInstallations({
-        applicationRegistrationId,
-      });
+      const [installations, billing] = await Promise.all([
+        this.findInstallations({ applicationRegistrationId }),
+        this.findBilling(applicationRegistrationId),
+      ]);
 
       return await this.usageAnalyticsService.getCreditsUsedBreakdownForInstallations(
-        { installations, periodStart, periodEnd },
+        { installations, billing, periodStart, periodEnd },
       );
     } catch (error) {
       this.logger.warn(
@@ -1345,6 +1370,21 @@ export class ApplicationRegistrationService {
       .orderBy('application.workspaceId')
       .addOrderBy('application.id')
       .getRawMany<ApplicationInstallation>();
+  }
+
+  // Reads only the jsonb path: the full manifest can be large
+  async findBilling(
+    applicationRegistrationId: string,
+  ): Promise<ApplicationBilling | null> {
+    const row = await this.applicationRegistrationRepository
+      .createQueryBuilder('registration')
+      .select("registration.manifest -> 'application' -> 'billing'", 'billing')
+      .where('registration.id = :applicationRegistrationId', {
+        applicationRegistrationId,
+      })
+      .getRawOne<{ billing: ApplicationBilling | null }>();
+
+    return row?.billing ?? null;
   }
 
   // Admin panel only, which views apps across all workspaces, so ownership is not enforced
@@ -1461,7 +1501,10 @@ export class ApplicationRegistrationService {
       params.applicationRegistrationId,
     );
 
-    if (isDefined(registration.ownerWorkspaceId)) {
+    if (
+      isDefined(registration.ownerWorkspaceId) ||
+      isVerifiedOAuthClientUniversalIdentifier(registration.universalIdentifier)
+    ) {
       throw new ApplicationRegistrationException(
         'Application registration is already owned by a workspace',
         ApplicationRegistrationExceptionCode.APPLICATION_REGISTRATION_ALREADY_OWNED,

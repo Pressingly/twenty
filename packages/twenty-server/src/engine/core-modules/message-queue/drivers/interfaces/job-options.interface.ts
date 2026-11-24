@@ -49,7 +49,8 @@ export type QueueJobSettings = {
   delay?: number;
   deduplication?: QueueJobDeduplicationOptions;
   broadcastTo?: QueueJobRecipient;
-  groupKeys?: string[];
+  fairnessGroupKeys?: string[];
+  groupKey?: string;
 };
 
 export type QueueJobOptions = QueueJobSettings & QueueJobScope;
@@ -58,6 +59,7 @@ export type QueueCronJobOptions = Pick<QueueJobSettings, 'priority'> & {
   repeat: {
     every?: number;
     pattern?: string;
+    tz?: string;
     limit?: number;
   };
 };

@@ -2,14 +2,14 @@ import { ApplicationService } from 'src/engine/core-modules/application/applicat
 import { Injectable } from '@nestjs/common';
 
 import { msg } from '@lingui/core/macro';
-import { WorkflowVisibility } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
-import { In } from 'typeorm';
+import { In, Not } from 'typeorm';
 
+import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
+import { getReachableApplications } from 'src/engine/core-modules/application/utils/get-reachable-applications.util';
 import { WorkflowVersionEntity } from 'src/engine/core-modules/workflow/entities/workflow-version.entity';
 import { WorkflowEntity } from 'src/engine/core-modules/workflow/entities/workflow.entity';
-import { canApplicationStartCoreWorkflow } from 'src/engine/core-modules/workflow/utils/can-application-start-core-workflow.util';
-import { canChangeCoreWorkflowVisibility } from 'src/engine/core-modules/workflow/utils/can-change-core-workflow-visibility.util';
+import { isCoreWorkflowVisibleToUser } from 'src/engine/core-modules/workflow/utils/is-core-workflow-visible-to-user.util';
 import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
 import { WorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/workspace-scoped-repository';
 import {
@@ -66,15 +66,23 @@ export class CoreWorkflowAccessService {
 
   async assertCoreWorkflowVersionsAreStartableByApplicationOrThrow({
     workspaceId,
-    callerApplicationId,
+    workspaceCustomApplicationId,
+    callerApplication,
     coreWorkflowVersionIds,
   }: {
     workspaceId: string;
-    callerApplicationId: string | undefined;
+    workspaceCustomApplicationId: string;
+    callerApplication: FlatApplication | undefined;
     coreWorkflowVersionIds: string[];
   }): Promise<void> {
+    const reachableApplications = getReachableApplications({
+      callingApplication: callerApplication,
+      operation: 'trigger',
+      workspaceCustomApplicationId,
+    });
+
     if (
-      !isDefined(callerApplicationId) ||
+      reachableApplications.type === 'all' ||
       coreWorkflowVersionIds.length === 0
     ) {
       return;
@@ -100,21 +108,17 @@ export class CoreWorkflowAccessService {
       return;
     }
 
-    const workflows = await this.coreWorkflowRepository.find(workspaceId, {
-      where: { id: In(coreWorkflowIds) },
-      select: { id: true, applicationId: true },
-    });
+    const hasWorkflowOfAnotherApplication =
+      await this.coreWorkflowRepository.exists(workspaceId, {
+        where: {
+          id: In(coreWorkflowIds),
+          applicationId: Not(reachableApplications.applicationId),
+        },
+      });
 
-    const isStartable = workflows.every((workflow) =>
-      canApplicationStartCoreWorkflow({
-        callerApplicationId,
-        workflowApplicationId: workflow.applicationId,
-      }),
-    );
-
-    if (!isStartable) {
+    if (hasWorkflowOfAnotherApplication) {
       throw new WorkflowQueryValidationException(
-        `Application '${callerApplicationId}' cannot start a workflow owned by another application`,
+        `Application '${reachableApplications.applicationId}' cannot start a workflow owned by another application`,
         WorkflowQueryValidationExceptionCode.FORBIDDEN,
         {
           userFriendlyMessage: msg`An application can only start its own workflows.`,
@@ -302,7 +306,7 @@ export class CoreWorkflowAccessService {
       where: { id: In(coreWorkflowIds) },
       select: {
         id: true,
-        visibility: true,
+        isPrivate: true,
         createdByUserWorkspaceId: true,
       },
     });
@@ -310,8 +314,8 @@ export class CoreWorkflowAccessService {
     // Unknown or deleted ids stay a no-op rather than a refusal.
     return coreWorkflows.filter(
       (coreWorkflow) =>
-        coreWorkflow.visibility === WorkflowVisibility.PRIVATE &&
-        !canChangeCoreWorkflowVisibility({
+        !isCoreWorkflowVisibleToUser({
+          isPrivate: coreWorkflow.isPrivate,
           createdByUserWorkspaceId: coreWorkflow.createdByUserWorkspaceId,
           userWorkspaceId,
         }),

@@ -16,7 +16,7 @@ const RUN_ON_WORKSPACE_ARGS = {
 const APPLICATION_WRITABLE_OBJECT = 'rocket';
 const APPLICATION_READABLE_OBJECT = 'pet';
 const SYSTEM_OBJECT = 'shortLink';
-const SYSTEM_WRITABLE_OBJECT = 'workflowAutomatedTrigger';
+const SYSTEM_WRITABLE_OBJECT = 'workflowRun';
 
 const ALL_ACTIONS = [
   'canDestroyObjectRecords',
@@ -79,7 +79,9 @@ describe('2-53 workspace command - move application and system access to disable
     return row;
   };
 
-  const findCachedObjectAccess = async (nameSingular: string) => {
+  const findCachedDisabledObjectPermissionActions = async (
+    nameSingular: string,
+  ) => {
     const { flatObjectMetadataMaps } =
       await workspaceCacheService.getOrRecompute(SEED_APPLE_WORKSPACE_ID, [
         'flatObjectMetadataMaps',
@@ -88,12 +90,7 @@ describe('2-53 workspace command - move application and system access to disable
       flatObjectMetadataMaps.byUniversalIdentifier,
     ).find((objectMetadata) => objectMetadata?.nameSingular === nameSingular);
 
-    return {
-      writability: flatObjectMetadata?.writability,
-      readability: flatObjectMetadata?.readability,
-      disabledObjectPermissionActions:
-        flatObjectMetadata?.disabledObjectPermissionActions,
-    };
+    return flatObjectMetadata?.disabledObjectPermissionActions;
   };
 
   beforeAll(async () => {
@@ -143,6 +140,7 @@ describe('2-53 workspace command - move application and system access to disable
     for (const nameSingular of [
       APPLICATION_WRITABLE_OBJECT,
       APPLICATION_READABLE_OBJECT,
+      SYSTEM_WRITABLE_OBJECT,
     ]) {
       await setObjectAccess({
         nameSingular,
@@ -159,14 +157,6 @@ describe('2-53 workspace command - move application and system access to disable
         writability: 'SYSTEM',
         readability: 'SYSTEM',
         disabledObjectPermissionActions: ALL_ACTIONS,
-      },
-    });
-    await setObjectAccess({
-      nameSingular: SYSTEM_WRITABLE_OBJECT,
-      access: {
-        writability: 'SYSTEM',
-        readability: 'OPEN',
-        disabledObjectPermissionActions: WRITE_ACTIONS,
       },
     });
   });
@@ -208,12 +198,16 @@ describe('2-53 workspace command - move application and system access to disable
     expect(await findObjectAccess(APPLICATION_READABLE_OBJECT)).toEqual(
       expectedReadableAccess,
     );
-    expect(await findCachedObjectAccess(APPLICATION_WRITABLE_OBJECT)).toEqual(
-      expectedWritableAccess,
-    );
-    expect(await findCachedObjectAccess(APPLICATION_READABLE_OBJECT)).toEqual(
-      expectedReadableAccess,
-    );
+    expect(
+      await findCachedDisabledObjectPermissionActions(
+        APPLICATION_WRITABLE_OBJECT,
+      ),
+    ).toEqual(expectedWritableAccess.disabledObjectPermissionActions);
+    expect(
+      await findCachedDisabledObjectPermissionActions(
+        APPLICATION_READABLE_OBJECT,
+      ),
+    ).toEqual(expectedReadableAccess.disabledObjectPermissionActions);
   });
 
   it('disables the actions SYSTEM access forbade and keeps the stored values', async () => {

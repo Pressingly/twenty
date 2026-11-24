@@ -11,6 +11,7 @@ import { type ApiKeyRoleService } from 'src/engine/core-modules/api-key/services
 import { isUserAuthContext } from 'src/engine/core-modules/auth/guards/is-user-auth-context.guard';
 import { type ApiKeyService } from 'src/engine/core-modules/api-key/services/api-key.service';
 import { TWENTY_STANDARD_APPLICATION_UNIVERSAL_IDENTIFIER } from 'twenty-shared/application';
+import { SESSION_COOKIE_OPT_IN_HEADER_NAME } from 'twenty-shared/constants';
 import { type RecordExportDownloadTokenJwtPayload } from 'src/engine/core-modules/record-export/types/record-export-download-token-jwt-payload.type';
 import { type PendingFileCleanupCronJob } from 'src/engine/core-modules/file/file-upload/crons/jobs/pending-file-cleanup.cron.job';
 import { CacheStorageNamespace } from 'src/engine/core-modules/cache-storage/types/cache-storage-namespace.enum';
@@ -24,7 +25,7 @@ import { UserSessionRevokedReason } from 'src/engine/core-modules/user-session/t
 import { hashUserSessionToken } from 'src/engine/core-modules/user-session/utils/hash-user-session-token.util';
 import { isUserSessionToken } from 'src/engine/core-modules/user-session/utils/is-user-session-token.util';
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
-import { upsertRowLevelPermissionPredicates } from 'test/integration/metadata/suites/row-level-permission-predicate/utils/upsert-row-level-permission-predicates.util';
+import { upsertRowLevelPermissionRules } from 'test/integration/metadata/suites/row-level-permission-predicate/utils/upsert-row-level-permission-rules.util';
 import { createClient } from 'graphql-sse';
 import { setTimeout } from 'node:timers/promises';
 import { Readable } from 'node:stream';
@@ -34,6 +35,7 @@ import { destroyManyOperationFactory } from 'test/integration/graphql/utils/dest
 import { makeGraphqlApiRequest } from 'test/integration/graphql/utils/make-graphql-api-request.util';
 import { upsertContainsRlsPredicate } from 'test/integration/graphql/utils/upsert-contains-rls-predicate.util';
 import { findManyObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/find-many-object-metadata.util';
+import { revokeObjectRecordsPermissions } from 'test/integration/metadata/suites/object-permission/utils/revoke-object-records-permissions.util';
 import { upsertObjectPermissions } from 'test/integration/metadata/suites/object-permission/utils/upsert-object-permissions.util';
 import { createOneRole } from 'test/integration/metadata/suites/role/utils/create-one-role.util';
 import { deleteOneRole } from 'test/integration/metadata/suites/role/utils/delete-one-role.util';
@@ -80,7 +82,7 @@ describe('record export lifecycle (integration)', () => {
     getAppProviderByClassName<WorkspaceCacheService>('WorkspaceCacheService');
   const setApplicationRole = async (applicationRoleId: string | null) => {
     await globalThis.testDataSource.query(
-      'UPDATE core.application SET "defaultRoleId" = $1, "deletedAt" = NULL WHERE id = $2',
+      'UPDATE core.application SET "defaultRoleId" = $1, "requestedRoleId" = $1, "deletedAt" = NULL WHERE id = $2',
       [applicationRoleId, cliApplicationId],
     );
     await applicationCache().invalidateAndRecompute(SEED_APPLE_WORKSPACE_ID, [
@@ -125,6 +127,7 @@ describe('record export lifecycle (integration)', () => {
       ? {
           Cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
           Origin: `http://localhost:${APP_PORT}`,
+          [SESSION_COOKIE_OPT_IN_HEADER_NAME]: '1',
         }
       : { Authorization: `Bearer ${token}` };
 
@@ -230,10 +233,7 @@ describe('record export lifecycle (integration)', () => {
     id: string;
   }) => (await cache.get<string>(`{${workspaceId}}:active`)) === id;
 
-  const changeRole = async (updatePayload: {
-    canAccessAllTools?: boolean;
-    canReadAllObjectRecords?: boolean;
-  }) => {
+  const changeRole = async (updatePayload: { canAccessAllTools?: boolean }) => {
     const result = await updateOneRole({
       input: { idToUpdate: roleId, updatePayload },
       expectToFail: false,
@@ -302,10 +302,13 @@ describe('record export lifecycle (integration)', () => {
   }, 60_000);
 
   afterEach(async () => {
-    for (const connection of connections.splice(0)) connection.dispose();
+    for (const connection of connections.splice(0)) {
+      connection.dispose();
+    }
     jest.restoreAllMocks();
-    for (const id of exportIds)
+    for (const id of exportIds) {
       await exports.cancel({ workspaceId: SEED_APPLE_WORKSPACE_ID, id });
+    }
     exportIds.clear();
     downloadTokens.clear();
     const sessions =
@@ -325,18 +328,26 @@ describe('record export lifecycle (integration)', () => {
       await setApplicationRole(null);
     }
     if (isDefined(roleId)) {
-      await upsertRowLevelPermissionPredicates({
+      await upsertRowLevelPermissionRules({
         input: {
           roleId,
           objectMetadataId: input.objectMetadataId,
-          predicates: [],
-          predicateGroups: [],
+          rules: [],
         },
       });
-      await changeRole({
-        canAccessAllTools: true,
-        canReadAllObjectRecords: true,
+      await upsertObjectPermissions({
+        input: {
+          roleId,
+          objectPermissions: [
+            {
+              objectMetadataId: input.objectMetadataId,
+              canReadObjectRecords: true,
+            },
+          ],
+        },
+        expectToFail: false,
       });
+      await changeRole({ canAccessAllTools: true });
     }
   });
 
@@ -425,6 +436,7 @@ describe('record export lifecycle (integration)', () => {
       objectNameSingular: 'company',
       fieldName: 'name',
       value: companies[0].name,
+      ruleGrants: { canReadRecords: true },
     });
     const ready = await exportToCompletion(input, requester.token);
     expect(await authorization(ready)).toMatchObject({
@@ -474,24 +486,26 @@ describe('record export lifecycle (integration)', () => {
     );
   });
 
-  it('preserves application row permissions in the export worker', async () => {
+  it('rejects an OAuth export when its application only reads the object through a row level rule', async () => {
     await setApplicationRole(roleId);
     await upsertContainsRlsPredicate({
       roleId,
       objectNameSingular: 'company',
       fieldName: 'name',
       value: companies[0].name,
+      ruleGrants: { canReadRecords: true },
     });
-    const ready = await exportToCompletion(input, cliToken);
-    const response = await download(ready).expect(200);
-    expect(response.text.replace(/^\uFEFF/, '')).toBe(
-      `Id,Name\n${companies[0].id},${companies[0].name}\n`,
+    await expect(exportToCompletion(input, cliToken)).rejects.toThrow(
+      'The export failed. Please try again or export fewer records.',
     );
   });
 
   it('rejects an OAuth export when its application cannot read the object', async () => {
     await setApplicationRole(roleId);
-    await changeRole({ canReadAllObjectRecords: false });
+    await revokeObjectRecordsPermissions({
+      roleId,
+      objectMetadataId: input.objectMetadataId,
+    });
     await expect(exportToCompletion(input, cliToken)).rejects.toThrow(
       'The export failed. Please try again or export fewer records.',
     );
@@ -573,12 +587,14 @@ describe('record export lifecycle (integration)', () => {
       await applications.update(otherApplication.id, {
         workspaceId: SEED_APPLE_WORKSPACE_ID,
         defaultRoleId: roleId,
+        requestedRoleId: roleId,
       });
       await download(ready).expect(200);
     } finally {
       await applications.update(otherApplication.id, {
         workspaceId: SEED_APPLE_WORKSPACE_ID,
         defaultRoleId: otherApplication.defaultRoleId,
+        requestedRoleId: otherApplication.requestedRoleId,
       });
     }
   });
@@ -1112,6 +1128,7 @@ describe('record export lifecycle (integration)', () => {
             objectNameSingular: 'company',
             fieldName: 'name',
             value: companies[0].name,
+            ruleGrants: { canReadRecords: true },
           });
         }
         releasePage();
@@ -1132,6 +1149,7 @@ describe('record export lifecycle (integration)', () => {
       objectNameSingular: 'company',
       fieldName: 'name',
       value: companies[0].name,
+      ruleGrants: { canReadRecords: true },
     });
     const recordExport = await exportToCompletion(
       input,
@@ -1325,6 +1343,7 @@ describe('record export lifecycle (integration)', () => {
           objectNameSingular: 'company',
           fieldName: 'name',
           value: companies[0].name,
+          ruleGrants: { canReadRecords: true },
         });
       if (when === 'during-storage-open') {
         const readFile = storage.readFile.bind(storage);
@@ -1378,6 +1397,7 @@ describe('record export lifecycle (integration)', () => {
           objectNameSingular: 'company',
           fieldName: 'name',
           value: companies[0].name,
+          ruleGrants: { canReadRecords: true },
         });
       if (when === 'access-check') {
         const resolveRequester = query.resolveRequester.bind(query);

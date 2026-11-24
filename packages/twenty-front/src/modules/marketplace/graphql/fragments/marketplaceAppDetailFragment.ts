@@ -14,6 +14,7 @@ export const MARKETPLACE_APP_DETAIL_FRAGMENT = gql`
     category
     logoUrl
     websiteUrl
+    connectUrl
     aboutDescription
     pricingDescription
     termsUrl
@@ -23,6 +24,11 @@ export const MARKETPLACE_APP_DETAIL_FRAGMENT = gql`
     installCount
     defaultRoleUniversalIdentifier
     requestedCapabilities
+    requestedIframeMediaPermissions {
+      origin
+      microphone
+      camera
+    }
     billsCredits
     objects {
       universalIdentifier

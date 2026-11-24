@@ -37,13 +37,17 @@ export default defineApplication({
 });
 ```
 
-- `recurring` — flat and per-member fees the **platform** raises for you, once per billing period.
+- `recurring` — deprecated, see [prices](#prices). Flat and per-member fees the **platform** raises for you, once per billing period.
 - `operations` — what you charge for as you use it, from a logic function.
 - `description` — one friendly line shown to buyers on your marketplace listing.
 
 All three land on the same credit meter and the same **Settings > Usage** breakdown, so a workspace sees one bill.
 
 ## Recurring charges
+
+<Warning>
+  Deprecated in favor of [prices](#prices). The build warns about recurring charges, but they keep being raised: price billing is not generally available yet, so keep yours until it is.
+</Warning>
 
 A recurring charge is a subscription fee: a flat monthly amount, an amount per workspace member, or both. You declare the amount and the platform charges it. Your app never calls `chargeCredits` for these.
 
@@ -80,26 +84,83 @@ How they are raised:
 - Only on monthly subscriptions. A workspace on a yearly plan is not charged a `MONTH` fee, rather than being charged once for the whole year.
 - Bounded. A declared rate above \$100, or a per-member charge whose rate multiplied by the member count would exceed \$1,000 for the period, is refused and not raised. The platform raises these itself, so it will not write a debit it cannot justify.
 
+## Prices
+
+<Warning>
+  Price billing is being rolled out and is off by default: until it is enabled for a workspace, the build validates `billing.prices` but the workspace is not charged.
+</Warning>
+
+A price is charged in real currency instead of credits. It is billed as a line of the workspace's own Twenty subscription, so the workspace keeps a single invoice. Prices are in US dollars only for now.
+
+```ts src/application-config.ts
+billing: {
+  prices: [
+    {
+      universalIdentifier: '3f0c9a52-6b1e-4d7a-9c35-8e2f1a4b7d60',
+      label: 'Platform',
+      type: 'RECURRING',
+      billingPeriod: 'MONTHLY',
+      amountCents: 2000,
+    },
+    {
+      universalIdentifier: 'b7e41d08-2a93-4f5c-8d16-0c9e3b5a7f21',
+      label: 'Per member',
+      description: 'Monthly price per workspace member',
+      type: 'RECURRING',
+      billingPeriod: 'MONTHLY',
+      amountCents: 1000,
+      currency: 'USD',
+      per: 'WORKSPACE_MEMBER',
+    },
+  ],
+},
+```
+
+| Field | Description |
+|-------|-------------|
+| `universalIdentifier` | A UUID that identifies the price across versions of your app. Generate it once and never change it: a new identifier is a new price |
+| `label` | What admins read for that line |
+| `description` | Optional. A longer explanation of what the price covers |
+| `type` | `RECURRING`, the only type for now |
+| `billingPeriod` | `MONTHLY`, the only period for now |
+| `amountCents` | Price per month in USD cents, a positive integer up to 8,333,333 |
+| `currency` | Optional. `USD` is the only supported currency for now, and the default |
+| `per` | Omit for a flat fee. `WORKSPACE_MEMBER` makes the amount a rate per workspace member. `CONNECTED_ACCOUNT` makes it a rate per account connected through one of your app's [connection providers](/developers/extend/apps/logic/connections) |
+
+A price follows the billing interval of the workspace: a workspace on a monthly Twenty plan pays the monthly amount, a workspace on a yearly plan pays 12 times the monthly amount once a year.
+
+Billing starts when the install completes and stops at uninstall, prorated to the days left in the billing period. A price `per: 'WORKSPACE_MEMBER'` follows the member count of the workspace. A price `per: 'CONNECTED_ACCOUNT'` follows the number of accounts connected to your app in the workspace. Accounts of all your app's connection providers count together: with a Google and a Microsoft provider, a workspace with two Google accounts and one Microsoft account pays for three. The price is not billed while no account is connected, and a disconnected account stops being billed. A workspace on a trial is not charged before the trial ends.
+
+A workspace keeps the prices it installed your app with, including after it upgrades. When a new version changes, adds or removes a price, only new installations get the new prices.
+
+Prices are not billed on a server without billing enabled, nor for an app synced from a local source with `twenty app dev`.
+
+The build rejects a missing, duplicated or invalid `universalIdentifier`, an empty `label` or `description`, an unknown `type`, `billingPeriod` or `per`, an `amountCents` that is not a positive integer or exceeds 8,333,333 (12 times that is the most Stripe accepts for one price), a `currency` other than `USD`, and a price `per: 'CONNECTED_ACCOUNT'` in an app that declares no connection provider.
+
 ## Billable operations
 
-An operation is what your app charges for as it works. Each entry maps an operation name you choose onto the billing category the platform meters, plus the label shown to workspace admins in **Settings > Usage**.
+An operation is what your app charges for as it works. Each entry names an operation you choose and the label shown to workspace admins in **Settings > Usage** and to you in your app's monitoring **Credits used** chart. It can optionally map onto one of the platform's billing categories.
 
 ```ts src/application-config.ts
 billing: {
   operations: {
+    enrichPerson: {
+      label: 'Person enrichment',
+      icon: 'IconUserSearch',
+    },
     recordMeeting: {
       operationType: 'CALL_RECORDING',
       label: 'Meeting recording',
-    },
-    summarizeMeeting: {
-      operationType: 'AI_CHAT_TOKEN',
-      label: 'Meeting summary',
     },
   },
 },
 ```
 
-`operationType` must be one of the platform's billing categories: `AI_CHAT_TOKEN`, `AI_WORKFLOW_TOKEN`, `WORKFLOW_EXECUTION`, `CODE_EXECUTION`, `WEB_SEARCH`, `CALL_RECORDING`, `EMAIL_SEND`. It decides how the spend is metered and which counting unit applies (tokens, invocations, minutes) — it is not what admins read. The `label` is.
+`icon` is optional: a Twenty icon name (e.g. `IconUserSearch`) shown next to the label in your app's credits breakdown on its settings page.
+
+`operationType` is optional and defaults to `APP_OPERATION`, the dedicated category for app charges. Set it only when the spend really is one of the platform's categories: `AI_CHAT_TOKEN`, `AI_WORKFLOW_TOKEN`, `WORKFLOW_EXECUTION`, `CODE_EXECUTION`, `WEB_SEARCH`, `CALL_RECORDING`, `EMAIL_SEND`, `APP_OPERATION`. It decides how the spend is metered and which counting unit applies (tokens, invocations, minutes) — it is not what admins read. The `label` is.
+
+`CODE_EXECUTION` is where the platform meters your functions' own runs, so charges filed there are mixed with them; prefer the default.
 
 The build rejects an unknown `operationType`, an empty `label`, and a name used by both a recurring charge and an operation.
 
@@ -123,13 +184,13 @@ Notes:
 
 - Declaring operations is what lets Usage split your app's spend by what it charged for. An app that declares nothing is still reported, as a single slice under its display name.
 - Charging an operation your manifest does not declare is rejected. Add it to `billing.operations` and sync.
-- Several operations may share one `operationType`. Two enrichment operations both metered as `CODE_EXECUTION` still show as two labelled slices.
-- Without `operation`, name the billing category directly with `operationType`, optionally with a free-form `resourceContext`. The two forms are mutually exclusive: `operation` carries the label, `operationType` does not.
+- Several operations may share one `operationType`. Two enrichment operations both metered as `APP_OPERATION` still show as two labelled slices.
+- Without `operation`, the charge lands in `APP_OPERATION`, or in the category you name with `operationType`, optionally with a free-form `resourceContext`. The two forms are mutually exclusive: `operation` carries the label, `operationType` does not.
 - Charging never fails your function. A billing error is logged and swallowed, and the call no-ops outside the logic function runtime so local runs and tests do not crash.
 
 ## Checking before you spend
 
-A workspace can run out of credits. When that happens your function is refused before your code starts, and the platform's own work stops too: `runAgent` returns an error instead of running, and the other AI entry points refuse outright. `sendInboxMessage` runs no model and adds no AI charge of its own, though the function calling it is refused like any other; a member's reply is charged like any chat turn. Uninstall and disconnect hooks are the exception and always run, so an app can still be removed cleanly. An execution that does get through can still fail late, on a platform call it did not write, if the workspace runs out mid-run.
+A workspace can run out of credits. When that happens your function is refused before your code starts, and the platform's own work stops too: `runAgent` returns an error instead of running, and the other AI entry points refuse outright. `sendInboxMessage` runs no model and adds no AI charge of its own, though the function calling it is refused like any other; a member's reply is charged like any chat turn. Uninstall and disconnect hooks are the exception and always run, so an app can still be removed cleanly. An execution that does get through can still fail late, on a platform call it did not write, if the workspace runs out mid-run; `ai.generate` then resolves with `success: false` and the reason in `error`.
 
 Ask first:
 

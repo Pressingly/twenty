@@ -9,6 +9,8 @@ import { PreventNestToAutoLogGraphqlErrorsFilter } from 'src/engine/core-modules
 import { ResolverValidationPipe } from 'src/engine/core-modules/graphql/pipes/resolver-validation.pipe';
 import { CoreWorkflowConnectionDTO } from 'src/engine/core-modules/workflow/dtos/core-workflow-connection.dto';
 import { CoreWorkflowDTO } from 'src/engine/core-modules/workflow/dtos/core-workflow.dto';
+import { CoreWorkflowRunInsightsDTO } from 'src/engine/core-modules/workflow/dtos/core-workflow-run-insights.dto';
+import { CoreWorkflowRunInsightsArgs } from 'src/engine/core-modules/workflow/dtos/core-workflow-run-insights.input';
 import { CoreWorkflowWithCurrentVersionDTO } from 'src/engine/core-modules/workflow/dtos/core-workflow-with-current-version.dto';
 import { CoreWorkflowsWithCurrentVersionsInput } from 'src/engine/core-modules/workflow/dtos/core-workflows-with-current-versions.input';
 import { CreateCoreWorkflowInput } from 'src/engine/core-modules/workflow/dtos/create-core-workflow.input';
@@ -27,8 +29,10 @@ import { DuplicateCoreWorkflowInput } from 'src/engine/core-modules/workflow/dto
 import { UpdateCoreWorkflowInput } from 'src/engine/core-modules/workflow/dtos/update-core-workflow.input';
 import { UpdateCoreWorkflowVisibilityInput } from 'src/engine/core-modules/workflow/dtos/update-core-workflow-visibility.input';
 import { CoreWorkflowsArgs } from 'src/engine/core-modules/workflow/dtos/core-workflows.input';
+import { resolveCoreWorkflowIsPrivateFromInput } from 'src/engine/core-modules/workflow/utils/resolve-core-workflow-is-private-from-input.util';
 import { CoreWorkflowListService } from 'src/engine/core-modules/workflow/services/core-workflow-list.service';
 import { CoreWorkflowMutationWorkspaceService } from 'src/engine/core-modules/workflow/services/core-workflow-mutation.workspace-service';
+import { CoreWorkflowRunInsightsService } from 'src/engine/core-modules/workflow/services/core-workflow-run-insights.service';
 import { CoreWorkflowVersionListService } from 'src/engine/core-modules/workflow/services/core-workflow-version-list.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
@@ -45,14 +49,27 @@ import { AuthWorkspaceMember } from 'src/engine/decorators/auth/auth-workspace-m
 import { isDefined } from 'twenty-shared/utils';
 
 import { AuthWorkspace } from 'src/engine/decorators/auth/auth-workspace.decorator';
-import { SettingsPermissionGuard } from 'src/engine/guards/settings-permission.guard';
-import { AuthPrincipalGuard } from 'src/engine/guards/auth-principal.guard';
-import { PermissionsGraphqlApiExceptionFilter } from 'src/engine/metadata-modules/permissions/utils/permissions-graphql-api-exception.filter';
+import { PermissionsGraphqlApiExceptionFilter } from 'src/engine/permissions/utils/permissions-graphql-api-exception.filter';
+import { AccessPolicyGuard } from 'src/engine/guards/access-policy.guard';
+import { type AccessPolicy } from 'src/engine/guards/types/access-policy.type';
 
-@CoreResolver()
-@UsePipes(ResolverValidationPipe)
-@UseGuards(
-  AuthPrincipalGuard({
+const CORE_WORKFLOW_WRITE_ACCESS_POLICY: AccessPolicy = {
+  authPrincipals: {
+    userSession: {
+      standard: true,
+      impersonated: true,
+      playground: true,
+      workspaceAgnostic: false,
+    },
+    apiKey: false,
+    oauthClient: true,
+    application: false,
+  },
+  requiredPermissionFlags: [PermissionFlagType.WORKFLOWS],
+};
+
+const CORE_WORKFLOW_READ_ACCESS_POLICY: AccessPolicy = {
+  authPrincipals: {
     userSession: {
       standard: true,
       impersonated: true,
@@ -62,9 +79,12 @@ import { PermissionsGraphqlApiExceptionFilter } from 'src/engine/metadata-module
     apiKey: false,
     oauthClient: true,
     application: true,
-  }),
-  SettingsPermissionGuard(PermissionFlagType.WORKFLOWS),
-)
+  },
+  requiredPermissionFlags: [PermissionFlagType.WORKFLOWS],
+};
+
+@CoreResolver()
+@UsePipes(ResolverValidationPipe)
 @UseFilters(
   WorkflowQueryValidationGraphqlApiExceptionFilter,
   PermissionsGraphqlApiExceptionFilter,
@@ -76,6 +96,7 @@ export class CoreWorkflowResolver {
     private readonly coreWorkflowListService: CoreWorkflowListService,
     private readonly coreWorkflowMutationWorkspaceService: CoreWorkflowMutationWorkspaceService,
     private readonly coreWorkflowVersionListService: CoreWorkflowVersionListService,
+    private readonly coreWorkflowRunInsightsService: CoreWorkflowRunInsightsService,
   ) {}
 
   private assertWorkflowActorOrThrow(principal: {
@@ -94,78 +115,48 @@ export class CoreWorkflowResolver {
   }
 
   @Mutation(() => CoreWorkflowDTO, { nullable: true })
-  @UseGuards(
-    AuthPrincipalGuard({
-      userSession: {
-        standard: true,
-        impersonated: true,
-        playground: true,
-        workspaceAgnostic: false,
-      },
-      apiKey: false,
-      oauthClient: true,
-      application: false,
-    }),
-  )
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_WRITE_ACCESS_POLICY))
   async updateCoreWorkflow(
     @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
-    @Args('input') input: UpdateCoreWorkflowInput,
+    @Args('input')
+    { coreWorkflowId, name, isPrivate, visibility }: UpdateCoreWorkflowInput,
   ): Promise<CoreWorkflowDTO | null> {
     await this.coreWorkflowMutationWorkspaceService.updateWorkflow({
       workspaceId,
       userWorkspaceId,
-      ...input,
+      coreWorkflowId,
+      name,
+      isPrivate: resolveCoreWorkflowIsPrivateFromInput({
+        isPrivate,
+        visibility,
+      }),
     });
 
     return this.coreWorkflowListService.findOneById({
       workspaceId,
       userWorkspaceId,
-      coreWorkflowId: input.coreWorkflowId,
+      callerApplication: undefined,
+      coreWorkflowId,
     });
   }
 
-  @Mutation(() => CoreWorkflowDTO, { nullable: true })
-  @UseGuards(
-    AuthPrincipalGuard({
-      userSession: {
-        standard: true,
-        impersonated: true,
-        playground: true,
-        workspaceAgnostic: false,
-      },
-      apiKey: false,
-      oauthClient: true,
-      application: false,
-    }),
-  )
+  @Mutation(() => CoreWorkflowDTO, {
+    nullable: true,
+    deprecationReason: 'Use updateCoreWorkflow with isPrivate instead',
+  })
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_WRITE_ACCESS_POLICY))
   async updateCoreWorkflowVisibility(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace() workspace: WorkspaceEntity,
     @AuthUserWorkspaceId() userWorkspaceId: string,
     @Args('input') input: UpdateCoreWorkflowVisibilityInput,
   ): Promise<CoreWorkflowDTO | null> {
-    return this.coreWorkflowMutationWorkspaceService.updateWorkflowVisibility({
-      workspaceId,
-      userWorkspaceId,
-      ...input,
-    });
+    return this.updateCoreWorkflow(workspace, userWorkspaceId, input);
   }
 
   @Mutation(() => CoreWorkflowDTO)
-  @UseGuards(
-    AuthPrincipalGuard({
-      userSession: {
-        standard: true,
-        impersonated: true,
-        playground: true,
-        workspaceAgnostic: false,
-      },
-      apiKey: false,
-      oauthClient: true,
-      application: false,
-    }),
-  )
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_WRITE_ACCESS_POLICY))
   async duplicateCoreWorkflow(
     @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
     @AuthWorkspaceMember() workspaceMember:
@@ -192,19 +183,7 @@ export class CoreWorkflowResolver {
   }
 
   @Mutation(() => CoreWorkflowDTO)
-  @UseGuards(
-    AuthPrincipalGuard({
-      userSession: {
-        standard: true,
-        impersonated: true,
-        playground: true,
-        workspaceAgnostic: false,
-      },
-      apiKey: false,
-      oauthClient: true,
-      application: false,
-    }),
-  )
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_WRITE_ACCESS_POLICY))
   async createCoreWorkflow(
     @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
     @AuthWorkspaceMember() workspaceMember:
@@ -214,31 +193,23 @@ export class CoreWorkflowResolver {
     application: FlatApplication | undefined,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
-    @Args('input') input: CreateCoreWorkflowInput,
+    @Args('input') { name, isPrivate, visibility }: CreateCoreWorkflowInput,
   ): Promise<CoreWorkflowDTO> {
     this.assertWorkflowActorOrThrow({ workspaceMember, application });
 
     return this.coreWorkflowMutationWorkspaceService.createWorkflow({
       workspaceId,
       userWorkspaceId,
-      ...input,
+      name,
+      isPrivate: resolveCoreWorkflowIsPrivateFromInput({
+        isPrivate,
+        visibility,
+      }),
     });
   }
 
   @Mutation(() => [DeletedCoreWorkflowDTO])
-  @UseGuards(
-    AuthPrincipalGuard({
-      userSession: {
-        standard: true,
-        impersonated: true,
-        playground: true,
-        workspaceAgnostic: false,
-      },
-      apiKey: false,
-      oauthClient: true,
-      application: false,
-    }),
-  )
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_WRITE_ACCESS_POLICY))
   async deleteCoreWorkflows(
     @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
@@ -253,19 +224,7 @@ export class CoreWorkflowResolver {
   }
 
   @Mutation(() => CoreWorkflowDTO, { nullable: true })
-  @UseGuards(
-    AuthPrincipalGuard({
-      userSession: {
-        standard: true,
-        impersonated: true,
-        playground: true,
-        workspaceAgnostic: false,
-      },
-      apiKey: false,
-      oauthClient: true,
-      application: false,
-    }),
-  )
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_WRITE_ACCESS_POLICY))
   async discardCoreWorkflowDraft(
     @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
@@ -286,120 +245,198 @@ export class CoreWorkflowResolver {
     return this.coreWorkflowListService.findOneById({
       workspaceId,
       userWorkspaceId,
+      callerApplication: undefined,
       coreWorkflowId,
     });
   }
 
   @Query(() => CoreWorkflowConnectionDTO)
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflows(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() coreWorkflowsArgs: CoreWorkflowsArgs,
   ): Promise<CoreWorkflowConnectionDTO> {
     return this.coreWorkflowListService.findManyByWorkspaceId({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       ...coreWorkflowsArgs,
     });
   }
 
   @Query(() => CoreWorkflowDTO, { nullable: true })
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflowById(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() { coreWorkflowId }: CoreWorkflowByIdArgs,
   ): Promise<CoreWorkflowDTO | null> {
     return this.coreWorkflowListService.findOneById({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       coreWorkflowId,
     });
   }
 
-  @Query(() => [CoreWorkflowWithCurrentVersionDTO])
-  async coreWorkflowsWithCurrentVersions(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+  @Query(() => CoreWorkflowRunInsightsDTO, { nullable: true })
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
+  async coreWorkflowRunInsights(
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
+    @Args() { coreWorkflowId, timeZone }: CoreWorkflowRunInsightsArgs,
+  ): Promise<CoreWorkflowRunInsightsDTO | null> {
+    const coreWorkflow = await this.coreWorkflowListService.findOneById({
+      workspaceId,
+      userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
+      coreWorkflowId,
+    });
+
+    if (!isDefined(coreWorkflow)) {
+      return null;
+    }
+
+    return this.coreWorkflowRunInsightsService.findOneByCoreWorkflowId({
+      coreWorkflowId: coreWorkflow.id,
+      timeZone,
+    });
+  }
+
+  @Query(() => [CoreWorkflowWithCurrentVersionDTO])
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
+  async coreWorkflowsWithCurrentVersions(
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
+    @AuthUserWorkspaceId({ allowUndefined: true })
+    userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args('input') { coreWorkflowIds }: CoreWorkflowsWithCurrentVersionsInput,
   ): Promise<CoreWorkflowWithCurrentVersionDTO[]> {
     return this.coreWorkflowListService.findManyWithCurrentVersions({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       coreWorkflowIds,
     });
   }
 
   @Query(() => CoreWorkflowDTO, { nullable: true })
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflow(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() { workspaceWorkflowId }: CoreWorkflowArgs,
   ): Promise<CoreWorkflowDTO | null> {
     return this.coreWorkflowListService.findOneByWorkspaceWorkflowId({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       workspaceWorkflowId,
     });
   }
 
   @Query(() => [CoreWorkflowVersionDTO])
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflowVersions(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() { workspaceWorkflowId }: CoreWorkflowVersionsArgs,
   ): Promise<CoreWorkflowVersionDTO[]> {
     return this.coreWorkflowVersionListService.findManyByWorkspaceWorkflowId({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       workspaceWorkflowId,
     });
   }
 
   @Query(() => CoreWorkflowVersionDTO, { nullable: true })
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflowVersion(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() { workspaceWorkflowVersionId }: CoreWorkflowVersionArgs,
   ): Promise<CoreWorkflowVersionDTO | null> {
     return this.coreWorkflowVersionListService.findOneByWorkspaceWorkflowVersionId(
       {
         workspaceId,
         userWorkspaceId,
+        callerApplication,
+        workspaceCustomApplicationId,
         workspaceWorkflowVersionId,
       },
     );
   }
 
   @Query(() => [CoreWorkflowVersionDTO])
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflowVersionsByCoreWorkflowId(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() { coreWorkflowId }: CoreWorkflowVersionsByCoreWorkflowIdArgs,
   ): Promise<CoreWorkflowVersionDTO[]> {
     return this.coreWorkflowVersionListService.findManyByCoreWorkflowId({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       coreWorkflowId,
     });
   }
 
   @Query(() => CoreWorkflowVersionDTO, { nullable: true })
+  @UseGuards(AccessPolicyGuard(CORE_WORKFLOW_READ_ACCESS_POLICY))
   async coreWorkflowVersionById(
-    @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @AuthWorkspace()
+    { id: workspaceId, workspaceCustomApplicationId }: WorkspaceEntity,
     @AuthUserWorkspaceId({ allowUndefined: true })
     userWorkspaceId: string | undefined,
+    @AuthApplication({ allowUndefined: true })
+    callerApplication: FlatApplication | undefined,
     @Args() { coreWorkflowVersionId }: CoreWorkflowVersionByIdArgs,
   ): Promise<CoreWorkflowVersionDTO | null> {
     return this.coreWorkflowVersionListService.findOneByCoreWorkflowVersionId({
       workspaceId,
       userWorkspaceId,
+      callerApplication,
+      workspaceCustomApplicationId,
       coreWorkflowVersionId,
     });
   }

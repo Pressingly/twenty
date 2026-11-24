@@ -5,6 +5,7 @@ export const TWENTY_STANDARD_ALL_METADATA_NAME = [
   'searchFieldMetadata',
   'objectMetadata',
   'fieldMetadata',
+  'fieldMetadataOption',
   'viewField',
   'viewFieldGroup',
   'viewFilter',
@@ -21,4 +22,5 @@ export const TWENTY_STANDARD_ALL_METADATA_NAME = [
   'commandMenuItem',
   'timelineActivityType',
   'agentChatChannel',
+  'relatedRecordPath',
 ] as const satisfies AllMetadataName[];

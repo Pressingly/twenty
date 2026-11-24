@@ -48,32 +48,6 @@ const sdkFrontComponentIndex = path.resolve(
   '../../../twenty-sdk/dist/front-component/index.mjs',
 );
 
-const twentySharedIndividualDir = path.resolve(
-  dirname,
-  '../../../twenty-shared/dist/individual',
-);
-
-const TWENTY_SHARED_SUBMODULES = [
-  'ai',
-  'application',
-  'constants',
-  'database-events',
-  'metadata',
-  'testing',
-  'translations',
-  'types',
-  'utils',
-  'workflow',
-  'workspace',
-];
-
-const twentySharedAliases = Object.fromEntries(
-  TWENTY_SHARED_SUBMODULES.map((submodule) => [
-    `twenty-shared/${submodule}`,
-    path.join(twentySharedIndividualDir, submodule, 'index.js'),
-  ]),
-);
-
 const twentyUiSubmodules = Object.keys(twentyUiPackageJson.exports)
   .filter((subpath) => subpath !== '.' && !subpath.endsWith('.css'))
   .map((subpath) => subpath.slice(2));
@@ -95,7 +69,6 @@ const storyAlias = {
   'twenty-sdk/define': sdkDefineIndex,
   'twenty-sdk/front-component': sdkFrontComponentIndex,
   ...twentyUiAliases,
-  ...twentySharedAliases,
 };
 
 const ENTRY_POINT_PATTERN = /\.front-component\.tsx$/;
@@ -179,12 +152,37 @@ const collectBundleSizes = (): BundleSizeEntry[] =>
     };
   });
 
+// esbuild memory grows with entries x import graph and is only released when its service stops
+const ENTRY_POINT_BATCH_SIZE = 16;
+
+const buildInBatches = async (
+  entryPoints: Record<string, string>,
+  options: esbuild.BuildOptions,
+): Promise<void> => {
+  const entryPointList = Object.entries(entryPoints);
+
+  for (
+    let batchStart = 0;
+    batchStart < entryPointList.length;
+    batchStart += ENTRY_POINT_BATCH_SIZE
+  ) {
+    const batchEntryPoints = Object.fromEntries(
+      entryPointList.slice(batchStart, batchStart + ENTRY_POINT_BATCH_SIZE),
+    );
+
+    try {
+      await esbuild.build({ ...options, entryPoints: batchEntryPoints });
+    } finally {
+      await esbuild.stop();
+    }
+  }
+};
+
 const buildSourceExamples = async (): Promise<void> => {
   const entryPoints = resolveEntryPoints();
   const tsconfigPath = path.join(dirname, '../../tsconfig.json');
 
   const commonOptions: esbuild.BuildOptions = {
-    entryPoints,
     bundle: true,
     splitting: false,
     format: 'esm',
@@ -200,7 +198,7 @@ const buildSourceExamples = async (): Promise<void> => {
 
   fs.mkdirSync(exampleSourcesBuiltDir, { recursive: true });
 
-  await esbuild.build({
+  await buildInBatches(entryPoints, {
     ...commonOptions,
     outdir: exampleSourcesBuiltDir,
     plugins: getFrontComponentBuildPlugins(),
@@ -212,7 +210,7 @@ const buildSourceExamples = async (): Promise<void> => {
 
   fs.mkdirSync(exampleSourcesBuiltPreactDir, { recursive: true });
 
-  await esbuild.build({
+  await buildInBatches(entryPoints, {
     ...commonOptions,
     outdir: exampleSourcesBuiltPreactDir,
     plugins: getFrontComponentBuildPlugins({ usePreact: true }),

@@ -1,17 +1,19 @@
 import { type NavigationMenuItemAddStep } from '@/navigation-menu-item/edit/types/NavigationMenuItemAddStep';
 import { useQuery } from '@apollo/client/react';
 import { useLingui } from '@lingui/react/macro';
-import { NavigationMenuItemType } from 'twenty-shared/types';
+import { NavigationMenuItemType, NATIVE_PAGE_KEYS } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 import { TintedIconTile } from 'twenty-ui/components/data-display';
 import {
   IconBox,
+  IconCompass,
   IconFolder,
   IconLink,
   IconPerspective,
+  IconSettingsAutomation,
   IconTable,
-  useIcons,
 } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 import { Avatar } from 'twenty-ui/primitives/data-display';
 import { useTheme } from 'twenty-ui/theme';
 import {
@@ -22,9 +24,13 @@ import {
 import { DEFAULT_NAVIGATION_MENU_ITEM_COLOR_FOLDER } from '@/navigation-menu-item/common/constants/NavigationMenuItemDefaultColorFolder';
 import { DEFAULT_NAVIGATION_MENU_ITEM_COLOR_LINK } from '@/navigation-menu-item/common/constants/NavigationMenuItemDefaultColorLink';
 import { navigationMenuItemsSelector } from '@/navigation-menu-item/common/states/navigationMenuItemsSelector';
+import { getNavigationMenuItemColor } from '@/navigation-menu-item/common/utils/getNavigationMenuItemColor';
 import { NavigationMenuItemIcon } from '@/navigation-menu-item/display/components/NavigationMenuItemIcon';
+import { NATIVE_PAGE_NAVIGATION_MENU_ITEM_CONFIGS } from '@/navigation-menu-item/display/native-page/constants/NativePageNavigationMenuItemConfigs';
+import { hasNativePagePermission } from '@/navigation-menu-item/display/native-page/utils/hasNativePagePermission';
 import { type NavigationMenuItemOption } from '@/navigation-menu-item/edit/types/NavigationMenuItemOption';
 import { type NewNavigationMenuItemInput } from '@/navigation-menu-item/edit/hooks/useNavigationMenuItemEditController';
+import { useNavigationMenuItemAutomationOptions } from '@/navigation-menu-item/edit/hooks/useNavigationMenuItemAutomationOptions';
 import { useNavigationMenuItemSearchRecords } from '@/navigation-menu-item/edit/hooks/useNavigationMenuItemSearchRecords';
 import { useNavigationMenuObjectMetadataForSection } from '@/navigation-menu-item/edit/hooks/useNavigationMenuObjectMetadataForSection';
 import { getAvailableObjectMetadataForNewSidebarItem } from '@/navigation-menu-item/edit/utils/getAvailableObjectMetadataForNewSidebarItem';
@@ -35,6 +41,7 @@ import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadat
 import { getAvatarShape } from '@/object-metadata/utils/getAvatarShape';
 import { getObjectColorWithFallback } from '@/object-metadata/utils/getObjectColorWithFallback';
 import { ColoredIcon } from '@/ui/icon/components/ColoredIcon';
+import { permissionFlagMapSelector } from '@/settings/roles/states/permissionFlagMapSelector';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { ViewKey } from '@/views/types/ViewKey';
 import { getAbsoluteImageUrl } from '~/utils/image/getAbsoluteImageUrl';
@@ -43,8 +50,9 @@ type UseNavigationMenuItemAddOptionsParams = {
   step: NavigationMenuItemAddStep;
   search: string;
   objectId: string | null;
-  folderId?: string;
+  parentId?: string;
   currentItems: NavigationMenuItem[];
+  hiddenItems: NavigationMenuItem[];
   isSearchingAllItems: boolean;
   addItem: (input: NewNavigationMenuItemInput) => void;
   navigateToStep: (step: NavigationMenuItemAddStep) => void;
@@ -55,8 +63,9 @@ export const useNavigationMenuItemAddOptions = ({
   step,
   search,
   objectId,
-  folderId,
+  parentId,
   currentItems,
+  hiddenItems,
   isSearchingAllItems,
   addItem,
   navigateToStep,
@@ -64,6 +73,9 @@ export const useNavigationMenuItemAddOptions = ({
 }: UseNavigationMenuItemAddOptionsParams) => {
   const { t } = useLingui();
   const theme = useTheme();
+  const isParentFolder =
+    currentItems.find((item) => item.id === parentId)?.type ===
+    NavigationMenuItemType.FOLDER;
   const { getIcon } = useIcons();
 
   const {
@@ -75,6 +87,7 @@ export const useNavigationMenuItemAddOptions = ({
   });
 
   const navigationMenuItems = useAtomStateValue(navigationMenuItemsSelector);
+  const permissionFlagMap = useAtomStateValue(permissionFlagMapSelector);
   const { objectMetadataItems } = useObjectMetadataItems();
   const { activeNonSystemObjectMetadataItems } =
     useFilteredObjectMetadataItems();
@@ -83,7 +96,10 @@ export const useNavigationMenuItemAddOptions = ({
     objectMetadataIdsWithIndexView,
     objectMetadataIdsAlreadyAdded,
     viewIdsAlreadyAdded,
-  } = useNavigationMenuObjectMetadataForSection(currentItems);
+  } = useNavigationMenuObjectMetadataForSection([
+    ...currentItems,
+    ...hiddenItems,
+  ]);
   const {
     navigationMenuItemSearchRecords,
     recordSearchLoading,
@@ -108,6 +124,13 @@ export const useNavigationMenuItemAddOptions = ({
         .map((view) => view.objectMetadataId),
     ),
   });
+  const { hasAutomationAccess, automationItemGroups, automationLoading } =
+    useNavigationMenuItemAutomationOptions({
+      search,
+      skip: step !== 'automation' && !isSearchingAllItems,
+      currentItems,
+      addItem,
+    });
 
   const getItems = (
     targetStep: NavigationMenuItemAddStep = step,
@@ -137,14 +160,29 @@ export const useNavigationMenuItemAddOptions = ({
           onClick: () => navigateToStep('record'),
           hasSubMenu: true,
         },
+        ...(hasAutomationAccess
+          ? [
+              {
+                id: 'automation',
+                label: t`Automations`,
+                icon: (
+                  <TintedIconTile
+                    icon={<IconSettingsAutomation size={theme.icon.size.md} />}
+                  />
+                ),
+                onClick: () => navigateToStep('automation'),
+                hasSubMenu: true,
+              },
+            ]
+          : []),
         {
           id: 'folder',
           label: t`Folder`,
-          contextualText: isDefined(folderId)
+          contextualText: isParentFolder
             ? t`Cannot nest folders into folders`
             : undefined,
-          Icon: isDefined(folderId) ? IconFolder : undefined,
-          icon: isDefined(folderId) ? undefined : (
+          Icon: isParentFolder ? IconFolder : undefined,
+          icon: isParentFolder ? undefined : (
             <ColoredIcon
               Icon={IconFolder}
               color={DEFAULT_NAVIGATION_MENU_ITEM_COLOR_FOLDER}
@@ -157,7 +195,7 @@ export const useNavigationMenuItemAddOptions = ({
               color: DEFAULT_NAVIGATION_MENU_ITEM_COLOR_FOLDER,
             });
           },
-          isDisabled: isDefined(folderId),
+          isDisabled: isParentFolder,
         },
         {
           id: 'link',
@@ -188,7 +226,53 @@ export const useNavigationMenuItemAddOptions = ({
           onClick: () => navigateToStep('page'),
           hasSubMenu: true,
         },
+        {
+          id: 'nativePage',
+          label: t`Native page`,
+          icon: (
+            <TintedIconTile icon={<IconCompass size={theme.icon.size.md} />} />
+          ),
+          onClick: () => navigateToStep('nativePage'),
+          hasSubMenu: true,
+        },
       ];
+    }
+    if (targetStep === 'nativePage') {
+      const nativePageKeysAlreadyAdded = new Set(
+        currentItems.map((item) => item.nativePageKey),
+      );
+
+      return NATIVE_PAGE_KEYS.filter((nativePageKey) =>
+        hasNativePagePermission({
+          item: { nativePageKey },
+          permissionFlagMap,
+        }),
+      ).map((nativePageKey) => {
+        const { label, Icon } =
+          NATIVE_PAGE_NAVIGATION_MENU_ITEM_CONFIGS[nativePageKey];
+        const isAlreadyInSidebar =
+          nativePageKeysAlreadyAdded.has(nativePageKey);
+
+        return {
+          id: nativePageKey,
+          label: t(label),
+          icon: (
+            <ColoredIcon
+              Icon={Icon}
+              color={getNavigationMenuItemColor({
+                type: NavigationMenuItemType.NATIVE_PAGE,
+              })}
+            />
+          ),
+          isDisabled: isAlreadyInSidebar,
+          isAlreadyInSidebar,
+          onClick: () =>
+            addItem({
+              type: NavigationMenuItemType.NATIVE_PAGE,
+              nativePageKey,
+            }),
+        };
+      });
     }
     if (
       targetStep === 'object' ||
@@ -322,6 +406,9 @@ export const useNavigationMenuItemAddOptions = ({
             firstPage.label.localeCompare(secondPage.label),
         );
     }
+    if (targetStep === 'automation') {
+      return automationItemGroups.flatMap((group) => group.items);
+    }
     if (targetStep === 'record') {
       return navigationMenuItemSearchRecords.flatMap((record) => {
         const object = objectMetadataItems.find(
@@ -365,6 +452,8 @@ export const useNavigationMenuItemAddOptions = ({
 
   return {
     getItems,
+    automationItemGroups,
+    automationLoading,
     standalonePagesLoading,
     standalonePagesError,
     recordSearchLoading,

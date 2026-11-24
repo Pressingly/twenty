@@ -26,12 +26,12 @@ import { ROLE_TARGET_FOREIGN_KEY_PROPERTIES } from 'src/engine/metadata-modules/
 import { type FlatRoleTarget } from 'src/engine/metadata-modules/flat-role-target/types/flat-role-target.type';
 import { fromFlatFieldPermissionToFieldPermissionDto } from 'src/engine/metadata-modules/object-permission/utils/from-flat-field-permission-to-field-permission-dto.util';
 import { fromFlatObjectPermissionToObjectPermissionDto } from 'src/engine/metadata-modules/object-permission/utils/from-flat-object-permission-to-object-permission-dto.util';
-import { MEMBER_ROLE_LABEL } from 'src/engine/metadata-modules/permissions/constants/member-role-label.constants';
+import { MEMBER_ROLE_LABEL } from 'src/engine/permissions/role/constants/member-role-label.constants';
 import {
   PermissionsException,
   PermissionsExceptionCode,
   PermissionsExceptionMessage,
-} from 'src/engine/metadata-modules/permissions/permissions.exception';
+} from 'src/engine/permissions/permissions.exception';
 import { type CreateRoleInput } from 'src/engine/metadata-modules/role/dtos/create-role.input';
 import { RoleDTO } from 'src/engine/metadata-modules/role/dtos/role.dto';
 import { type UpdateRoleInput } from 'src/engine/metadata-modules/role/dtos/update-role.input';
@@ -66,7 +66,9 @@ export class RoleService {
       );
 
     return this.findManyWithRelationsFromCache(
-      Object.values(flatRoleMaps.byUniversalIdentifier).filter(isDefined),
+      Object.values(flatRoleMaps.byUniversalIdentifier)
+        .filter(isDefined)
+        .filter((flatRole) => !flatRole.isSystemSideEffect),
       workspaceId,
     );
   }
@@ -93,8 +95,17 @@ export class RoleService {
         },
       );
 
+    const { workspaceCustomFlatApplication } =
+      await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
+        { workspaceId },
+      );
+
     return flatRoles.map((flatRole) => {
       const roleDto = fromFlatRoleToRoleDto(flatRole);
+
+      roleDto.isEditable =
+        flatRole.isEditable &&
+        flatRole.applicationId === workspaceCustomFlatApplication.id;
 
       roleDto.permissionFlags = findManyFlatEntityByIdInFlatEntityMaps({
         flatEntityIds: flatRole.rolePermissionFlagIds,
@@ -114,7 +125,22 @@ export class RoleService {
       roleDto.fieldPermissions = findManyFlatEntityByIdInFlatEntityMaps({
         flatEntityIds: flatRole.fieldPermissionIds,
         flatEntityMaps: flatFieldPermissionMaps,
-      }).map(fromFlatFieldPermissionToFieldPermissionDto);
+      })
+        .filter(
+          ({ rowLevelPermissionPredicateGroupId }) =>
+            !isDefined(rowLevelPermissionPredicateGroupId),
+        )
+        .map(fromFlatFieldPermissionToFieldPermissionDto);
+
+      roleDto.rowLevelPermissionFieldPermissions =
+        findManyFlatEntityByIdInFlatEntityMaps({
+          flatEntityIds: flatRole.fieldPermissionIds,
+          flatEntityMaps: flatFieldPermissionMaps,
+        })
+          .filter(({ rowLevelPermissionPredicateGroupId }) =>
+            isDefined(rowLevelPermissionPredicateGroupId),
+          )
+          .map(fromFlatFieldPermissionToFieldPermissionDto);
 
       return roleDto;
     });
@@ -364,11 +390,16 @@ export class RoleService {
     const resolvedOwnerFlatApplication =
       ownerFlatApplication ?? workspaceCustomFlatApplication;
 
-    const { flatRoleMaps, flatRoleTargetMaps, flatAgentMaps } =
+    const { flatRoleMaps, flatRoleTargetMaps, flatAgentMaps, flatWebhookMaps } =
       await this.flatEntityMapsCacheService.getOrRecomputeManyOrAllFlatEntityMaps(
         {
           workspaceId,
-          flatMapsKeys: ['flatRoleMaps', 'flatRoleTargetMaps', 'flatAgentMaps'],
+          flatMapsKeys: [
+            'flatRoleMaps',
+            'flatRoleTargetMaps',
+            'flatAgentMaps',
+            'flatWebhookMaps',
+          ],
         },
       );
 
@@ -425,6 +456,7 @@ export class RoleService {
         flatRoleTargetMaps,
         flatRoleMaps,
         flatAgentMaps,
+        flatWebhookMaps,
       });
 
     const validateAndBuildResult =
@@ -519,13 +551,14 @@ export class RoleService {
         workspaceCustomFlatApplication,
       }));
 
-    if (workspaceCustomFlatApplication.defaultRoleId === roleId) {
+    if (workspaceCustomFlatApplication.requestedRoleId === roleId) {
       return;
     }
 
     await this.applicationService.update(workspaceCustomFlatApplication.id, {
       workspaceId,
       defaultRoleId: roleId,
+      requestedRoleId: roleId,
     });
   }
 
@@ -604,6 +637,7 @@ export class RoleService {
     flatRoleTargetMaps,
     flatRoleMaps,
     flatAgentMaps,
+    flatWebhookMaps,
   }: {
     roleIds: string[];
     defaultRoleId: string;
@@ -611,7 +645,7 @@ export class RoleService {
     workspaceCustomFlatApplication: FlatApplication;
   } & Pick<
     AllFlatEntityMaps,
-    'flatRoleTargetMaps' | 'flatRoleMaps' | 'flatAgentMaps'
+    'flatRoleTargetMaps' | 'flatRoleMaps' | 'flatAgentMaps' | 'flatWebhookMaps'
   >): Promise<{
     flatRoleTargetsToCreate: FlatRoleTarget[];
     flatRoleTargetsToDelete: FlatRoleTarget[];
@@ -631,8 +665,9 @@ export class RoleService {
         isDefined(flatRoleTarget) && roleIds.includes(flatRoleTarget.roleId),
     );
 
-    const flatRoleTargetsToCreate = flatRoleTargetsToDelete.flatMap(
-      (flatRoleTarget) =>
+    const flatRoleTargetsToCreate = flatRoleTargetsToDelete
+      .filter(({ isSystemSideEffect }) => !isSystemSideEffect)
+      .flatMap((flatRoleTarget) =>
         ROLE_TARGET_FOREIGN_KEY_PROPERTIES.flatMap(
           (targetMetadataForeignKey) => {
             const targetId = flatRoleTarget[targetMetadataForeignKey];
@@ -656,12 +691,13 @@ export class RoleService {
                 flatRoleTargetMaps,
                 flatRoleMaps,
                 flatAgentMaps,
+                flatWebhookMaps,
                 flatApplication: workspaceCustomFlatApplication,
               }).flatRoleTargetToCreate,
             ];
           },
         ),
-    );
+      );
 
     return { flatRoleTargetsToCreate, flatRoleTargetsToDelete };
   }

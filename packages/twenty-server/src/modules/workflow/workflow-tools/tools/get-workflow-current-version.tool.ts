@@ -21,13 +21,20 @@ type GetWorkflowCurrentVersionInput = z.infer<
 >;
 
 export const createGetWorkflowCurrentVersionTool = (
-  deps: Pick<
-    WorkflowToolDependencies,
-    'coreWorkflowListService' | 'coreWorkflowVersionListService'
-  >,
+  deps: {
+    coreWorkflowListService: Pick<
+      WorkflowToolDependencies['coreWorkflowListService'],
+      'findOneById'
+    >;
+    coreWorkflowVersionListService: Pick<
+      WorkflowToolDependencies['coreWorkflowVersionListService'],
+      'findManyByCoreWorkflowId' | 'findOneByCoreWorkflowVersionId'
+    >;
+  },
   context: WorkflowToolContext,
 ) => ({
   name: 'get_workflow_current_version' as const,
+  isReadOnly: true,
   description:
     'Get the current version of a workflow. Returns the draft version if one exists, otherwise the last published version. Returns a core workflow version ID (coreWorkflowVersionId), which the editing tools expect.',
   inputSchema: getWorkflowCurrentVersionSchema,
@@ -39,6 +46,7 @@ export const createGetWorkflowCurrentVersionTool = (
       const coreWorkflow = await deps.coreWorkflowListService.findOneById({
         workspaceId,
         userWorkspaceId: context.userWorkspaceId,
+        callerApplication: undefined,
         coreWorkflowId,
       });
 
@@ -53,6 +61,7 @@ export const createGetWorkflowCurrentVersionTool = (
         await deps.coreWorkflowVersionListService.findManyByCoreWorkflowId({
           workspaceId,
           userWorkspaceId: context.userWorkspaceId,
+          callerApplication: undefined,
           coreWorkflowId,
         });
 
@@ -79,6 +88,7 @@ export const createGetWorkflowCurrentVersionTool = (
           {
             workspaceId,
             userWorkspaceId: context.userWorkspaceId,
+            callerApplication: undefined,
             coreWorkflowVersionId: currentVersion.id,
           },
         );

@@ -1,7 +1,8 @@
 import { isDefined } from 'twenty-shared/utils';
 
+import { resolveApplicationGrantRoleId } from 'src/engine/core-modules/application/application-grant-role/utils/resolve-application-grant-role-id.util';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
-import { type WorkflowRunWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow-run.workspace-entity';
+import { type FlatRoleTarget } from 'src/engine/metadata-modules/flat-role-target/types/flat-role-target.type';
 import {
   WorkflowStepExecutorException,
   WorkflowStepExecutorExceptionCode,
@@ -10,21 +11,23 @@ import {
 export const resolveWorkflowRunApplicationOrThrow = <
   TApplication extends Pick<
     FlatApplication,
-    'name' | 'deletedAt' | 'defaultRoleId'
+    'id' | 'name' | 'deletedAt' | 'requestedRoleId' | 'sourceType'
   >,
 >({
-  workflowRun,
+  applicationId,
   applicationsById,
+  workspaceId,
+  workspaceCustomApplicationId,
+  flatRoleTargetByApplicationIdMaps,
 }: {
-  workflowRun: Pick<WorkflowRunWorkspaceEntity, 'createdBy'>;
+  applicationId: string;
   applicationsById: Partial<Record<string, TApplication>>;
-}): TApplication | null => {
-  const applicationId = workflowRun.createdBy.context?.applicationId;
-
-  if (!isDefined(applicationId)) {
-    return null;
-  }
-
+  workspaceId: string;
+  workspaceCustomApplicationId: string;
+  flatRoleTargetByApplicationIdMaps: Partial<
+    Record<string, Pick<FlatRoleTarget, 'roleId'>>
+  >;
+}): TApplication => {
   const application = applicationsById[applicationId];
 
   if (!isDefined(application) || isDefined(application.deletedAt)) {
@@ -34,7 +37,14 @@ export const resolveWorkflowRunApplicationOrThrow = <
     );
   }
 
-  if (!isDefined(application.defaultRoleId)) {
+  const grantRoleId = resolveApplicationGrantRoleId({
+    flatApplication: application,
+    workspaceId,
+    workspaceCustomApplicationId,
+    flatRoleTargetByApplicationIdMaps,
+  });
+
+  if (!isDefined(grantRoleId)) {
     throw new WorkflowStepExecutorException(
       `Application "${application.name}" has no role, so its workflow steps cannot run`,
       WorkflowStepExecutorExceptionCode.FORBIDDEN,

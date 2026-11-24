@@ -3,7 +3,7 @@ import {
   getRoleManifestGrantsNotCoveredBy,
   type ObjectManifest,
   type PermissionFlagManifest,
-  type RoleManifest,
+  type LegacyCompliantRoleManifest,
   type RoleManifestGrant,
 } from 'twenty-shared/application';
 import { SystemPermissionFlag } from 'twenty-shared/constants';
@@ -132,25 +132,12 @@ const groupAgentNamesByRoleUniversalIdentifier = ({
   return agentNamesByRoleUniversalIdentifier;
 };
 
-const validateApplicationDefaultRoleIsDefined = ({
-  applicationRole,
-  defaultRoleUniversalIdentifier,
-}: {
-  applicationRole: RoleManifest | undefined;
-  defaultRoleUniversalIdentifier: string;
-}): string[] =>
-  isDefined(applicationRole)
-    ? []
-    : [
-        `Application default role "${defaultRoleUniversalIdentifier}" is not defined by this application.`,
-      ];
-
 const validateAgentRolesAreDefined = ({
   agentNamesByRoleUniversalIdentifier,
   roles,
 }: {
   agentNamesByRoleUniversalIdentifier: AgentNamesByRoleUniversalIdentifier;
-  roles: RoleManifest[];
+  roles: LegacyCompliantRoleManifest[];
 }): string[] =>
   [...agentNamesByRoleUniversalIdentifier]
     .filter(
@@ -173,8 +160,8 @@ const validateAgentRolesAreCoveredByApplicationRole = ({
   systemPermissionFlagNameByUniversalIdentifier,
 }: {
   agentNamesByRoleUniversalIdentifier: AgentNamesByRoleUniversalIdentifier;
-  applicationRole: RoleManifest;
-  roles: RoleManifest[];
+  applicationRole: LegacyCompliantRoleManifest;
+  roles: LegacyCompliantRoleManifest[];
   objects: ObjectDescriptor[];
   permissionFlags: PermissionFlagDescriptor[];
   systemPermissionFlagNameByUniversalIdentifier: Map<string, string>;
@@ -230,7 +217,7 @@ export const validateAgentRolesWithinApplicationRole = ({
   systemPermissionFlag = SystemPermissionFlag,
 }: {
   agents: AgentManifest[];
-  roles: RoleManifest[];
+  roles: LegacyCompliantRoleManifest[];
   objects: ObjectDescriptor[];
   permissionFlags: PermissionFlagDescriptor[];
   defaultRoleUniversalIdentifier: string;
@@ -246,10 +233,6 @@ export const validateAgentRolesWithinApplicationRole = ({
     });
 
   return [
-    ...validateApplicationDefaultRoleIsDefined({
-      applicationRole,
-      defaultRoleUniversalIdentifier,
-    }),
     ...validateAgentRolesAreDefined({
       agentNamesByRoleUniversalIdentifier,
       roles,

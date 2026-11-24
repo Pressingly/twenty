@@ -10,7 +10,7 @@ import { RegisteredWorkspaceCommand } from 'src/engine/core-modules/upgrade/deco
 import { WorkspaceOrmManager } from 'src/engine/twenty-orm/workspace-orm.manager';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
-import { type WorkflowWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow.workspace-entity';
+import { type LegacyWorkflowWorkspaceEntity } from 'src/database/commands/upgrade-version-command/2-23/types/legacy-workflow-workspace-entity.type';
 
 // Full rebuild of the core workflow rows for a workspace once
 // coreWorkflowId is provisioned. Per workspace, in one transaction:
@@ -46,16 +46,14 @@ export class BackfillWorkflowCoreLinksCommand extends ProvisionedWorkspaceComman
       return;
     }
 
-    let workspaceWorkflows: WorkflowWorkspaceEntity[];
+    let workspaceWorkflows: LegacyWorkflowWorkspaceEntity[];
 
     try {
       workspaceWorkflows =
         await this.workspaceOrmManager.executeInWorkspaceContext(
           async () => {
             const workflowRepository =
-              this.workspaceOrmManager.getRepository<WorkflowWorkspaceEntity>('workflow',
-                { shouldBypassPermissionChecks: true },
-              );
+              this.workspaceOrmManager.getRepositoryWithoutPermissionChecks<LegacyWorkflowWorkspaceEntity>('workflow');
 
             return workflowRepository.find();
           },

@@ -1,3 +1,4 @@
+import { ApplicationSourceService } from 'src/engine/core-modules/application/application-manifest/services/application-source.service';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { type Manifest } from 'twenty-shared/application';
@@ -12,9 +13,13 @@ import {
 } from 'src/engine/core-modules/application/application-install/constants/application-uninstall-steps.constant';
 import { type ApplicationLifecycleProgressReporter } from 'src/engine/core-modules/application/application-install/types/application-lifecycle-progress-reporter.type';
 import { createApplicationLifecycleProgressReporter } from 'src/engine/core-modules/application/application-install/utils/create-application-lifecycle-progress-reporter.util';
+import { ApplicationGrantRoleService } from 'src/engine/core-modules/application/application-grant-role/services/application-grant-role.service';
 import { ApplicationRegistrationSourceType } from 'src/engine/core-modules/application/application-registration/enums/application-registration-source-type.enum';
 import { resolveSyncedApplicationCapabilities } from 'src/engine/core-modules/application/utils/resolve-synced-application-capabilities.util';
+import { resolveSyncedApplicationIframeMediaPermissions } from 'src/engine/core-modules/application/utils/resolve-synced-application-iframe-media-permissions.util';
 import { toApplicationCapabilities } from 'src/engine/core-modules/application/utils/to-application-capabilities.util';
+import { toApplicationBillingPricesOrThrow } from 'src/engine/core-modules/application/utils/to-application-billing-prices-or-throw.util';
+import { toRequestedIframeMediaPermissionsOrThrow } from 'src/engine/core-modules/application/utils/to-requested-iframe-media-permissions-or-throw.util';
 import { ApplicationManifestMigrationService } from 'src/engine/core-modules/application/application-manifest/application-manifest-migration.service';
 import { ApplicationUninstallService } from 'src/engine/core-modules/application/application-manifest/services/application-uninstall.service';
 import { enrichApplicationManifestSyncError } from 'src/engine/core-modules/application/application-manifest/utils/enrich-application-manifest-sync-error.util';
@@ -35,14 +40,11 @@ import { type LogicFunctionDriverFactory } from 'src/engine/core-modules/logic-f
 import { findReservedVariableNamesInApplicationManifest } from 'src/engine/core-modules/application/utils/find-reserved-variable-names-in-application-manifest.util';
 import { type AllFlatEntityOperationRecordByMetadataName } from 'src/engine/metadata-modules/flat-entity/types/all-flat-entity-operation-record-by-metadata-name.type';
 import { getMetadataFlatEntityMapsKey } from 'src/engine/metadata-modules/flat-entity/utils/get-metadata-flat-entity-maps-key.util';
-import { FrontComponentEntity } from 'src/engine/metadata-modules/front-component/entities/front-component.entity';
-import { WorkspaceEventBroadcaster } from 'src/engine/subscriptions/workspace-event-broadcaster/workspace-event-broadcaster.service';
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { WorkspaceMigrationBuilderException } from 'src/engine/workspace-manager/workspace-migration/exceptions/workspace-migration-builder-exception';
 import { WorkspaceMigrationValidateBuildAndRunService } from 'src/engine/workspace-manager/workspace-migration/services/workspace-migration-validate-build-and-run-service';
 import { WorkspaceMigration } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-builder/types/workspace-migration.type';
-import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
-import { WorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/workspace-scoped-repository';
+import { type ApplicationManifestSyncResult } from 'src/engine/core-modules/application/application-manifest/types/application-manifest-sync-result.type';
 
 @Injectable()
 export class ApplicationSyncService {
@@ -50,6 +52,7 @@ export class ApplicationSyncService {
 
   constructor(
     private readonly applicationService: ApplicationService,
+    private readonly applicationSourceService: ApplicationSourceService,
     private readonly applicationLookupService: ApplicationLookupService,
     private readonly applicationManifestMigrationService: ApplicationManifestMigrationService,
     private readonly workspaceMigrationValidateBuildAndRunService: WorkspaceMigrationValidateBuildAndRunService,
@@ -59,9 +62,7 @@ export class ApplicationSyncService {
     @Inject(LOGIC_FUNCTION_DRIVER_FACTORY_TOKEN)
     private readonly logicFunctionDriverFactory: LogicFunctionDriverFactory,
     private readonly applicationUninstallService: ApplicationUninstallService,
-    @InjectWorkspaceScopedRepository(FrontComponentEntity)
-    private readonly frontComponentRepository: WorkspaceScopedRepository<FrontComponentEntity>,
-    private readonly workspaceEventBroadcaster: WorkspaceEventBroadcaster,
+    private readonly applicationGrantRoleService: ApplicationGrantRoleService,
   ) {}
 
   public async synchronizeFromManifest({
@@ -80,10 +81,8 @@ export class ApplicationSyncService {
     inferDeletionFromMissingEntities?: boolean;
     persistVersion?: boolean;
     shouldDeferActions?: boolean;
-  }): Promise<{
-    workspaceMigration: WorkspaceMigration;
-    hasSchemaMetadataChanged: boolean;
-  }> {
+  }): Promise<ApplicationManifestSyncResult> {
+    this.applicationSourceService.validateOrThrow(manifest);
     // Checked upfront: server variables reach the registration only after the workspace changes
     const reservedVariableNames =
       findReservedVariableNamesInApplicationManifest(manifest.application);
@@ -95,6 +94,11 @@ export class ApplicationSyncService {
       );
     }
 
+    toRequestedIframeMediaPermissionsOrThrow(
+      manifest.application.requestedIframeMediaPermissions,
+    );
+    toApplicationBillingPricesOrThrow(manifest.application.billing?.prices);
+
     const ownerFlatApplication: FlatApplication = dryRun
       ? await this.resolveDryRunOwnerFlatApplication({ workspaceId, manifest })
       : await this.syncApplication({
@@ -104,10 +108,7 @@ export class ApplicationSyncService {
           persistVersion,
         });
 
-    let syncResult: {
-      workspaceMigration: WorkspaceMigration;
-      hasSchemaMetadataChanged: boolean;
-    };
+    let syncResult: ApplicationManifestSyncResult;
 
     try {
       syncResult =
@@ -123,6 +124,16 @@ export class ApplicationSyncService {
         );
     } catch (error) {
       throw enrichApplicationManifestSyncError({ error, manifest });
+    }
+
+    if (!dryRun) {
+      try {
+        await this.applicationSourceService.store({ workspaceId, manifest });
+      } catch (error) {
+        this.logger.warn(
+          `Application ${manifest.application.universalIdentifier} sync succeeded in workspace ${workspaceId} but its source inventory could not be stored: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
 
     if (!dryRun && isDefined(ownerFlatApplication.applicationRegistrationId)) {
@@ -193,15 +204,21 @@ export class ApplicationSyncService {
       yarnLockFileId: null,
       availablePackages: {},
       billing: manifest.application.billing ?? {},
+      acceptedBillingPrices: null,
       grantedCapabilities: toApplicationCapabilities(
         manifest.application.requestedCapabilities,
       ),
+      grantedIframeMediaPermissions: toRequestedIframeMediaPermissionsOrThrow(
+        manifest.application.requestedIframeMediaPermissions,
+      ),
       logicFunctionLayerId: null,
       defaultRoleId: null,
+      requestedRoleId: null,
       defaultRole: null,
       settingsCustomTabFrontComponentId: null,
       uninstallLogicFunctionId: null,
       healthCheckLogicFunctionId: null,
+      isUserHealthCheckEnabled: false,
       uninstallHookCompletedForRequestedAt: null,
       canBeUninstalled: true,
       autoUpgrade: false,
@@ -306,6 +323,14 @@ export class ApplicationSyncService {
           grantedCapabilities: application.grantedCapabilities,
           requestedCapabilities: manifest.application.requestedCapabilities,
         }),
+        grantedIframeMediaPermissions:
+          resolveSyncedApplicationIframeMediaPermissions({
+            sourceType: application.sourceType,
+            grantedIframeMediaPermissions:
+              application.grantedIframeMediaPermissions,
+            requestedIframeMediaPermissions:
+              manifest.application.requestedIframeMediaPermissions,
+          }),
         frontComponentSharedDependenciesChecksum,
         frontComponentSharedDependenciesBuiltPath,
         applicationRegistrationId: resolvedRegistrationId,
@@ -317,52 +342,16 @@ export class ApplicationSyncService {
       application.frontComponentSharedDependenciesChecksum !==
       frontComponentSharedDependenciesChecksum
     ) {
-      await this.broadcastFrontComponentSharedDependenciesChecksumUpdates({
-        workspaceId,
-        applicationId: application.id,
-        frontComponentSharedDependenciesChecksum,
-      });
+      await this.applicationService.broadcastFrontComponentSharedDependenciesChecksumUpdates(
+        {
+          workspaceId,
+          applicationId: application.id,
+          frontComponentSharedDependenciesChecksum,
+        },
+      );
     }
 
     return updatedApplication;
-  }
-
-  private async broadcastFrontComponentSharedDependenciesChecksumUpdates({
-    workspaceId,
-    applicationId,
-    frontComponentSharedDependenciesChecksum,
-  }: {
-    workspaceId: string;
-    applicationId: string;
-    frontComponentSharedDependenciesChecksum: string | null;
-  }): Promise<void> {
-    try {
-      const frontComponents = await this.frontComponentRepository.find(
-        workspaceId,
-        { select: ['id'], where: { applicationId } },
-      );
-
-      await this.workspaceEventBroadcaster.broadcast({
-        workspaceId,
-        events: frontComponents.map((frontComponent) => ({
-          type: 'updated',
-          entityName: 'frontComponent',
-          recordId: frontComponent.id,
-          properties: {
-            updatedFields: ['frontComponentSharedDependenciesChecksum'],
-            after: {
-              id: frontComponent.id,
-              frontComponentSharedDependenciesChecksum,
-            },
-          },
-        })),
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Failed to broadcast the shared dependencies checksum update for application ${applicationId} in workspace ${workspaceId}`,
-        error,
-      );
-    }
   }
 
   public async uninstallApplication({
@@ -421,6 +410,12 @@ export class ApplicationSyncService {
     }
 
     await progressReporter.reportStepCompleted('UNINSTALL_HOOK');
+
+    // The grant is owned by the workspace custom application, so the deletions below miss it
+    await this.applicationGrantRoleService.deleteGrantRole({
+      workspaceId,
+      applicationId: application.id,
+    });
 
     const flatEntityMapsCacheKeys = Object.values(ALL_METADATA_NAME).map(
       getMetadataFlatEntityMapsKey,

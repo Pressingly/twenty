@@ -62,6 +62,9 @@ import { UpdateRoleActionHandlerService } from 'src/engine/workspace-manager/wor
 import { CreateRowLevelPermissionPredicateGroupActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-predicate-group/services/create-row-level-permission-predicate-group-action-handler.service';
 import { DeleteRowLevelPermissionPredicateGroupActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-predicate-group/services/delete-row-level-permission-predicate-group-action-handler.service';
 import { UpdateRowLevelPermissionPredicateGroupActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-predicate-group/services/update-row-level-permission-predicate-group-action-handler.service';
+import { CreateRowLevelPermissionRuleActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-rule/services/create-row-level-permission-rule-action-handler.service';
+import { DeleteRowLevelPermissionRuleActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-rule/services/delete-row-level-permission-rule-action-handler.service';
+import { UpdateRowLevelPermissionRuleActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-rule/services/update-row-level-permission-rule-action-handler.service';
 import { CreateRowLevelPermissionPredicateActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-predicate/services/create-row-level-permission-predicate-action-handler.service';
 import { DeleteRowLevelPermissionPredicateActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-predicate/services/delete-row-level-permission-predicate-action-handler.service';
 import { UpdateRowLevelPermissionPredicateActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/row-level-permission-predicate/services/update-row-level-permission-predicate-action-handler.service';
@@ -116,6 +119,10 @@ import { DeleteAgentChatChannelRoleActionHandlerService } from 'src/engine/works
 import { CreateSettingsMenuItemActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/settings-menu-item/services/create-settings-menu-item-action-handler.service';
 import { DeleteSettingsMenuItemActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/settings-menu-item/services/delete-settings-menu-item-action-handler.service';
 import { UpdateSettingsMenuItemActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/settings-menu-item/services/update-settings-menu-item-action-handler.service';
+import { FieldMetadataOptionEnumSchemaService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/services/field-metadata-option-enum-schema.service';
+import { CreateFieldMetadataOptionActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/field-metadata-option/services/create-field-metadata-option-action-handler.service';
+import { DeleteFieldMetadataOptionActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/field-metadata-option/services/delete-field-metadata-option-action-handler.service';
+import { UpdateFieldMetadataOptionActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/field-metadata-option/services/update-field-metadata-option-action-handler.service';
 import { CreateRelatedRecordPathActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/related-record-path/services/create-related-record-path-action-handler.service';
 import { CreateValidationRuleActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/validation-rule/services/create-validation-rule-action-handler.service';
 import { DeleteRelatedRecordPathActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/related-record-path/services/delete-related-record-path-action-handler.service';
@@ -126,12 +133,14 @@ import { CreateSearchFieldMetadataActionHandlerService } from 'src/engine/worksp
 import { DeleteSearchFieldMetadataActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/search-field-metadata/services/delete-search-field-metadata-action-handler.service';
 import { UpdateSearchFieldMetadataActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/action-handlers/search-field-metadata/services/update-search-field-metadata-action-handler.service';
 
-import { BuildIndexDeferredActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-action-handlers/services/build-index-deferred-action-handler.service';
-import { DeleteLogicFunctionResourcesDeferredActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-action-handlers/services/delete-logic-function-resources-deferred-action-handler.service';
-import { DeleteWorkflowRunsDeferredActionHandlerWorkspaceService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-action-handlers/services/delete-workflow-runs-deferred-action-handler.workspace-service';
-import { ValidateForeignKeyDeferredActionHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-action-handlers/services/validate-foreign-key-deferred-action-handler.service';
+import { BuildIndexDeferredOperationHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-operation-handlers/services/build-index-deferred-operation-handler.service';
+import { DeleteLogicFunctionResourcesDeferredOperationHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-operation-handlers/services/delete-logic-function-resources-deferred-operation-handler.service';
+import { DeleteWorkflowRunsDeferredOperationHandlerWorkspaceService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-operation-handlers/services/delete-workflow-runs-deferred-operation-handler.workspace-service';
+import { RebuildObjectDeferredOperationHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-operation-handlers/services/rebuild-object-deferred-operation-handler.service';
+import { ValidateForeignKeyDeferredOperationHandlerService } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-runner/deferred-operation-handlers/services/validate-foreign-key-deferred-operation-handler.service';
 import { SecretEncryptionModule } from 'src/engine/core-modules/secret-encryption/secret-encryption.module';
 import { WorkflowDeletionModule } from 'src/modules/workflow/workflow-deletion/workflow-deletion.module';
+import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 
 @Module({
   imports: [
@@ -139,8 +148,10 @@ import { WorkflowDeletionModule } from 'src/modules/workflow/workflow-deletion/w
     MetricsModule,
     SecretEncryptionModule,
     WorkflowDeletionModule,
+    WorkspaceCacheModule,
   ],
   providers: [
+    FieldMetadataOptionEnumSchemaService,
     CreateWorkflowActionHandlerService,
     UpdateWorkflowActionHandlerService,
     DeleteWorkflowActionHandlerService,
@@ -252,6 +263,9 @@ import { WorkflowDeletionModule } from 'src/modules/workflow/workflow-deletion/w
     CreateRowLevelPermissionPredicateGroupActionHandlerService,
     UpdateRowLevelPermissionPredicateGroupActionHandlerService,
     DeleteRowLevelPermissionPredicateGroupActionHandlerService,
+    CreateRowLevelPermissionRuleActionHandlerService,
+    UpdateRowLevelPermissionRuleActionHandlerService,
+    DeleteRowLevelPermissionRuleActionHandlerService,
 
     CreateFrontComponentActionHandlerService,
     UpdateFrontComponentActionHandlerService,
@@ -286,6 +300,9 @@ import { WorkflowDeletionModule } from 'src/modules/workflow/workflow-deletion/w
     CreateAgentChatChannelRoleActionHandlerService,
     UpdateAgentChatChannelRoleActionHandlerService,
     DeleteAgentChatChannelRoleActionHandlerService,
+    CreateFieldMetadataOptionActionHandlerService,
+    UpdateFieldMetadataOptionActionHandlerService,
+    DeleteFieldMetadataOptionActionHandlerService,
     CreateRelatedRecordPathActionHandlerService,
     CreateValidationRuleActionHandlerService,
     UpdateRelatedRecordPathActionHandlerService,
@@ -297,10 +314,11 @@ import { WorkflowDeletionModule } from 'src/modules/workflow/workflow-deletion/w
     UpdateSearchFieldMetadataActionHandlerService,
     DeleteSearchFieldMetadataActionHandlerService,
 
-    BuildIndexDeferredActionHandlerService,
-    ValidateForeignKeyDeferredActionHandlerService,
-    DeleteLogicFunctionResourcesDeferredActionHandlerService,
-    DeleteWorkflowRunsDeferredActionHandlerWorkspaceService,
+    BuildIndexDeferredOperationHandlerService,
+    ValidateForeignKeyDeferredOperationHandlerService,
+    RebuildObjectDeferredOperationHandlerService,
+    DeleteLogicFunctionResourcesDeferredOperationHandlerService,
+    DeleteWorkflowRunsDeferredOperationHandlerWorkspaceService,
   ],
   exports: [UpdateLogicFunctionActionHandlerService],
 })

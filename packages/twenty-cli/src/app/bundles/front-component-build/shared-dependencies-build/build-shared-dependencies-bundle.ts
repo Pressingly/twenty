@@ -1,19 +1,28 @@
+import { type PackageJson } from 'type-fest';
 import { getWatchInputPlugins } from '@/app/dev/collect-watch-inputs';
 import { getBaseFrontComponentBuildOptions } from '@/app/bundles/front-component-build/utils/get-base-front-component-build-options';
 import { type OnFileBuiltCallback } from '@/app/bundles/types/on-file-built-callback.type';
 import {
+  collectFrontComponentTypeReferences,
+  encodeFrontComponentTypeReferencesOrThrow,
+  getSharedDependenciesTypeReferencesPath,
   getSharedDependenciesEntrySource,
+  normalizeFrontComponentSharedDependencies,
+  getSharedDependenciesBuildManifestPath,
   type SharedDependenciesBuildContext,
+  type SharedDependenciesBuildManifest,
 } from 'twenty-shared/front-component-build';
 import { enumerateSharedDependenciesExportNames } from '@/app/bundles/front-component-build/shared-dependencies-build/utils/enumerate-shared-dependencies-export-names';
 import { getSharedDependenciesNamespaceCollisions } from '@/app/bundles/front-component-build/shared-dependencies-build/utils/get-shared-dependencies-namespace-collisions';
-import { ensureDir } from '@/app/fs-utils';
+import { ensureDir, pathExists, readJson } from '@/app/fs-utils';
 import crypto from 'crypto';
 import * as esbuild from 'esbuild';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'path';
 import {
   OUTPUT_DIR,
+  computePackageJsonChecksum,
+  computeDependencyFileChecksum,
   type FrontComponentSharedDependenciesManifest,
 } from 'twenty-shared/application';
 import { FileFolder } from 'twenty-shared/types';
@@ -30,9 +39,18 @@ export const buildSharedDependenciesBundle = async ({
   sharedDependencies: FrontComponentSharedDependenciesManifest;
   onFileBuilt: OnFileBuiltCallback;
 }): Promise<SharedDependenciesBuildContext> => {
-  const namespaceCollisions = getSharedDependenciesNamespaceCollisions(
-    sharedDependencies.dependencies,
+  const packageJson = await readJson<PackageJson>(
+    join(appPath, 'package.json'),
   );
+  const dependencies = normalizeFrontComponentSharedDependencies({
+    dependencies: sharedDependencies.dependencies,
+    packageNames: Object.keys({
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    }),
+  });
+  const namespaceCollisions =
+    getSharedDependenciesNamespaceCollisions(dependencies);
 
   if (isNonEmptyArray(namespaceCollisions)) {
     throw new Error(
@@ -44,7 +62,7 @@ export const buildSharedDependenciesBundle = async ({
 
   const exportNamesBySpecifier = new Map(
     await Promise.all(
-      sharedDependencies.dependencies.map(
+      dependencies.map(
         async (specifier) =>
           [
             specifier,
@@ -87,6 +105,49 @@ export const buildSharedDependenciesBundle = async ({
     builtPath,
     sourcePath: 'package.json',
     checksum,
+  });
+
+  const typeReferences = encodeFrontComponentTypeReferencesOrThrow(
+    collectFrontComponentTypeReferences({ directory: appPath, dependencies }),
+  );
+  const typeReferencesChecksum = crypto
+    .createHash('sha256')
+    .update(typeReferences)
+    .digest('hex');
+  await writeFile(
+    getSharedDependenciesTypeReferencesPath(absoluteBuiltPath),
+    typeReferences,
+  );
+  await onFileBuilt({
+    fileFolder: FileFolder.Dependencies,
+    builtPath: getSharedDependenciesTypeReferencesPath(builtPath),
+    sourcePath: 'package.json',
+    checksum: typeReferencesChecksum,
+  });
+
+  const yarnLockPath = join(appPath, 'yarn.lock');
+  const buildManifest: SharedDependenciesBuildManifest = {
+    typeReferencesChecksum,
+    checksum,
+    packageJsonChecksum: computePackageJsonChecksum(
+      await readFile(join(appPath, 'package.json'), 'utf-8'),
+    ),
+    yarnLockChecksum: (await pathExists(yarnLockPath))
+      ? computeDependencyFileChecksum(await readFile(yarnLockPath, 'utf-8'))
+      : null,
+    exports: Object.fromEntries(exportNamesBySpecifier),
+  };
+  const manifestSource = JSON.stringify(buildManifest);
+
+  await writeFile(
+    getSharedDependenciesBuildManifestPath(absoluteBuiltPath),
+    manifestSource,
+  );
+  await onFileBuilt({
+    fileFolder: FileFolder.Dependencies,
+    builtPath: getSharedDependenciesBuildManifestPath(builtPath),
+    sourcePath: 'package.json',
+    checksum: crypto.createHash('sha256').update(manifestSource).digest('hex'),
   });
 
   return { exportNamesBySpecifier };

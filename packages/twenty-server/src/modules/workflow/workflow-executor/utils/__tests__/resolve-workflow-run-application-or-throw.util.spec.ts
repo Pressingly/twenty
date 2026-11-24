@@ -1,11 +1,10 @@
-import { FieldActorSource } from 'twenty-shared/types';
-
+import { ApplicationRegistrationSourceType } from 'src/engine/core-modules/application/application-registration/enums/application-registration-source-type.enum';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
 import { resolveWorkflowRunApplicationOrThrow } from 'src/modules/workflow/workflow-executor/utils/resolve-workflow-run-application-or-throw.util';
 
 type TestApplication = Pick<
   FlatApplication,
-  'id' | 'name' | 'deletedAt' | 'defaultRoleId'
+  'id' | 'name' | 'deletedAt' | 'requestedRoleId' | 'sourceType'
 >;
 
 const INSTALLED_APPLICATION_ID = 'installed-app-id';
@@ -13,59 +12,38 @@ const INSTALLED_APPLICATION_ID = 'installed-app-id';
 const INSTALLED_APPLICATION: TestApplication = {
   id: INSTALLED_APPLICATION_ID,
   name: 'Installed app',
-  defaultRoleId: 'installed-app-role-id',
+  requestedRoleId: 'installed-app-role-id',
+  sourceType: ApplicationRegistrationSourceType.NPM,
   deletedAt: null,
 };
 
-const resolve = ({
-  applicationId,
-  application = INSTALLED_APPLICATION,
-}: {
-  applicationId?: string;
-  application?: TestApplication | null;
-}) =>
+const resolve = (application: TestApplication | null) =>
   resolveWorkflowRunApplicationOrThrow({
-    workflowRun: {
-      createdBy: {
-        source: FieldActorSource.MANUAL,
-        workspaceMemberId: 'member-id',
-        name: 'Tim Apple',
-        context: { applicationId },
-      },
-    },
+    applicationId: INSTALLED_APPLICATION_ID,
     applicationsById: application ? { [application.id]: application } : {},
+    workspaceId: 'workspace-id',
+    workspaceCustomApplicationId: 'workspace-custom-application-id',
+    flatRoleTargetByApplicationIdMaps: {
+      [INSTALLED_APPLICATION_ID]: { roleId: 'installed-app-grant-role-id' },
+    },
   });
 
 describe('resolveWorkflowRunApplicationOrThrow', () => {
-  it('leaves a run that no application bounds unbound', () => {
-    expect(resolve({})).toBeNull();
-  });
-
-  it('returns the application the run was bound to', () => {
-    expect(resolve({ applicationId: INSTALLED_APPLICATION_ID })).toBe(
-      INSTALLED_APPLICATION,
-    );
+  it('returns the application the run acts through', () => {
+    expect(resolve(INSTALLED_APPLICATION)).toBe(INSTALLED_APPLICATION);
   });
 
   it('refuses a run whose application is no longer installed', () => {
-    expect(() =>
-      resolve({ applicationId: INSTALLED_APPLICATION_ID, application: null }),
-    ).toThrow('no longer installed');
+    expect(() => resolve(null)).toThrow('no longer installed');
 
     expect(() =>
-      resolve({
-        applicationId: INSTALLED_APPLICATION_ID,
-        application: { ...INSTALLED_APPLICATION, deletedAt: new Date() },
-      }),
+      resolve({ ...INSTALLED_APPLICATION, deletedAt: new Date() }),
     ).toThrow('no longer installed');
   });
 
   it('refuses a run whose application has no role rather than widening it', () => {
     expect(() =>
-      resolve({
-        applicationId: INSTALLED_APPLICATION_ID,
-        application: { ...INSTALLED_APPLICATION, defaultRoleId: null },
-      }),
+      resolve({ ...INSTALLED_APPLICATION, requestedRoleId: null }),
     ).toThrow('has no role');
   });
 });
