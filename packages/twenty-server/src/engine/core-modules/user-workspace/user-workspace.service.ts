@@ -299,7 +299,7 @@ export class UserWorkspaceService {
         `Self-healing orphan userWorkspace ${existingUserWorkspace.id} for ${user.email}: assigning role ${resolvedRoleIdForOrphan}.`,
       );
 
-      await this.userRoleService.assignRoleToManyUserWorkspace({
+      await this.roleAssignmentWriteService.assignRoleToUserWorkspaces({
         workspaceId: workspace.id,
         userWorkspaceIds: [existingUserWorkspace.id],
         roleId: resolvedRoleIdForOrphan,
@@ -366,7 +366,7 @@ export class UserWorkspaceService {
     const existing = await this.checkUserWorkspaceExists(user.id, workspace.id);
 
     if (existing) {
-      await this.userRoleService.assignRoleToManyUserWorkspace({
+      await this.roleAssignmentWriteService.assignRoleToUserWorkspaces({
         workspaceId: workspace.id,
         userWorkspaceIds: [existing.id],
         roleId,
