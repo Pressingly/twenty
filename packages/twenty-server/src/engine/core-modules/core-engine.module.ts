@@ -24,7 +24,7 @@ import { BillingWebhookModule } from 'src/engine/core-modules/billing-webhook/bi
 import { AppBillingModule } from 'src/engine/core-modules/billing/app-billing/app-billing.module';
 import { BillingModule } from 'src/engine/core-modules/billing/billing.module';
 import { BillingGraphqlApiExceptionFilter } from 'src/engine/core-modules/billing/filters/billing-graphql-api-exception.filter';
-import { PermissionsGraphqlApiExceptionFilter } from 'src/engine/metadata-modules/permissions/utils/permissions-graphql-api-exception.filter';
+import { PermissionsGraphqlApiExceptionFilter } from 'src/engine/permissions/utils/permissions-graphql-api-exception.filter';
 import { CacheStorageModule } from 'src/engine/core-modules/cache-storage/cache-storage.module';
 import { TimelineCalendarEventModule } from 'src/engine/core-modules/calendar/timeline-calendar-event.module';
 import { CaptchaModule } from 'src/engine/core-modules/captcha/captcha.module';
@@ -38,8 +38,11 @@ import { EnvironmentModule } from 'src/engine/core-modules/environment/environme
 import { ExceptionHandlerModule } from 'src/engine/core-modules/exception-handler/exception-handler.module';
 import { exceptionHandlerModuleFactory } from 'src/engine/core-modules/exception-handler/exception-handler.module-factory';
 import { FeatureFlagModule } from 'src/engine/core-modules/feature-flag/feature-flag.module';
+import { AccessPolicyModule } from 'src/engine/guards/access-policy/access-policy.module';
 import { FileStorageModule } from 'src/engine/core-modules/file-storage/file-storage.module';
 import { GeoMapModule } from 'src/engine/core-modules/geo-map/geo-map-module';
+import { GettingStartedWorkflowModule } from 'src/engine/core-modules/getting-started/getting-started-workflow.module';
+import { GettingStartedModule } from 'src/engine/core-modules/getting-started/getting-started.module';
 import { HealthModule } from 'src/engine/core-modules/health/health.module';
 import { I18nModule } from 'src/engine/core-modules/i18n/i18n.module';
 import { ImapSmtpCaldavModule } from 'src/engine/core-modules/imap-smtp-caldav-connection/imap-smtp-caldav-connection.module';
@@ -59,6 +62,7 @@ import { RedisClientModule } from 'src/engine/core-modules/redis-client/redis-cl
 import { RedisClientService } from 'src/engine/core-modules/redis-client/redis-client.service';
 import { SearchModule } from 'src/engine/core-modules/search/search.module';
 import { WorkspaceSsoModule } from 'src/engine/core-modules/sso/sso.module';
+import { WebPushModule } from 'src/engine/core-modules/web-push/web-push.module';
 import { WellKnownModule } from 'src/engine/core-modules/well-known/well-known.module';
 import { TelemetryModule } from 'src/engine/core-modules/telemetry/telemetry.module';
 import { TwentyConfigModule } from 'src/engine/core-modules/twenty-config/twenty-config.module';
@@ -72,8 +76,9 @@ import { AiBillingModule } from 'src/engine/metadata-modules/ai/ai-billing/ai-bi
 import { AiModelsModule } from 'src/engine/metadata-modules/ai/ai-models/ai-models.module';
 import { PageLayoutModule } from 'src/engine/metadata-modules/page-layout/page-layout.module';
 import { RoleModule } from 'src/engine/metadata-modules/role/role.module';
+import { ChannelVisibilityModule } from 'src/engine/permissions/channel-visibility/channel-visibility.module';
 import { RowLevelPermissionModule } from 'src/engine/metadata-modules/row-level-permission-predicate/row-level-permission.module';
-import { RecordShareModule } from 'src/engine/core-modules/record-share/record-share.module';
+import { RecordShareModule } from 'src/engine/permissions/record-share/record-share.module';
 import { SubscriptionsModule } from 'src/engine/subscriptions/subscriptions.module';
 import { CodeInterpreterSessionCleanupModule } from 'src/engine/core-modules/code-interpreter/crons/code-interpreter-session-cleanup.module';
 import { TrashCleanupModule } from 'src/engine/trash-cleanup/trash-cleanup.module';
@@ -96,10 +101,12 @@ import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/m
     UsageModule,
     ClientConfigModule,
     FeatureFlagModule,
+    AccessPolicyModule,
     FileApiModule,
     RecordShareModule,
     RowLevelPermissionModule,
     OpenApiModule,
+    WebPushModule,
     WellKnownModule,
     ApplicationRegistrationModule,
     ApplicationMonitoringModule,
@@ -123,6 +130,8 @@ import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/m
     CloudflareModule,
     DnsManagerModule,
     WorkflowApiModule,
+    GettingStartedModule,
+    GettingStartedWorkflowModule,
     AiToolCallAnswerModule,
     WorkspaceEventEmitterModule,
     ActorModule,
@@ -130,6 +139,7 @@ import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/m
     AdminPanelModule,
     LabModule,
     RoleModule,
+    ChannelVisibilityModule,
     RedisClientModule,
     WorkspaceQueryRunnerModule,
     WorkspaceResolverNameMapCacheModule,

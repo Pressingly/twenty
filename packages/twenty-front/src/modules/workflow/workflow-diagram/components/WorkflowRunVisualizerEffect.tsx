@@ -22,7 +22,7 @@ import { useCallback, useContext, useEffect } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 import { doNotTranslate } from 'twenty-shared/i18n';
 
-import { useIcons } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 
 export const WorkflowRunVisualizerEffect = ({
   workflowRunId,
@@ -89,9 +89,7 @@ export const WorkflowRunVisualizerEffect = ({
       return;
     }
 
-    setWorkflowVisualizerWorkflowId(
-      workflowRun.coreWorkflowId ?? workflowRun.workflowId ?? undefined,
-    );
+    setWorkflowVisualizerWorkflowId(workflowRun.coreWorkflowId ?? undefined);
   }, [setWorkflowVisualizerWorkflowId, workflowRun]);
 
   useEffect(() => {

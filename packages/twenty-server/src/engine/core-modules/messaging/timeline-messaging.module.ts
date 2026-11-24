@@ -8,9 +8,10 @@ import { TimelineMessagingResolver } from 'src/engine/core-modules/messaging/tim
 import { RelatedPersonIdsModule } from 'src/engine/core-modules/related-person-ids/related-person-ids.module';
 import { ConnectedAccountEntity } from 'src/engine/metadata-modules/connected-account/entities/connected-account.entity';
 import { MessageChannelEntity } from 'src/engine/metadata-modules/message-channel/entities/message-channel.entity';
-import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
+import { PermissionsModule } from 'src/engine/permissions/permissions.module';
 import { ConnectedAccountModule } from 'src/modules/connected-account/connected-account.module';
 import { TargetModule } from 'src/engine/core-modules/target/target.module';
+import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TargetModule } from 'src/engine/core-modules/target/target.module';
     PermissionsModule,
     RelatedPersonIdsModule,
     TargetModule,
+    WorkspaceCacheModule,
     TypeOrmModule.forFeature([MessageChannelEntity, ConnectedAccountEntity]),
   ],
   exports: [],

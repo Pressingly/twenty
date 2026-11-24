@@ -1,5 +1,5 @@
 import { UseGuards, UseInterceptors, UseFilters } from '@nestjs/common';
-import { Args, Mutation, Query } from '@nestjs/graphql';
+import { Args, Mutation, Parent, Query, ResolveField } from '@nestjs/graphql';
 
 import { CalendarChannelSyncStage } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
@@ -10,26 +10,29 @@ import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.ent
 import { AuthUserWorkspaceId } from 'src/engine/decorators/auth/auth-user-workspace-id.decorator';
 import { AuthWorkspace } from 'src/engine/decorators/auth/auth-workspace.decorator';
 import { AllowSuspendedWorkspace } from 'src/engine/decorators/auth/allow-suspended-workspace.decorator';
-import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
-import { AuthPrincipalGuard } from 'src/engine/guards/auth-principal.guard';
 import { CalendarChannelMetadataService } from 'src/engine/metadata-modules/calendar-channel/calendar-channel-metadata.service';
 import { CalendarChannelDTO } from 'src/engine/metadata-modules/calendar-channel/dtos/calendar-channel.dto';
 import { UpdateCalendarChannelInput } from 'src/engine/metadata-modules/calendar-channel/dtos/update-calendar-channel.input';
+import { ConnectedAccountPublicDTO } from 'src/engine/metadata-modules/connected-account/dtos/connected-account-public.dto';
 import { CalendarChannelGraphqlApiExceptionInterceptor } from 'src/engine/metadata-modules/calendar-channel/interceptors/calendar-channel-graphql-api-exception.interceptor';
 import { AuthGraphqlApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-graphql-api-exception.filter';
 import { CalendarChannelSyncStatusService } from 'src/modules/calendar/common/services/calendar-channel-sync-status.service';
+import { AccessPolicyGuard } from 'src/engine/guards/access-policy.guard';
 
 @UseGuards(
-  AuthPrincipalGuard({
-    userSession: {
-      standard: true,
-      impersonated: true,
-      playground: true,
-      workspaceAgnostic: false,
+  AccessPolicyGuard({
+    authPrincipals: {
+      userSession: {
+        standard: true,
+        impersonated: true,
+        playground: true,
+        workspaceAgnostic: false,
+      },
+      apiKey: true,
+      oauthClient: true,
+      application: true,
     },
-    apiKey: true,
-    oauthClient: true,
-    application: true,
+    requiredPermissionFlags: [],
   }),
 )
 @UseInterceptors(CalendarChannelGraphqlApiExceptionInterceptor)
@@ -41,8 +44,24 @@ export class CalendarChannelResolver {
     private readonly calendarChannelSyncStatusService: CalendarChannelSyncStatusService,
   ) {}
 
+  @ResolveField('connectedAccount', () => ConnectedAccountPublicDTO, {
+    nullable: true,
+  })
+  async connectedAccount(
+    @Parent() calendarChannel: CalendarChannelDTO,
+    @AuthWorkspace() workspace: WorkspaceEntity,
+    @AuthUserWorkspaceId({ allowUndefined: true }) userWorkspaceId?: string,
+  ): Promise<ConnectedAccountPublicDTO | null> {
+    return this.calendarChannelMetadataService.findPublicConnectedAccountForCaller(
+      {
+        connectedAccountId: calendarChannel.connectedAccountId,
+        workspaceId: workspace.id,
+        userWorkspaceId,
+      },
+    );
+  }
+
   @Query(() => [CalendarChannelDTO])
-  @UseGuards(NoPermissionGuard)
   @AllowSuspendedWorkspace()
   async myCalendarChannels(
     @AuthWorkspace() workspace: WorkspaceEntity,
@@ -70,7 +89,6 @@ export class CalendarChannelResolver {
   }
 
   @Mutation(() => CalendarChannelDTO)
-  @UseGuards(NoPermissionGuard)
   async updateCalendarChannel(
     @Args('input') input: UpdateCalendarChannelInput,
     @AuthWorkspace() workspace: WorkspaceEntity,

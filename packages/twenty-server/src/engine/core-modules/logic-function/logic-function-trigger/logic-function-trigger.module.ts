@@ -15,8 +15,10 @@ import { LogicFunctionTriggerService } from 'src/engine/core-modules/logic-funct
 import { RouteTriggerService } from 'src/engine/core-modules/logic-function/logic-function-trigger/triggers/route/route-trigger.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { LogicFunctionEntity } from 'src/engine/metadata-modules/logic-function/logic-function.entity';
-import { RecordShareModule } from 'src/engine/core-modules/record-share/record-share.module';
+import { PermissionsModule } from 'src/engine/permissions/permissions.module';
+import { RecordShareModule } from 'src/engine/permissions/record-share/record-share.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
+import { DatabaseEventTriggerConditionModule } from 'src/engine/workspace-event-emitter/database-event-trigger-condition.module';
 import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/provide-workspace-scoped-repository';
 
 @Module({
@@ -25,8 +27,10 @@ import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspac
     TokenModule,
     WorkspaceDomainsModule,
     WorkspaceCacheModule,
+    DatabaseEventTriggerConditionModule,
     CronModule,
     EventLogEmitterModule,
+    PermissionsModule,
     RecordShareModule,
   ],
   providers: [

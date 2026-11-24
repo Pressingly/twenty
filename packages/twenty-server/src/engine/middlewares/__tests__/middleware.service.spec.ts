@@ -1,7 +1,8 @@
+import { SESSION_COOKIE_OPT_IN_HEADER_NAME } from 'twenty-shared/constants';
+
 import { type AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
 import { type ExceptionHandlerService } from 'src/engine/core-modules/exception-handler/exception-handler.service';
 import { type JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
-import { type MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
 import { InvalidMpassTokenError } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
 import { MpassProxyTrustService } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-proxy-trust.service';
 import { type MpassTokenVerifier } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-token-verifier';
@@ -46,7 +47,7 @@ const buildRequest = (
 
 const buildResponse = (): ResponseStub => ({
   clearCookie: jest.fn(),
-  req: { headers: {} },
+  req: { headers: { [SESSION_COOKIE_OPT_IN_HEADER_NAME]: 'true' } },
 });
 
 type BuildOpts = {
@@ -91,10 +92,6 @@ const buildService = ({
     get: jest.fn((key: string) => configValues[key] ?? ''),
   } as unknown as TwentyConfigService;
 
-  const metricsService = {
-    incrementCounterBy: jest.fn(),
-  } as unknown as MetricsService;
-
   return {
     service: new MiddlewareService(
       accessTokenService,
@@ -103,7 +100,7 @@ const buildService = ({
       exceptionHandlerService,
       jwtWrapperService,
       twentyConfigService,
-      new UserSessionCookieService(twentyConfigService, metricsService),
+      new UserSessionCookieService(twentyConfigService),
       new MpassProxyTrustService(twentyConfigService, {
         verify,
         isConfigured: true,

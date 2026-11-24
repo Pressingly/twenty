@@ -14,11 +14,9 @@ import {
 import { FieldMetadataType } from 'twenty-shared/types';
 import { v4 } from 'uuid';
 
-import { type WorkflowRunRecordShareService } from 'src/engine/core-modules/workflow/services/workflow-run-record-share.service';
 import { getWorkspaceSchemaName } from 'src/engine/workspace-datasource/utils/get-workspace-schema-name.util';
 import { SEED_APPLE_WORKSPACE_ID } from 'src/engine/workspace-manager/dev-seeder/core/constants/seeder-workspaces.constant';
 import { submitFormStep } from 'test/integration/graphql/suites/workflow/utils/submit-form-step.util';
-import { getAppProviderByClassName } from 'test/integration/utils/get-app-provider-by-class-name.util';
 
 const schema = getWorkspaceSchemaName(SEED_APPLE_WORKSPACE_ID);
 const DELAY_DURATION_SECONDS = 20;
@@ -26,7 +24,6 @@ const DELAY_DURATION_SECONDS = 20;
 describe('Parallel branch leaf resume workflow (e2e)', () => {
   let coreWorkflowId: string | null = null;
   let coreWorkflowVersionId: string | null = null;
-  let workspaceWorkflowId: string | null = null;
   let formStepId: string | null = null;
   let delayStepId: string | null = null;
   let sendEmailStepId: string | null = null;
@@ -39,7 +36,6 @@ describe('Parallel branch leaf resume workflow (e2e)', () => {
 
     coreWorkflowId = coreWorkflow.coreWorkflowId;
     coreWorkflowVersionId = coreWorkflow.coreWorkflowVersionId;
-    workspaceWorkflowId = coreWorkflow.workspaceWorkflowId;
 
     await updateCoreWorkflowVersionTrigger({
       coreWorkflowVersionId,
@@ -130,10 +126,9 @@ describe('Parallel branch leaf resume workflow (e2e)', () => {
   });
 
   it('keeps the run alive and the delay branch pending when the parallel form leaf is submitted', async () => {
-    const { trigger, steps, workspaceWorkflowVersionId } =
-      await findCoreWorkflowVersion({
-        coreWorkflowVersionId: coreWorkflowVersionId!,
-      });
+    const { trigger, steps } = await findCoreWorkflowVersion({
+      coreWorkflowVersionId: coreWorkflowVersionId!,
+    });
 
     createdWorkflowRunId = v4();
 
@@ -149,24 +144,15 @@ describe('Parallel branch leaf resume workflow (e2e)', () => {
 
     // Inserted directly so no start job is enqueued and the manual handle is the only driver.
     await global.testDataSource.query(
-      `INSERT INTO "${schema}"."workflowRun" (id, name, "workflowId", "workflowVersionId", "coreWorkflowId", "coreWorkflowVersionId", status, state, position, "enqueuedAt")
-       VALUES ($1, 'Parallel branch leaf resume run', $2, $3, $4, $5, 'ENQUEUED', $6, 0, now())`,
+      `INSERT INTO "${schema}"."workflowRun" (id, name, "coreWorkflowId", "coreWorkflowVersionId", status, state, position, "enqueuedAt")
+       VALUES ($1, 'Parallel branch leaf resume run', $2, $3, 'ENQUEUED', $4, 0, now())`,
       [
         createdWorkflowRunId,
-        workspaceWorkflowId,
-        workspaceWorkflowVersionId,
         coreWorkflowId,
         coreWorkflowVersionId,
         JSON.stringify(state),
       ],
     );
-    // A direct insert skips the run's grants, leaving it unreadable through the record API.
-    await getAppProviderByClassName<WorkflowRunRecordShareService>(
-      'WorkflowRunRecordShareService',
-    ).syncRuns({
-      workspaceId: SEED_APPLE_WORKSPACE_ID,
-      workflowRunIds: [createdWorkflowRunId],
-    });
 
     await (
       await global.workflowTestServices.runJob()

@@ -76,7 +76,7 @@ const classifyFlatEntity = ({
         reason: 'runtime configuration',
       };
     case 'role':
-      return 'isEditable' in flatEntity && flatEntity.isEditable === false
+      return 'isEditable' in flatEntity && !flatEntity.isEditable
         ? {
             status: ApplicationExportCoverageStatus.EXCLUDED,
             reason: 'non-editable role',
@@ -84,6 +84,11 @@ const classifyFlatEntity = ({
         : { status: ApplicationExportCoverageStatus.UNSUPPORTED };
     case 'searchFieldMetadata':
       return { status: ApplicationExportCoverageStatus.ENGINE_DERIVED };
+    case 'rowLevelPermissionRule':
+      return {
+        status: ApplicationExportCoverageStatus.UNSUPPORTED,
+        reason: 'row-level permission rule whose predicates are not exported',
+      };
     case 'workflowVersion':
       return {
         status: ApplicationExportCoverageStatus.EXCLUDED,
@@ -92,10 +97,13 @@ const classifyFlatEntity = ({
     case 'roleTarget':
       return ('userWorkspaceId' in flatEntity &&
         isDefined(flatEntity.userWorkspaceId)) ||
-        ('apiKeyId' in flatEntity && isDefined(flatEntity.apiKeyId))
+        ('apiKeyId' in flatEntity && isDefined(flatEntity.apiKeyId)) ||
+        ('webhookId' in flatEntity && isDefined(flatEntity.webhookId)) ||
+        ('targetApplicationId' in flatEntity &&
+          isDefined(flatEntity.targetApplicationId))
         ? {
             status: ApplicationExportCoverageStatus.EXCLUDED,
-            reason: 'member or API key role assignment',
+            reason: 'member, API key, webhook or application role assignment',
           }
         : { status: ApplicationExportCoverageStatus.UNSUPPORTED };
     case 'commandMenuItem':
@@ -199,6 +207,13 @@ const buildContainedFlatEntityScan =
   };
 
 const CONTAINED_FLAT_ENTITY_SCANS: ContainedFlatEntityScan[] = [
+  buildContainedFlatEntityScan({
+    metadataName: 'validationRule',
+    selectFlatEntityMaps: (allFlatEntityMaps) =>
+      allFlatEntityMaps.flatValidationRuleMaps,
+    containerMetadataName: 'objectMetadata',
+    containerUniversalForeignKey: 'objectMetadataUniversalIdentifier',
+  }),
   buildContainedFlatEntityScan({
     metadataName: 'fieldMetadata',
     selectFlatEntityMaps: (allFlatEntityMaps) =>

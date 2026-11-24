@@ -2,14 +2,15 @@ import { styled } from '@linaria/react';
 import { useLingui } from '@lingui/react/macro';
 import { type ValidationRuleFieldDescriptor } from 'twenty-shared/types';
 import { Section } from 'twenty-ui/components/layout';
-import { IconAddressBook, useIcons } from 'twenty-ui/icon';
+import { IconAddressBook } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 import { themeCssVariables } from 'twenty-ui/theme';
 
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { SettingsDataModelPreviewFormCard } from '@/settings/data-model/components/SettingsDataModelPreviewFormCard';
 import { Select } from '@/ui/input/components/Select';
 import { SettingsTextInput } from '@/ui/input/components/SettingsTextInput';
-import { SettingsValidationRuleExpressionEditor } from '@/validation-rules/components/SettingsValidationRuleExpressionEditor';
+import { ValidationRuleExpressionEditor } from '@/validation-rules/components/ValidationRuleExpressionEditor';
 import { SettingsValidationRuleNameForm } from '@/validation-rules/components/SettingsValidationRuleNameForm';
 import { SettingsValidationRulePreview } from '@/validation-rules/components/SettingsValidationRulePreview';
 import { type ValidationRuleEditorField } from '@/validation-rules/types/ValidationRuleEditorField';
@@ -88,7 +89,7 @@ export const SettingsValidationRuleForm = ({
             />
           }
           form={
-            <SettingsValidationRuleExpressionEditor
+            <ValidationRuleExpressionEditor
               value={values.expression}
               fields={fields}
               editorFields={editorFields}

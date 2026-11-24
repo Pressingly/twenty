@@ -1,5 +1,4 @@
 import {
-  MetadataWritability,
   type FieldMetadataComplexOption,
   type FieldMetadataDefaultOption,
   type FieldMetadataDefaultValue,
@@ -103,8 +102,6 @@ export const createStandardFieldFlatMetadata = <
     isSearchable: searchFields.some((searchField) => searchField.name === name),
     isAuditLogged: isAuditLoggableFieldType(type),
     isUIEditable,
-    writability:
-      partialSystemFlatFieldMetadata?.writability ?? MetadataWritability.OPEN,
     disabledFieldPermissionActions:
       partialSystemFlatFieldMetadata?.disabledFieldPermissionActions ?? null,
     isLabelSyncedWithName: false,
@@ -141,6 +138,14 @@ export const createStandardFieldFlatMetadata = <
     viewSortUniversalIdentifiers: [],
     searchFieldMetadataIds: [],
     searchFieldMetadataUniversalIdentifiers: [],
+    fieldMetadataOptionIds: [],
+    rowLevelPermissionPredicateIds: [],
+    relationRowLevelPermissionPredicateIds: [],
+    workspaceMemberRowLevelPermissionPredicateIds: [],
+    fieldMetadataOptionUniversalIdentifiers: [],
+    rowLevelPermissionPredicateUniversalIdentifiers: [],
+    relationRowLevelPermissionPredicateUniversalIdentifiers: [],
+    workspaceMemberRowLevelPermissionPredicateUniversalIdentifiers: [],
     universalSettings: settings ?? null,
   };
 };

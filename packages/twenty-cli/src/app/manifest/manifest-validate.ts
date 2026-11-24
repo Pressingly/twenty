@@ -17,7 +17,7 @@ import {
   type PageLayoutWidgetUniversalConfiguration,
   RelationType,
 } from 'twenty-shared/types';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 import {
   getDuplicateValues,
   type ManifestField,
@@ -26,7 +26,9 @@ import {
 import { getFrontComponentWidgetAvailabilityWarnings } from '@/app/manifest/utils/get-front-component-widget-availability-warnings';
 import { getPageLayoutDeprecationWarnings } from '@/app/manifest/utils/get-page-layout-deprecation-warnings';
 import { getUnresolvedLabelIdentifierWarnings } from '@/app/manifest/utils/get-unresolved-label-identifier-warnings';
+import { validateSettingsMenuItemSlugs } from '@/app/manifest/utils/validate-settings-menu-item-slugs';
 import { validateTimelineActivityTypes } from '@/app/manifest/utils/validate-timeline-activity-types';
+import { validateValidationRules } from '@/app/manifest/utils/validate-validation-rules';
 
 const VALID_RELATION_TYPES: string[] = [
   RelationType.MANY_TO_ONE,
@@ -72,6 +74,7 @@ const findUniversalIdentifiers = (obj: object): string[] => {
       key === 'onConnectLogicFunction' ||
       key === 'onDisconnectLogicFunction' ||
       key === 'sendMessageLogicFunction' ||
+      key === 'markThreadAsReadLogicFunction' ||
       key === 'connectionProvider' ||
       key === 'settingsFrontComponent' ||
       key === 'input' ||
@@ -290,6 +293,19 @@ export const manifestValidate = (manifest: Manifest) => {
     );
   }
 
+  const hasConnectedAccountPrice = (
+    manifest.application.billing?.prices ?? []
+  ).some(({ per }) => per === 'CONNECTED_ACCOUNT');
+
+  if (
+    hasConnectedAccountPrice &&
+    !isNonEmptyArray(manifest.connectionProviders)
+  ) {
+    errors.push(
+      'A billing price per CONNECTED_ACCOUNT needs a connection provider: without one no account is ever connected and the price is never billed.',
+    );
+  }
+
   const allFields: ManifestField[] = [
     ...manifest.fields,
     ...manifest.objects.flatMap((object) => object.fields),
@@ -331,6 +347,9 @@ export const manifestValidate = (manifest: Manifest) => {
   errors.push(...validateGraphWidgets(pageLayoutWidgets));
 
   errors.push(...validateTimelineActivityTypes(manifest));
+
+  errors.push(...validateValidationRules(manifest));
+  errors.push(...validateSettingsMenuItemSlugs(manifest));
 
   return { errors, warnings, isValid: errors.length === 0 };
 };

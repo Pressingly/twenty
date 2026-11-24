@@ -5,11 +5,11 @@ import { getMetadataFlatEntityMapsKey } from 'src/engine/metadata-modules/flat-e
 import { TWENTY_STANDARD_ALL_METADATA_NAME } from 'src/engine/workspace-manager/twenty-standard-application/constants/twenty-standard-all-metadata-name.constant';
 import { type TwentyStandardAllFlatEntityMaps } from 'src/engine/workspace-manager/twenty-standard-application/types/twenty-standard-all-flat-entity-maps.type';
 import { buildStandardFlatAgentChatChannelMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/agent-chat-channel/build-standard-flat-agent-chat-channel-maps.util';
-import { buildStandardFlatAgentMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/agent-metadata/build-standard-flat-agent-metadata-maps.util';
 import { buildStandardFlatFieldMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/field-metadata/build-standard-flat-field-metadata-maps.util';
 import { getStandardObjectMetadataRelatedEntityIds } from 'src/engine/workspace-manager/twenty-standard-application/utils/get-standard-object-metadata-related-entity-ids.util';
 import { WORKSPACE_CREATION_ONLY_WIDGET_TYPES } from 'src/engine/workspace-manager/twenty-standard-application/constants/workspace-creation-only-widget-types.constant';
 import { getStandardPageLayoutMetadataRelatedEntityIds } from 'src/engine/workspace-manager/twenty-standard-application/utils/get-standard-page-layout-metadata-related-entity-ids.util';
+import { buildStandardFlatFieldMetadataOptionMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/field-metadata-option/build-standard-flat-field-metadata-option-maps.util';
 import { buildStandardFlatIndexMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/index/build-standard-flat-index-metadata-maps.util';
 import { buildStandardFlatCommandMenuItemMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/command-menu-item/build-standard-flat-command-menu-item-maps.util';
 import { buildStandardFlatNavigationMenuItemMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/navigation-menu-item/build-standard-flat-navigation-menu-item-maps.util';
@@ -19,6 +19,7 @@ import { buildStandardFlatPageLayoutWidgetMetadataMaps } from 'src/engine/worksp
 import { addFlatEntityToFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/add-flat-entity-to-flat-entity-maps-or-throw.util';
 import { computeStandardRecordFormFlatEntities } from 'src/engine/workspace-manager/twenty-standard-application/utils/page-layout/compute-standard-record-form-flat-entities.util';
 import { buildStandardFlatPageLayoutMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/page-layout/build-standard-flat-page-layout-metadata-maps.util';
+import { buildStandardFlatRelatedRecordPathMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/related-record-path/build-standard-flat-related-record-path-maps.util';
 import { buildStandardFlatPermissionFlagMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/permission-flag/build-standard-flat-permission-flag-metadata-maps.util';
 import { buildStandardFlatRoleMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/role-metadata/build-standard-flat-role-metadata-maps.util';
 import { buildStandardFlatSearchFieldMetadataMaps } from 'src/engine/workspace-manager/twenty-standard-application/utils/search-field-metadata/build-standard-flat-search-field-metadata-maps.util';
@@ -69,6 +70,13 @@ export const computeTwentyStandardApplicationAllFlatEntityMaps = ({
       flatObjectMetadataMaps,
     },
     twentyStandardApplicationId,
+  });
+
+  const flatFieldMetadataOptionMaps = buildStandardFlatFieldMetadataOptionMaps({
+    now,
+    workspaceId,
+    twentyStandardApplicationId,
+    dependencyFlatEntityMaps: { flatFieldMetadataMaps },
   });
 
   const flatIndexMaps = buildStandardFlatIndexMetadataMaps({
@@ -130,6 +138,7 @@ export const computeTwentyStandardApplicationAllFlatEntityMaps = ({
   const flatViewFilterMaps = buildStandardFlatViewFilterMetadataMaps({
     dependencyFlatEntityMaps: {
       flatFieldMetadataMaps,
+      flatFieldMetadataOptionMaps,
       flatViewMaps,
       flatViewFilterGroupMaps,
     },
@@ -166,15 +175,7 @@ export const computeTwentyStandardApplicationAllFlatEntityMaps = ({
     twentyStandardApplicationId,
   });
 
-  const flatAgentMaps = buildStandardFlatAgentMetadataMaps({
-    now,
-    workspaceId,
-    twentyStandardApplicationId,
-    standardObjectMetadataRelatedEntityIds,
-    dependencyFlatEntityMaps: {
-      flatRoleMaps,
-    },
-  });
+  const flatAgentMaps = createEmptyFlatEntityMaps();
 
   const flatSkillMaps = buildStandardFlatSkillMetadataMaps({
     now,
@@ -277,6 +278,16 @@ export const computeTwentyStandardApplicationAllFlatEntityMaps = ({
     twentyStandardApplicationId,
   });
 
+  const flatRelatedRecordPathMaps = buildStandardFlatRelatedRecordPathMaps({
+    now,
+    workspaceId,
+    twentyStandardApplicationId,
+    standardObjectMetadataRelatedEntityIds,
+    dependencyFlatEntityMaps: {
+      flatFieldMetadataMaps,
+    },
+  });
+
   const allFlatEntityMaps: TwentyStandardAllFlatEntityMaps = {
     flatViewFieldMaps,
     flatViewFieldGroupMaps,
@@ -286,6 +297,7 @@ export const computeTwentyStandardApplicationAllFlatEntityMaps = ({
     flatIndexMaps,
     flatSearchFieldMetadataMaps,
     flatFieldMetadataMaps,
+    flatFieldMetadataOptionMaps,
     flatObjectMetadataMaps,
     flatNavigationMenuItemMaps,
     flatPermissionFlagMaps,
@@ -298,6 +310,7 @@ export const computeTwentyStandardApplicationAllFlatEntityMaps = ({
     flatCommandMenuItemMaps,
     flatTimelineActivityTypeMaps,
     flatAgentChatChannelMaps,
+    flatRelatedRecordPathMaps,
   };
 
   const idByUniversalIdentifierByMetadataName: IdByUniversalIdentifierByMetadataName =

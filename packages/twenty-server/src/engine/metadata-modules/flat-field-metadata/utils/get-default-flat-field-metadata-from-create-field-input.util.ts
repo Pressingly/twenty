@@ -1,4 +1,3 @@
-import { MetadataWritability } from 'twenty-shared/types';
 import {
   extractAndSanitizeObjectStringFields,
   isDefined,
@@ -70,7 +69,6 @@ export const getDefaultFlatFieldMetadata = ({
       (isDefined(createFieldInput.isUIReadOnly)
         ? !createFieldInput.isUIReadOnly
         : true),
-    writability: MetadataWritability.OPEN,
     disabledFieldPermissionActions: null,
     morphId: null,
     applicationUniversalIdentifier,
@@ -87,5 +85,9 @@ export const getDefaultFlatFieldMetadata = ({
     universalSettings: settings ?? null,
     viewSortUniversalIdentifiers: [],
     searchFieldMetadataUniversalIdentifiers: [],
+    fieldMetadataOptionUniversalIdentifiers: [],
+    rowLevelPermissionPredicateUniversalIdentifiers: [],
+    relationRowLevelPermissionPredicateUniversalIdentifiers: [],
+    workspaceMemberRowLevelPermissionPredicateUniversalIdentifiers: [],
   } as const satisfies UniversalFlatFieldMetadata;
 };

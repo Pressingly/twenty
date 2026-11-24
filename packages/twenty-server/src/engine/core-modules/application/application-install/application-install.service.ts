@@ -5,15 +5,21 @@ import { promises as fs } from 'fs';
 import { isAbsolute, relative, resolve } from 'path';
 
 import {
+  type ApplicationBillingPrice,
   type ApplicationCapability,
   Manifest,
 } from 'twenty-shared/application';
-import { FileFolder } from 'twenty-shared/types';
-import { isDefined } from 'twenty-shared/utils';
+import { FileFolder, type IframeMediaPermission } from 'twenty-shared/types';
+import {
+  intersectIframeMediaPermissions,
+  isDefined,
+} from 'twenty-shared/utils';
 import { Repository } from 'typeorm';
 
 import { buildApplicationFileList } from 'src/engine/core-modules/application/application-install/utils/build-application-file-list.util';
+import { resolveAcceptedBillingPricesOnInstallCompleted } from 'src/engine/core-modules/application/utils/resolve-accepted-billing-prices-on-install-completed.util';
 import { toApplicationCapabilities } from 'src/engine/core-modules/application/utils/to-application-capabilities.util';
+import { toRequestedIframeMediaPermissionsOrThrow } from 'src/engine/core-modules/application/utils/to-requested-iframe-media-permissions-or-throw.util';
 import { ApplicationManifestApplyService } from 'src/engine/core-modules/application/application-manifest/application-manifest-apply.service';
 import { ApplicationSyncService } from 'src/engine/core-modules/application/application-manifest/application-sync.service';
 import {
@@ -329,16 +335,20 @@ export class ApplicationInstallService {
         }),
       ]);
 
-      this.metricsService.incrementCounterBy({
-        key: isVersionUpgrade
-          ? MetricsKeys.AppUpgradeFailed
-          : MetricsKeys.AppInstallFailed,
-        amount: 1,
-        attributes: {
-          ...attributes,
-          error_code: getApplicationErrorCode(error),
-        },
-      });
+      // Unlisted apps (local dev, tarballs) fail for reasons outside our control
+      // and would pollute platform health dashboards and the status page.
+      if (appRegistration.isListed) {
+        this.metricsService.incrementCounterBy({
+          key: isVersionUpgrade
+            ? MetricsKeys.AppUpgradeFailed
+            : MetricsKeys.AppInstallFailed,
+          amount: 1,
+          attributes: {
+            ...attributes,
+            error_code: getApplicationErrorCode(error),
+          },
+        });
+      }
 
       throw error;
     }
@@ -409,6 +419,14 @@ export class ApplicationInstallService {
     const grantedCapabilities = toApplicationCapabilities(
       resolvedPackage.manifest.application.requestedCapabilities,
     ).filter((capability) => approvedCapabilities.includes(capability));
+    const grantedIframeMediaPermissions = intersectIframeMediaPermissions({
+      permissions: toRequestedIframeMediaPermissionsOrThrow(
+        resolvedPackage.manifest.application.requestedIframeMediaPermissions,
+      ),
+      allowedPermissions: toRequestedIframeMediaPermissionsOrThrow(
+        appRegistration.manifest?.application?.requestedIframeMediaPermissions,
+      ),
+    });
     const shouldApplyApprovedCapabilities =
       params.hasUserApprovedCapabilities && isDefined(appRegistration.manifest);
 
@@ -417,6 +435,7 @@ export class ApplicationInstallService {
       universalIdentifier,
       name: resolvedPackage.manifest.application.displayName,
       grantedCapabilities,
+      grantedIframeMediaPermissions,
       workspaceId: params.workspaceId,
       applicationRegistrationId: appRegistration.id,
       sourceType: appRegistration.sourceType,
@@ -469,6 +488,7 @@ export class ApplicationInstallService {
       if (isVersionUpgrade && shouldApplyApprovedCapabilities) {
         await this.applicationService.update(application.id, {
           grantedCapabilities,
+          grantedIframeMediaPermissions,
           workspaceId: params.workspaceId,
         });
       }
@@ -531,12 +551,19 @@ export class ApplicationInstallService {
         resolvedPackage.manifest.application.postInstallLogicFunction
           ?.shouldRunSynchronously === true;
 
+      const installCompletion = {
+        applicationId: application.id,
+        universalIdentifier: application.universalIdentifier,
+        version: newVersion,
+        acceptedBillingPrices: resolveAcceptedBillingPricesOnInstallCompleted({
+          previousVersion,
+          manifestBilling: resolvedPackage.manifest.application.billing,
+        }),
+        workspaceId: params.workspaceId,
+      };
+
       if (!isPostInstallHookSynchronous) {
-        await this.markInstallCompleted({
-          applicationId: application.id,
-          version: newVersion,
-          workspaceId: params.workspaceId,
-        });
+        await this.markInstallCompleted(installCompletion);
       }
 
       await this.runPostInstallHook({
@@ -549,11 +576,7 @@ export class ApplicationInstallService {
       });
 
       if (isPostInstallHookSynchronous) {
-        await this.markInstallCompleted({
-          applicationId: application.id,
-          version: newVersion,
-          workspaceId: params.workspaceId,
-        });
+        await this.markInstallCompleted(installCompletion);
       }
 
       await progressReporter.reportStepCompleted('POST_INSTALL_HOOK');
@@ -730,15 +753,25 @@ export class ApplicationInstallService {
 
   private async markInstallCompleted({
     applicationId,
+    universalIdentifier,
     version,
+    acceptedBillingPrices,
     workspaceId,
   }: {
     applicationId: string;
+    universalIdentifier: string;
     version: string;
+    acceptedBillingPrices: ApplicationBillingPrice[] | undefined;
     workspaceId: string;
   }): Promise<void> {
     await this.applicationService.update(applicationId, {
       version,
+      ...(isDefined(acceptedBillingPrices) ? { acceptedBillingPrices } : {}),
+      workspaceId,
+    });
+
+    this.applicationService.emitInstallationChanged({
+      universalIdentifier,
       workspaceId,
     });
   }
@@ -963,6 +996,7 @@ export class ApplicationInstallService {
     universalIdentifier,
     name,
     grantedCapabilities,
+    grantedIframeMediaPermissions,
     workspaceId,
     applicationRegistrationId,
     sourceType,
@@ -972,6 +1006,7 @@ export class ApplicationInstallService {
     universalIdentifier: string;
     name: string;
     grantedCapabilities: ApplicationCapability[];
+    grantedIframeMediaPermissions: IframeMediaPermission[];
     workspaceId: string;
     applicationRegistrationId: string;
     sourceType: ApplicationRegistrationSourceType;
@@ -985,6 +1020,7 @@ export class ApplicationInstallService {
       universalIdentifier,
       name,
       grantedCapabilities,
+      grantedIframeMediaPermissions,
       sourcePath: universalIdentifier,
       sourceType,
       applicationRegistrationId,

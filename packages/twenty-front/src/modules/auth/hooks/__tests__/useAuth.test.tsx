@@ -11,9 +11,12 @@ import {
   email,
   mocks,
   password,
+  queries,
   results,
   token,
 } from '@/auth/hooks/__mocks__/useAuth';
+import { affiliatePartnerNameState } from '@/auth/states/affiliatePartnerNameState';
+import { isEmailVerificationRequiredState } from '@/client-config/states/isEmailVerificationRequiredState';
 import {
   type CurrentUser,
   currentUserState,
@@ -56,12 +59,6 @@ jest.mock('@/domain-manager/hooks/useRedirect', () => ({
 jest.mock('@/domain-manager/hooks/useOrigin', () => ({
   useOrigin: jest.fn().mockImplementation(() => ({
     origin: 'http://localhost',
-  })),
-}));
-
-jest.mock('@/captcha/hooks/useRequestFreshCaptchaToken', () => ({
-  useRequestFreshCaptchaToken: jest.fn().mockImplementation(() => ({
-    requestFreshCaptchaToken: jest.fn(),
   })),
 }));
 
@@ -120,6 +117,8 @@ describe('useAuth', () => {
     getDefaultStore().set(returnToPathState.atom, '');
     getDefaultStore().set(isSsoSignOutInProgressState.atom, false);
     getDefaultStore().set(isPendingServerSignOutState.atom, false);
+    getDefaultStore().set(affiliatePartnerNameState.atom, null);
+    getDefaultStore().set(isEmailVerificationRequiredState.atom, false);
   });
 
   it('should return login token object', async () => {
@@ -317,5 +316,64 @@ describe('useAuth', () => {
         false,
       );
     });
+  });
+
+  it('should send the stored partner with a credential sign-up', async () => {
+    getDefaultStore().set(affiliatePartnerNameState.atom, {
+      partner: 'northwind',
+    });
+    getDefaultStore().set(isEmailVerificationRequiredState.atom, true);
+
+    const signUpResult = jest.fn(() => ({
+      data: {
+        signUp: {
+          __typename: 'AvailableWorkspacesAndAccessTokens',
+          availableWorkspaces: {
+            __typename: 'AvailableWorkspaces',
+            availableWorkspacesForSignIn: [],
+            availableWorkspacesForSignUp: [],
+          },
+          tokens: {
+            __typename: 'AuthTokenPair',
+            accessOrWorkspaceAgnosticToken: {
+              __typename: 'AuthToken',
+              token,
+              expiresAt: 'expiresAt',
+            },
+            refreshToken: {
+              __typename: 'AuthToken',
+              token,
+              expiresAt: 'expiresAt',
+            },
+          },
+        },
+      },
+    }));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MockedProvider
+          mocks={[
+            {
+              request: { query: queries.signup, variables: () => true },
+              result: signUpResult,
+            },
+          ]}
+        >
+          <MemoryRouter>
+            <ToastProvider>{children}</ToastProvider>
+          </MemoryRouter>
+        </MockedProvider>
+      ),
+    });
+
+    await act(async () => {
+      await result.current.signUpWithCredentials(email, password);
+    });
+
+    expect(signUpResult).toHaveBeenCalledTimes(1);
+    expect(signUpResult).toHaveBeenCalledWith(
+      expect.objectContaining({ email, affiliatePartnerName: 'northwind' }),
+    );
   });
 });

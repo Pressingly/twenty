@@ -490,6 +490,11 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
           "format": "uuid",
           "type": "string",
         },
+        "isCanonical": {
+          "default": true,
+          "description": "False adds an extra column for a field the view already shows, e.g. to show a field of a related record.",
+          "type": "boolean",
+        },
         "isVisible": {
           "default": true,
           "description": "Whether the field is visible in the view.",
@@ -499,6 +504,11 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
           "default": 0,
           "description": "Position of the field in the view (0-based).",
           "type": "number",
+        },
+        "relationTargetFieldMetadataId": {
+          "description": "On an extra (non-canonical) column of a many-to-one relation field, show this field of the related record instead of the record. Must be a non-relation field of the related object.",
+          "format": "uuid",
+          "type": "string",
         },
         "size": {
           "default": 150,
@@ -553,6 +563,18 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
         "position": {
           "description": "Position of the field.",
           "type": "number",
+        },
+        "relationTargetFieldMetadataId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string",
+            },
+            {
+              "type": "null",
+            },
+          ],
+          "description": "On an extra (non-canonical) column of a many-to-one relation field, show this field of the related record instead of the record. Null shows the related record again.",
         },
         "size": {
           "description": "Column width in pixels.",
@@ -614,6 +636,11 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
                 "format": "uuid",
                 "type": "string",
               },
+              "isCanonical": {
+                "default": true,
+                "description": "False adds an extra column for a field the view already shows, e.g. to show a field of a related record.",
+                "type": "boolean",
+              },
               "isVisible": {
                 "default": true,
                 "description": "Whether the field is visible in the view.",
@@ -623,6 +650,11 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
                 "default": 0,
                 "description": "Position of the field in the view (0-based).",
                 "type": "number",
+              },
+              "relationTargetFieldMetadataId": {
+                "description": "On an extra (non-canonical) column of a many-to-one relation field, show this field of the related record instead of the record. Must be a non-relation field of the related object.",
+                "format": "uuid",
+                "type": "string",
               },
               "size": {
                 "default": 150,
@@ -692,6 +724,18 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
                 "description": "Position of the field.",
                 "type": "number",
               },
+              "relationTargetFieldMetadataId": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string",
+                  },
+                  {
+                    "type": "null",
+                  },
+                ],
+                "description": "On an extra (non-canonical) column of a many-to-one relation field, show this field of the related record instead of the record. Null shows the related record again.",
+              },
               "size": {
                 "description": "Column width in pixels.",
                 "type": "integer",
@@ -724,7 +768,7 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
           "type": "string",
         },
         "operand": {
-          "description": "Filter operator. Valid operators per field type — TEXT/EMAILS/FULL_NAME: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. NUMBER/NUMERIC: IS, IS_NOT, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. CURRENCY: GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. DATE/DATE_TIME: IS, IS_RELATIVE, IS_IN_PAST, IS_IN_FUTURE, IS_TODAY, IS_BEFORE, IS_AFTER, IS_EMPTY, IS_NOT_EMPTY. SELECT: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. MULTI_SELECT/ARRAY: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. RELATION: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. BOOLEAN: IS.",
+          "description": "Filter operator. Valid operators per field type — TEXT: CONTAINS, DOES_NOT_CONTAIN, IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. EMAILS/FULL_NAME: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. NUMBER/NUMERIC: IS, IS_NOT, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. CURRENCY: GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. DATE/DATE_TIME: IS, IS_RELATIVE, IS_IN_PAST, IS_IN_FUTURE, IS_TODAY, IS_BEFORE, IS_AFTER, IS_EMPTY, IS_NOT_EMPTY. SELECT: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. MULTI_SELECT/ARRAY: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. RELATION: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. BOOLEAN: IS.",
           "enum": [
             "IS",
             "IS_NOT_NULL",
@@ -806,7 +850,7 @@ VIEW TYPES: TABLE (default), LIST, KANBAN (requires mainGroupByFieldName, a SELE
                 "type": "string",
               },
               "operand": {
-                "description": "Filter operator. Valid operators per field type — TEXT/EMAILS/FULL_NAME: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. NUMBER/NUMERIC: IS, IS_NOT, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. CURRENCY: GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. DATE/DATE_TIME: IS, IS_RELATIVE, IS_IN_PAST, IS_IN_FUTURE, IS_TODAY, IS_BEFORE, IS_AFTER, IS_EMPTY, IS_NOT_EMPTY. SELECT: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. MULTI_SELECT/ARRAY: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. RELATION: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. BOOLEAN: IS.",
+                "description": "Filter operator. Valid operators per field type — TEXT: CONTAINS, DOES_NOT_CONTAIN, IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. EMAILS/FULL_NAME: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. NUMBER/NUMERIC: IS, IS_NOT, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. CURRENCY: GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, IS_EMPTY, IS_NOT_EMPTY. DATE/DATE_TIME: IS, IS_RELATIVE, IS_IN_PAST, IS_IN_FUTURE, IS_TODAY, IS_BEFORE, IS_AFTER, IS_EMPTY, IS_NOT_EMPTY. SELECT: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. MULTI_SELECT/ARRAY: CONTAINS, DOES_NOT_CONTAIN, IS_EMPTY, IS_NOT_EMPTY. RELATION: IS, IS_NOT, IS_EMPTY, IS_NOT_EMPTY. BOOLEAN: IS.",
                 "enum": [
                   "IS",
                   "IS_NOT_NULL",

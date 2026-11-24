@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
-import { isNonEmptyArray } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
+import { getHealthCheckLogicFunctionIdForUser } from 'src/engine/core-modules/application/application-health/utils/get-health-check-logic-function-id-for-user.util';
 import { type ApplicationPreferencesDTO } from 'src/engine/core-modules/application/application-preferences/dtos/application-preferences.dto';
 import { UserApplicationVariableValueService } from 'src/engine/core-modules/application/application-variable/user-application-variable-value.service';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
@@ -54,8 +55,9 @@ export class ApplicationPreferencesService {
       }),
     ]);
 
-    return installedFlatApplications
-      .map(({ id: applicationId }): ApplicationPreferencesDTO => ({
+    return installedFlatApplications.flatMap((application) => {
+      const { id: applicationId } = application;
+      const applicationPreferences: ApplicationPreferencesDTO = {
         applicationId,
         settingsMenuItems: findFlatEntitiesByApplicationId({
           flatEntityMaps: flatSettingsMenuItemMaps,
@@ -69,12 +71,18 @@ export class ApplicationPreferencesService {
           (connectionProvider) =>
             connectionProvider.applicationId === applicationId,
         ),
-      }))
-      .filter(
-        ({ settingsMenuItems, variables, connectionProviders }) =>
-          isNonEmptyArray(settingsMenuItems) ||
-          isNonEmptyArray(variables) ||
-          isNonEmptyArray(connectionProviders),
-      );
+      };
+
+      if (
+        !isNonEmptyArray(applicationPreferences.settingsMenuItems) &&
+        !isNonEmptyArray(applicationPreferences.variables) &&
+        !isNonEmptyArray(applicationPreferences.connectionProviders) &&
+        !isDefined(getHealthCheckLogicFunctionIdForUser(application))
+      ) {
+        return [];
+      }
+
+      return [applicationPreferences];
+    });
   }
 }

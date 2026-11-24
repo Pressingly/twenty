@@ -7,6 +7,7 @@ import { EmailField } from '@/settings/profile/components/EmailField';
 import { NameFields } from '@/settings/profile/components/NameFields';
 import { ProfileTwoFactorAuthenticationSection } from '@/settings/profile/components/ProfileTwoFactorAuthenticationSection';
 import { SetOrChangePassword } from '@/settings/profile/components/SetOrChangePassword';
+import { SettingsProfileConnectedAppsSection } from '@/settings/profile/connected-apps/components/SettingsProfileConnectedAppsSection';
 import { SettingsProfileDevicesSection } from '@/settings/profile/devices/components/SettingsProfileDevicesSection';
 import { useCanChangePassword } from '@/settings/profile/hooks/useCanChangePassword';
 import { WorkspaceMemberPictureUploader } from '@/settings/workspace-member/components/WorkspaceMemberPictureUploader';
@@ -66,6 +67,7 @@ export const SettingsProfile = () => {
           </Section.Root>
         )}
         <SettingsProfileDevicesSection />
+        <SettingsProfileConnectedAppsSection />
         {!isSsoEnabled && (
           <Section.Root>
             <DeleteAccount />

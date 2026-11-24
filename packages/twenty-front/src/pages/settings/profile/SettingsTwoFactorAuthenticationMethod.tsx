@@ -2,6 +2,7 @@ import { Button } from 'twenty-ui/primitives/input';
 import { styled } from '@linaria/react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { isNonEmptyString } from '@sniptt/guards';
+import { useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import QRCodeModule from 'react-qr-code';
 import { Navigate } from 'react-router-dom';
@@ -11,6 +12,7 @@ import { qrCodeState } from '@/auth/states/qrCode';
 import { SaveAndCancelButtons } from '@/settings/components/SaveAndCancelButtons/SaveAndCancelButtons';
 import { SettingsPageContainer } from '@/settings/components/SettingsPageContainer';
 import { DeleteTwoFactorAuthentication } from '@/settings/two-factor-authentication/components/DeleteTwoFactorAuthenticationMethod';
+import { TwoFactorAuthenticationBackupCodesSection } from '@/settings/two-factor-authentication/components/TwoFactorAuthenticationBackupCodesSection';
 import { TwoFactorAuthenticationSetupForSettingsEffect } from '@/settings/two-factor-authentication/components/TwoFactorAuthenticationSetupForSettingsEffect';
 import { TwoFactorAuthenticationVerificationForSettings } from '@/settings/two-factor-authentication/components/TwoFactorAuthenticationVerificationForSettings';
 import { useCurrentUserWorkspaceTwoFactorAuthentication } from '@/settings/two-factor-authentication/hooks/useCurrentUserWorkspaceTwoFactorAuthentication';
@@ -18,7 +20,11 @@ import { useTwoFactorVerificationForSettings } from '@/settings/two-factor-authe
 import { extractSecretFromOtpUri } from '@/settings/two-factor-authentication/utils/extractSecretFromOtpUri';
 import { SettingsPageLayout } from '@/settings/components/layout/SettingsPageLayout';
 import { SettingsPath } from 'twenty-shared/types';
-import { getSettingsPath, isDefined } from 'twenty-shared/utils';
+import {
+  getSettingsPath,
+  isDefined,
+  isNonEmptyArray,
+} from 'twenty-shared/utils';
 import { Section } from 'twenty-ui/components/layout';
 import { Loader } from 'twenty-ui/primitives/feedback';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
@@ -100,9 +106,18 @@ const SettingsTwoFactorAuthenticationMethodInner = () => {
     currentUserWorkspaceTwoFactorAuthenticationMethods['TOTP']?.status ===
     'VERIFIED';
 
-  const verificationForm = useTwoFactorVerificationForSettings();
+  const [generatedBackupCodes, setGeneratedBackupCodes] = useState<
+    string[] | null
+  >(null);
 
-  const shouldShowActionButtons = !has2FAMethod;
+  const verificationForm = useTwoFactorVerificationForSettings({
+    onBackupCodesIssued: setGeneratedBackupCodes,
+  });
+
+  const isSetupCompleted =
+    has2FAMethod || isNonEmptyArray(generatedBackupCodes);
+
+  const shouldShowActionButtons = !isSetupCompleted;
 
   const handleCopySetupKey = async () => {
     if (!isNonEmptyString(qrCode)) {
@@ -148,10 +163,16 @@ const SettingsTwoFactorAuthenticationMethodInner = () => {
         }
       >
         <SettingsPageContainer>
-          {has2FAMethod ? (
-            <Section.Root>
-              <DeleteTwoFactorAuthentication />
-            </Section.Root>
+          {isSetupCompleted ? (
+            <>
+              <TwoFactorAuthenticationBackupCodesSection
+                generatedBackupCodes={generatedBackupCodes}
+                onBackupCodesGenerated={setGeneratedBackupCodes}
+              />
+              <Section.Root>
+                <DeleteTwoFactorAuthentication />
+              </Section.Root>
+            </>
           ) : (
             <Section.Root>
               <TwoFactorAuthenticationSetupForSettingsEffect />

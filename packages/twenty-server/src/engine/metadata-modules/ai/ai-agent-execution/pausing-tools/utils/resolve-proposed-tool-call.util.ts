@@ -3,7 +3,7 @@ import {
   type ProposeToolCallToolInput,
   type ProposedToolCall,
 } from 'twenty-shared/ai';
-import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray, isPlainObject } from 'twenty-shared/utils';
 
 import { type ToolIndexEntry } from 'src/engine/core-modules/tool-provider/types/tool-index-entry.type';
 import { buildEmailProposal } from 'src/engine/metadata-modules/ai/ai-agent-execution/pausing-tools/utils/build-email-proposal.util';
@@ -103,6 +103,43 @@ export const resolveProposedToolCall = async ({
   };
 
   switch (template) {
+    case 'frontComponent': {
+      const { draftId, checksum } = baseProposal.arguments;
+
+      if (!isNonEmptyString(draftId) || !isNonEmptyString(checksum)) {
+        return {
+          error:
+            'arguments.draftId and arguments.checksum must identify the component draft.',
+        };
+      }
+
+      const toolOutput = await executeTool({
+        toolName: 'inspect_front_component',
+        args: { draftId },
+      });
+
+      if (!toolOutput.success) {
+        return { error: toolOutput.error ?? toolOutput.message };
+      }
+
+      const draft = toolOutput.result;
+
+      if (!isPlainObject(draft) || draft.draftId !== draftId) {
+        return {
+          error:
+            'Could not read the component draft. Use the draftId returned by preview_front_component.',
+        };
+      }
+
+      if (draft.isCurrent !== true || draft.checksum !== checksum) {
+        return {
+          error:
+            'This preview changed. Propose the draftId and checksum of the latest revision.',
+        };
+      }
+
+      return { proposal: { ...baseProposal, template } };
+    }
     case 'email':
       return buildEmailProposal(baseProposal);
     case 'recordCreate':

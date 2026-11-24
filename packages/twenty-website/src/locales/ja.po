@@ -8,7 +8,7 @@ msgstr ""
 "Language: ja\n"
 "Project-Id-Version: 05979aaf4e7789e4424376136c855f77\n"
 "Report-Msgid-Bugs-To: \n"
-"PO-Revision-Date: 2026-10-29 14:18\n"
+"PO-Revision-Date: 2026-11-18 18:13\n"
 "Last-Translator: \n"
 "Language-Team: Japanese\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
@@ -131,6 +131,11 @@ msgstr "← 戻る"
 #: src/partners-marketplace/BackToMarketplaceLink.tsx
 msgid "← Twenty partners"
 msgstr "← Twenty パートナー一覧に戻る"
+
+#. js-lingui-id: WYQYI0
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "+ Client briefs"
+msgstr "+ クライアントブリーフ"
 
 #. js-lingui-id: foGG8A
 #: src/sections/pricing-salesfarce/salesfarce-data.ts
@@ -272,6 +277,7 @@ msgstr "約7倍少ない"
 
 #. js-lingui-id: be30i9
 #: src/sections/pricing-plan-table/plan-table-data.ts
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
 #: src/sections/compare/compare-data.ts
 #: src/sections/compare/compare-data.ts
 msgid "$0"
@@ -450,6 +456,11 @@ msgstr "$42,000/年"
 msgid "$49/user/mo"
 msgstr "$49/ユーザー/月"
 
+#. js-lingui-id: +GoalU
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "$50"
+msgstr "50ドル"
+
 #. js-lingui-id: ft5bJk
 #: src/sections/compare/compare-data.ts
 msgid "$500/user/mo"
@@ -545,6 +556,17 @@ msgstr ""
 "11件の権限\n"
 "groups"
 
+#. js-lingui-id: J00CPN
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "12 months"
+msgstr "12か月"
+
+#. js-lingui-id: HeDrOu
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "12k newsletter subscribers"
+msgstr "ニュースレター登録者数12k"
+
 #. js-lingui-id: 2szX5S
 #: src/partner-application/partner-application-copy.ts
 msgid "150"
@@ -604,6 +626,28 @@ msgstr "20 × Sales Enterprise ($105)"
 msgid "20 × Sales Hub Enterprise ($150)"
 msgstr "20 × Sales Hub Enterprise ($150)"
 
+#. js-lingui-id: ewzpPG
+#: src/sections/partner-programs/partner-levels.data.ts
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "20%"
+msgstr "20%"
+
+#. js-lingui-id: vbPxj+
+#: src/sections/faq/become-partner-faq.data.ts
+msgid "20% of the seat revenue of every client you bring, for 12 months, plus the partner Discord where our team and other partners answer your questions. Partner training is coming soon."
+msgstr "紹介した各クライアントのシート収益の20%を12か月間受け取れるほか、当社チームと他のパートナーが質問にお答えするパートナー向けDiscordをご利用いただけます。パートナー向けトレーニングも近日開始予定です。"
+
+#. js-lingui-id: NmKuTq
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "20% on every client you bring"
+msgstr "紹介したすべてのクライアントで20%"
+
+#. js-lingui-id: g1xpgV
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "20% on the clients you bring yourself"
+msgstr "ご自身で紹介したクライアントの20%"
+
 #. js-lingui-id: FKcV/y
 #: src/case-studies/case-study-catalog.ts
 #: src/case-studies/case-study-catalog.ts
@@ -630,6 +674,21 @@ msgstr ""
 #: src/case-studies/case-study-catalog.ts
 msgid "3 product lines"
 msgstr "3つの製品ライン"
+
+#. js-lingui-id: M5Eoob
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+msgid "3 steps"
+msgstr "3ステップ"
+
+#. js-lingui-id: P9cEa2
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "30 days"
+msgstr "30日"
+
+#. js-lingui-id: /wTvaM
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "30 days after the click. If the visitor creates their workspace within that time and later becomes a paying Cloud Organization or Enterprise customer, the commission is yours. If they click another partner's link before creating their workspace, that partner gets the credit. Once the workspace is created, the credit is final."
+msgstr "クリック後30日間です。その期間内に訪問者がワークスペースを作成し、その後 Cloud Organization または Enterprise の有料顧客になった場合、コミッションはあなたのものです。ワークスペースを作成する前に別のパートナーのリンクをクリックした場合は、そのパートナーに成果が帰属します。ワークスペースが作成されると、帰属先は確定します。"
 
 #. js-lingui-id: MW3Qpb
 #: src/partners-marketplace/PartnerProfileCtas.tsx
@@ -748,6 +807,11 @@ msgstr "単一チーム向けのカスタムエージェント型CRM。"
 #: src/sections/problem/Problem.tsx
 msgid "A custom CRM gives your org an edge, *but building one* comes with *tradeoffs*"
 msgstr "カスタムCRMは組織に優位性をもたらしますが、*それを構築すること*には*トレードオフ*が伴います"
+
+#. js-lingui-id: /Ywl2k
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "A directory profile"
+msgstr "ディレクトリプロフィール"
 
 #. js-lingui-id: 4lAzBW
 #: src/sections/compare/compare-data.ts
@@ -1113,10 +1177,10 @@ msgstr "アフリカ"
 msgid "Agencies and freelancers apply through the Twenty partner program page, which lists the requirements and carries the application form."
 msgstr "エージェンシーおよびフリーランサーは、要件と申請フォームが掲載されているTwentyパートナープログラムのページから申請します。"
 
-#. js-lingui-id: CHjiD2
+#. js-lingui-id: BvtK0/
 #: src/sections/partner-lead/PartnerBecomeStrip.tsx
-msgid "Agencies and freelancers can apply to join the certified directory."
-msgstr "エージェンシーおよびフリーランサーは、認定ディレクトリへの参加を申請できます。"
+msgid "Agencies and freelancers who implement Twenty can join as integrators."
+msgstr "Twenty を導入する代理店やフリーランサーは、インテグレーターとして参加できます。"
 
 #. js-lingui-id: NmHsVh
 #: src/partner-application/data/partner-team-type-options.ts
@@ -1312,6 +1376,16 @@ msgstr "Amrendra Pratap Singh"
 msgid "An email sent from a record is now linked to that record, even when the recipient isn’t its point of contact."
 msgstr "レコードから送信されたメールは、受信者がその連絡先でない場合でも、そのレコードにリンクされるようになりました。"
 
+#. js-lingui-id: FSZoTr
+#: src/sections/faq/become-partner-faq.data.ts
+msgid "An integrator we trust with our own leads, once we have seen their work with clients. Lead Integrators get client briefs and a profile in the partner directory, on top of everything integrators get."
+msgstr "クライアントとの仕事ぶりを確認後、当社のリードを安心して任せられるインテグレーターです。リードインテグレーターは、インテグレーター向けのすべての特典に加え、クライアントブリーフとパートナーディレクトリのプロフィールを利用できます。"
+
+#. js-lingui-id: fjtTAL
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "An integrator we trust with our own leads."
+msgstr "私たちが自社のリードを任せられると信頼するインテグレーター。"
+
 #. js-lingui-id: t4V3jR
 #: src/sections/pricing-plans/plans-data.ts
 msgid "And more apps from our marketplace"
@@ -1404,6 +1478,39 @@ msgstr "アプリログ"
 msgid "App not found — Twenty"
 msgstr "アプリが見つかりません — Twenty"
 
+#. js-lingui-id: xHy9tF
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Application received"
+msgstr "申し込みを受け付けました"
+
+#. js-lingui-id: DB8zMK
+#: src/sections/partner-programs/integrator-steps.data.ts
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "Apply"
+msgstr "申請する"
+
+#. js-lingui-id: YlcqKV
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid ""
+"Apply as a\n"
+"*Twenty creator*"
+msgstr ""
+"*Twentyクリエイター*に\n"
+"申請する"
+
+#. js-lingui-id: IBo99W
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "Apply as a creator"
+msgstr "クリエイターとして申請する"
+
+#. js-lingui-id: wc3bHr
+#: src/sections/partner-lead/PartnerBecomeStrip.tsx
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "Apply as an integrator"
+msgstr "インテグレーターとして申請する"
+
 #. js-lingui-id: k8I7/G
 #: src/partner-application/partner-application-copy.ts
 msgid ""
@@ -1412,11 +1519,6 @@ msgid ""
 msgstr ""
 "応募して\n"
 "*CRMの未来*をつくる"
-
-#. js-lingui-id: LJCDxT
-#: src/platform/routing/static-website-routes.ts
-msgid "Apply to join the Twenty partner ecosystem and grow your practice with the #1 open source CRM."
-msgstr "Twentyのパートナーエコシステムへの参加に応募し、#1のオープンソースCRMとともにビジネスを成長させましょう。"
 
 #. js-lingui-id: VDvaN2
 #: src/sections/menu/data/menu.ts
@@ -1470,6 +1572,11 @@ msgstr "チャットでアップロードしたファイルを、AIに直接レ�
 msgid "Ask AI to build or reconfigure dashboards and views from your workspace data."
 msgstr "ワークスペースのデータを基に、ダッシュボードやビューを構築または再構成するようAIに依頼できます。"
 
+#. js-lingui-id: gXJd56
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "Ask our team and partners on the partner Discord."
+msgstr "パートナーDiscordで、私たちのチームやパートナーに質問してください。"
+
 #. js-lingui-id: S+Q+1d
 #: src/sections/product-hero/ProductHero.tsx
 msgid "Ask questions, automate tasks, and get insights with AI that understands your data and helps you move faster every day, end to end across teams."
@@ -1484,11 +1591,6 @@ msgstr "堅牢なCRMを組み上げ、反復し、適応させながら、*素�
 #: src/sections/product-feature/data/feature-tiles.ts
 msgid "Assign owners and due dates"
 msgstr "担当者と期限を割り当て"
-
-#. js-lingui-id: eo0HU7
-#: src/sections/faq/become-partner-faq.data.ts
-msgid "At least one shipped Twenty implementation — customer or internal — with a link that shows the work. Solo freelancers and agencies both qualify."
-msgstr "顧客向けまたは社内向けを問わず、公開済みのTwenty実装が少なくとも1件あり、その実績を示すリンクが必要です。個人のフリーランサーとエージェンシーの両方が対象です。"
 
 #. js-lingui-id: PbTDQ4
 #: src/platform/releases/ReleaseNotes.tsx
@@ -1509,6 +1611,16 @@ msgstr "添付ファイルがインラインプレビュー付きの専用ペー
 #: src/sections/product-feature/data/feature-tiles.ts
 msgid "Attachments without the chaos."
 msgstr "混乱のない添付ファイル。"
+
+#. js-lingui-id: qAjvYv
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Audience size must be 200 characters or fewer."
+msgstr "オーディエンス規模は200文字以内で入力してください。"
+
+#. js-lingui-id: wfUKha
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Audience size or clients"
+msgstr "オーディエンス規模またはクライアント数"
 
 #. js-lingui-id: y2W2Hg
 #: src/sections/pricing-plan-table/plan-table-data.ts
@@ -1610,41 +1722,60 @@ msgstr "本当のオーケストレーションとは、あらゆる劇的な登
 msgid "Because Twenty's API is fully open, I could connect it to every other tool in our stack. When a proposal is won, what used to take four people manually setting things up across four different tools now happens in a single click. That is the kind of time saving that only becomes possible when everything is connected."
 msgstr "TwentyのAPIが完全にオープンであるおかげで、スタック内の他のあらゆるツールと接続できました。案件が受注されたとき、以前はfour人がfourつの異なるツールで手作業の設定を行っていたプロセスが、今ではワンクリックで完了します。これは、すべてがつながって初めて実現するレベルの時間短縮です。"
 
-#. js-lingui-id: kWm0dC
-#: src/sections/partner-hero/PartnerHero.tsx
+#. js-lingui-id: ailSLm
+#: src/app/[locale]/(site)/partners/creators/page.tsx
 msgid ""
-"Become\n"
-"*our partner*"
+"Become a\n"
+"*Twenty creator*"
 msgstr ""
-"Become\n"
-"*our partner*"
+"なる\n"
+"*Twentyクリエイター*"
+
+#. js-lingui-id: tpaBVA
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid ""
+"Become a\n"
+"*Twenty integrator*"
+msgstr ""
+"なる\n"
+"*Twentyインテグレーター*"
+
+#. js-lingui-id: XWAIlg
+#: src/sections/menu/data/menu.ts
+#: src/sections/footer/footer.data.ts
+msgid "Become a creator"
+msgstr "クリエイターになる"
 
 #. js-lingui-id: PKMHNe
 #: src/sections/pricing-salesfarce/salesfarce-data.ts
 msgid "become a genius!"
 msgstr "天才になろう！"
 
-#. js-lingui-id: 6ZCRfT
-#: src/sections/partner-signoff/PartnerSignoff.tsx
-#: src/sections/partner-lead/PartnerBecomeStrip.tsx
-#: src/sections/partner-hero/PartnerHero.tsx
-msgid "Become a partner"
-msgstr "パートナーになる"
-
-#. js-lingui-id: j+1dcz
+#. js-lingui-id: p9CxH1
 #: src/platform/routing/static-website-routes.ts
-msgid "Become a Twenty Partner — Apply"
-msgstr "Twentyパートナーになる — 応募"
+msgid "Become a Twenty Integrator — Partner Program"
+msgstr "Twenty インテグレーターになる — パートナープログラム"
 
-#. js-lingui-id: 8x+SS7
+#. js-lingui-id: gWiWoT
 #: src/platform/routing/static-website-routes.ts
-msgid "Become a Twenty Partner — Join the Open Source CRM Ecosystem"
-msgstr "Twentyパートナーになる — オープンソースCRMエコシステムに参加"
+msgid "Become a Twenty integrator: implement the #1 open source CRM for your clients, earn 20% on the clients you bring, and grow into a Lead Integrator to receive client briefs."
+msgstr "Twenty インテグレーターになりましょう。クライアント向けにナンバー1のオープンソース CRM を導入し、紹介したクライアントから20%を獲得できます。リードインテグレーターへと成長すれば、クライアントブリーフも受け取れます。"
 
-#. js-lingui-id: r8MUXZ
+#. js-lingui-id: wGnM6h
+#: src/sections/menu/data/menu.ts
+#: src/sections/footer/footer.data.ts
+msgid "Become an integrator"
+msgstr "インテグレーターになる"
+
+#. js-lingui-id: Zw6ZMh
+#: src/sections/faq/AffiliateProgramFaq.tsx
+msgid "Becoming *a Twenty creator*"
+msgstr "*Twenty クリエイター*になるには"
+
+#. js-lingui-id: eapyFD
 #: src/sections/faq/BecomePartnerFaq.tsx
-msgid "Becoming *a Twenty partner*"
-msgstr "*Twentyパートナー*になる"
+msgid "Becoming *a Twenty integrator*"
+msgstr "*Twenty インテグレーター*になるには"
 
 #. js-lingui-id: 83Wi6G
 #: src/sections/home-stepper/data/stepper.data.ts
@@ -1691,6 +1822,12 @@ msgstr "Bertrams"
 msgid "Best proof first: a live Twenty instance URL, a public repo, or a YouTube link. Loom, Drive and file links are accepted but slower to review."
 msgstr "まず最良の証拠をご提示ください: 稼働中のTwentyインスタンスのURL、公開リポジトリ、またはYouTubeリンク。Loom、Drive、ファイルリンクも受け付けますが、レビューに時間がかかります。"
 
+#. js-lingui-id: YBt9YP
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "Beta"
+msgstr "ベータ"
+
 #. js-lingui-id: BSmDFu
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Better sorted kanban boards"
@@ -1731,10 +1868,20 @@ msgstr "請求サイクル"
 msgid "Blue code window illustration"
 msgstr "青いコードウィンドウのイラスト"
 
+#. js-lingui-id: NhBE23
+#: src/sections/menu/data/menu.ts
+msgid "Blue laptop illustration"
+msgstr "青いノートパソコンのイラスト"
+
 #. js-lingui-id: go4Mpk
 #: src/sections/menu/data/menu.ts
 msgid "Blue megaphone illustration"
 msgstr "青いメガホンのイラスト"
+
+#. js-lingui-id: vq+BH/
+#: src/sections/menu/data/menu.ts
+msgid "Blue play button illustration"
+msgstr "青い再生ボタンのイラスト"
 
 #. js-lingui-id: TVJDFA
 #: src/partner-application/data/partner-country-options.ts
@@ -1765,6 +1912,11 @@ msgstr "Botswana 🇧🇼"
 #: src/partner-application/data/partner-country-options.ts
 msgid "Brazil 🇧🇷"
 msgstr "Brazil 🇧🇷"
+
+#. js-lingui-id: e+xWFk
+#: src/sections/partner-programs/integrator-steps.data.ts
+msgid "Bring your clients"
+msgstr "クライアントを紹介する"
 
 #. js-lingui-id: ISQOxf
 #: src/sections/pricing-plans/plans-data.ts
@@ -1872,11 +2024,6 @@ msgstr "ベンダーロックインに焼かれたAC&Tが、自社で本当に�
 msgid "Burundi 🇧🇮"
 msgstr "Burundi 🇧🇮"
 
-#. js-lingui-id: s61NQg
-#: src/sections/faq/become-partner-faq.data.ts
-msgid "Buyers submit a project brief with scope, timeline, and budget. We hand-pick the certified partners who fit and make the introduction within 48 hours."
-msgstr "購入者は、対象範囲、スケジュール、予算を含むプロジェクト概要を提出します。適した認定パートナーを厳選し、48時間以内にご紹介します。"
-
 #. js-lingui-id: L40Ae7
 #: src/partner-application/partner-application-copy.ts
 msgid "Calendar / booking link"
@@ -1926,6 +2073,11 @@ msgstr "開発者はコードでTwentyを拡張できますか？"
 #: src/sections/faq/faq.data.ts
 msgid "Can I migrate from Salesforce or HubSpot?"
 msgstr "SalesforceやHubSpotから移行できますか？"
+
+#. js-lingui-id: jaiWEf
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "Can I refer my own company?"
+msgstr "自社を紹介できますか？"
 
 #. js-lingui-id: wsjgUI
 #: src/sections/compare/compare-data.ts
@@ -1983,11 +2135,6 @@ msgstr "カテゴリ"
 #: src/partner-application/data/partner-country-options.ts
 msgid "Central African Republic 🇨🇫"
 msgstr "Central African Republic 🇨🇫"
-
-#. js-lingui-id: n6B8ue
-#: src/sections/faq/become-partner-faq.data.ts
-msgid "Certification, plus a directory profile your clients can verify. The best partners also receive client briefs matched to their scope."
-msgstr "認定に加え、クライアントが確認できるディレクトリプロフィールを提供します。優れたパートナーには、対応範囲に合ったクライアント概要も届きます。"
 
 #. js-lingui-id: 4W4gsr
 #: src/sections/partner-hero/PartnerLeadHero.tsx
@@ -2096,15 +2243,25 @@ msgstr "フィルターをクリア"
 msgid "Clearer dashboard numbers"
 msgstr "より見やすいダッシュボードの数値"
 
-#. js-lingui-id: +W4YRD
+#. js-lingui-id: HdvI9Q
 #: src/sections/faq/become-partner-faq.data.ts
-msgid "Click Become a partner and complete the short application: who you are, what you cover, and one real Twenty project with proof. We review every application against real, shipped work — acceptance is selective."
-msgstr "「パートナーになる」をクリックし、あなたについて、対応範囲、実績を証明できる実際のTwentyプロジェクト1件を記載した簡単な申請を完了してください。実際に提供済みの成果物を基準にすべての申請を審査します。承認は選考制です。"
+msgid "Click Apply as an integrator and complete the short application: who you are, the clients you work with, and what you have built with Twenty. We review every application by hand."
+msgstr "「インテグレーターとして申請する」をクリックし、あなた自身、取引先のクライアント、Twenty で構築したものについて、簡単な申請を完了してください。すべての申請を担当者が確認します。"
 
 #. js-lingui-id: glfrZq
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Clicking a call in the Call recordings widget now opens its calendar event, with the summary, transcript and participants in one place."
 msgstr "通話録音ウィジェットで通話をクリックすると、そのカレンダーイベントが開き、概要、文字起こし、参加者を一か所で確認できるようになりました。"
+
+#. js-lingui-id: yuosVb
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Client briefs"
+msgstr "クライアントブリーフ"
+
+#. js-lingui-id: oA4gy0
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Clients from briefs do not earn a commission"
+msgstr "ブリーフ経由のクライアントにはコミッションは発生しません"
 
 #. js-lingui-id: yz7wBu
 #: src/partners-marketplace/CaseStudyModal.tsx
@@ -2183,6 +2340,11 @@ msgstr "アプリ全体でカラーアイコンを表示"
 msgid "Column-to-field mapping (including relations)"
 msgstr "列からフィールドへのマッピング（リレーションを含む）"
 
+#. js-lingui-id: AUYALh
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Coming soon"
+msgstr "近日公開"
+
 #. js-lingui-id: ofoEsM
 #: src/sections/pricing-salesfarce/salesfarce-data.ts
 #: src/sections/pricing-salesfarce/salesfarce-data.ts
@@ -2204,10 +2366,26 @@ msgstr "商用ライセンス（AGPL義務なし）"
 msgid "Commercials"
 msgstr "料金"
 
+#. js-lingui-id: uM200J
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "Commission on Cloud Organization and Enterprise plans"
+msgstr "Cloud OrganizationプランおよびEnterpriseプランのコミッション"
+
+#. js-lingui-id: XeFlm0
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "Commission on Organization and Enterprise plans"
+msgstr "OrganizationプランおよびEnterpriseプランのコミッション"
+
+#. js-lingui-id: /XN91V
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Communities"
+msgstr "コミュニティ"
+
 #. js-lingui-id: chL5IG
 #: src/sections/pricing-plan-table/plan-table-data.ts
 #: src/sections/pricing-plan-table/plan-table-data.ts
 #: src/sections/menu/components/MenuSocial.tsx
+#: src/affiliate-application/data/affiliate-partner-type-options.ts
 msgid "Community"
 msgstr "コミュニティ"
 
@@ -2226,6 +2404,11 @@ msgstr "Comoros 🇰🇲"
 #: src/sections/product-stepper/DataModelVisual/data/data-model-data.ts
 msgid "Companies"
 msgstr "企業"
+
+#. js-lingui-id: 9JImJx
+#: src/sections/faq/become-partner-faq.data.ts
+msgid "Companies submit a project brief with scope, timeline, and budget. We pick the Lead Integrators who fit and make the introduction within 48 hours. Clients from these briefs do not earn a commission."
+msgstr "企業は、範囲、スケジュール、予算を含むプロジェクトブリーフを提出します。適したリードインテグレーターを選び、48時間以内にご紹介します。これらのブリーフによるクライアントはコミッションの対象になりません。"
 
 #. js-lingui-id: 7i8j3G
 #: src/sections/product-stepper/DataModelVisual/data/data-model-data.ts
@@ -2306,6 +2489,16 @@ msgstr "API経由で接続"
 msgid "Connecting the rest of your stack"
 msgstr "スタックの残りをつなぐこと"
 
+#. js-lingui-id: 7eLE71
+#: src/affiliate-application/data/affiliate-partner-type-options.ts
+msgid "Consultant or agency"
+msgstr "コンサルタントまたは代理店"
+
+#. js-lingui-id: m6jsHY
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Consultants and agencies"
+msgstr "コンサルタントと代理店"
+
 #. js-lingui-id: cfAG43
 #: src/case-studies/case-study-catalog.ts
 msgid "Consulting"
@@ -2320,6 +2513,16 @@ msgstr "お問い合わせ"
 #: src/sections/product-feature/data/feature-tiles.ts
 msgid "Contacts & Companies"
 msgstr "コンタクト & 企業"
+
+#. js-lingui-id: uwPOvg
+#: src/affiliate-application/data/affiliate-partner-type-options.ts
+msgid "Content creator"
+msgstr "コンテンツクリエイター"
+
+#. js-lingui-id: iTgJXO
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Content creators"
+msgstr "コンテンツクリエイター"
 
 #. js-lingui-id: 24qVhV
 #: src/sections/product-feature/data/feature-tiles.ts
@@ -2436,6 +2639,11 @@ msgstr "Costa Rica 🇨🇷"
 msgid "Costs down more than *90%*"
 msgstr "コストを *90％以上* 削減"
 
+#. js-lingui-id: JNCzPW
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Country"
+msgstr "国"
+
 #. js-lingui-id: cRA2/z
 #: src/partner-application/partner-application-copy.ts
 msgid "Country *"
@@ -2445,6 +2653,11 @@ msgstr "国 *"
 #: src/client-brief/client-brief-copy.ts
 msgid "Country / region"
 msgstr "国 / 地域"
+
+#. js-lingui-id: kEAJQu
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Country must be 100 characters or fewer."
+msgstr "国名は100文字以内で入力してください。"
 
 #. js-lingui-id: kCu+Rq
 #: src/platform/releases/ReleaseNotes.tsx
@@ -2475,6 +2688,11 @@ msgstr "Twenty上にアプリを作成"
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Create calendar events directly from a record’s timeline, with the current contact prefilled as a guest."
 msgstr "レコードのタイムラインから直接カレンダーイベントを作成し、現在の連絡先をゲストとして事前入力できます。"
+
+#. js-lingui-id: qYvjpx
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "Create content or run a community. Earn 20% on every team you bring to Twenty, every month for a year."
+msgstr "コンテンツを作成するか、コミュニティを運営しましょう。Twentyに紹介したすべてのチームから、一年間毎月20%を獲得できます。"
 
 #. js-lingui-id: 20ZdFp
 #: src/platform/releases/ReleaseNotes.tsx
@@ -2535,6 +2753,11 @@ msgstr "フィルタービュー上でレコードを作成すると、そのビ
 #: src/sections/product-stepper/LayoutVisual/data/layout-data.ts
 msgid "Creation date"
 msgstr "作成日"
+
+#. js-lingui-id: ztTeY6
+#: src/affiliate-application/AffiliateApplicationModal.tsx
+msgid "Creator application"
+msgstr "クリエイター申請"
 
 #. js-lingui-id: 5HG2bB
 #: src/sections/pricing-plan-table/plan-table-data.ts
@@ -3266,6 +3489,36 @@ msgstr "各メンバー専用のAI利用枠で、毎週月曜日に更新され�
 msgid "Each workspace now gets a dedicated sub-domain for a more secure experience. And soon you will be able to set your own domain."
 msgstr "各ワークスペースには、より安全な利用体験のための専用サブドメインが割り当てられるようになりました。まもなく、独自ドメインも設定できるようになります。"
 
+#. js-lingui-id: OD5uww
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "Earn 20% for 12 months"
+msgstr "12か月間20%を獲得"
+
+#. js-lingui-id: LZphlk
+#: src/sections/partner-programs/integrator-steps.data.ts
+msgid "Earn 20% of seat revenue for 12 months on every client on Organization or Enterprise."
+msgstr "Organization または Enterprise のすべてのクライアントについて、シート収益の20%を12か月間獲得できます。"
+
+#. js-lingui-id: BEQmN/
+#: src/platform/routing/static-website-routes.ts
+msgid "Earn 20% of seat revenue for 12 months on every team you bring to Twenty Cloud. The creator program is for content creators, communities and tech partners."
+msgstr "Twenty Cloud に紹介したすべてのチームについて、シート収益の20%を12か月間獲得できます。クリエイタープログラムは、コンテンツクリエイター、コミュニティ、テクノロジーパートナー向けです。"
+
+#. js-lingui-id: LGRdoM
+#: src/sections/menu/data/menu.ts
+msgid "Earn 20% on every client you bring, every month for a year."
+msgstr "紹介したすべてのクライアントから、一年間毎月20%を獲得できます。"
+
+#. js-lingui-id: c4NUZh
+#: src/sections/menu/data/menu.ts
+msgid "Earn 20% on every team you bring, every month for a year."
+msgstr "紹介したすべてのチームから、一年間毎月20%を獲得できます。"
+
+#. js-lingui-id: PmTEhm
+#: src/sections/menu/data/menu.ts
+msgid "Earn by sharing Twenty"
+msgstr "Twenty を紹介して収益を得る"
+
 #. js-lingui-id: eBNtzO
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Easier favorites"
@@ -3355,6 +3608,11 @@ msgstr "Elevate ConsultingはTwentyを請求、Teams、リソース管理、そ�
 #: src/case-studies/case-study-stories.ts
 msgid "Elevate's CEO was so impressed with Twenty he started recommending it to clients before the internal setup was even complete. The team is exploring bringing Twenty to client projects as part of their consulting practice, including as the backend for custom-built products tailored to specific operational needs."
 msgstr "ElevateのCEOはTwentyに強い感銘を受け、社内のセットアップが完了する前からクライアントに推奨し始めました。チームは、特定の業務要件に合わせたカスタムプロダクトのバックエンドとしてなど、コンサルティング案件の一部としてTwentyをクライアントプロジェクトに組み込むことを検討しています。"
+
+#. js-lingui-id: O3oNi5
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Email"
+msgstr "メール"
 
 #. js-lingui-id: jTgK6B
 #: src/platform/releases/ReleaseNotes.tsx
@@ -3509,10 +3767,10 @@ msgstr "数字のみを使って有効な金額を入力してください。"
 msgid "Enter a valid email address."
 msgstr "有効なメールアドレスを入力してください。"
 
-#. js-lingui-id: /OVUD6
+#. js-lingui-id: SAtoek
 #: src/partner-application/partner-application-copy.ts
-msgid "Enter a valid URL (starting with http:// or https://)."
-msgstr "有効なURLを入力してください（http:// または https:// で始まる必要があります）。"
+msgid "Enter a valid link, for example yourcompany.com."
+msgstr "有効なリンクを入力してください（例: yourcompany.com）。"
 
 #. js-lingui-id: GpB8YV
 #: src/sections/pricing-plans/plans-data.ts
@@ -3603,6 +3861,11 @@ msgstr "すべてのパートナーは、ディレクトリに掲載される前
 #: src/sections/product-feature/data/feature-tiles.ts
 msgid "Every thread, on the right record."
 msgstr "すべてのスレッドを、正しいレコードに。"
+
+#. js-lingui-id: CygPzD
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Everything in Integrator, plus"
+msgstr "Integratorのすべてに加えて"
 
 #. js-lingui-id: Gy9kTe
 #: src/sections/pricing-plans/plans-data.ts
@@ -3996,6 +4259,11 @@ msgstr "かつて付箋で回していた会社にとって、これは単なる
 msgid "For one team, on your servers."
 msgstr "お客様のサーバー上で、単一チーム向け。"
 
+#. js-lingui-id: oRdST7
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "For partners with extensive experience implementing Twenty"
+msgstr "Twentyの導入において豊富な経験を持つパートナー向け"
+
 #. js-lingui-id: jCGEo0
 #: src/sections/pricing-plans/plans-data.ts
 msgid "For several teams, in production."
@@ -4061,6 +4329,21 @@ msgstr "から"
 msgid "From"
 msgstr "～から"
 
+#. js-lingui-id: 04Bp5R
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "From $50, after a 30-day hold."
+msgstr "30日間の保留後、50ドルから。"
+
+#. js-lingui-id: ZmSqhT
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "From application *to clients*"
+msgstr "申請から*クライアント獲得*まで"
+
+#. js-lingui-id: J8YeMT
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "From companies looking for a Twenty partner"
+msgstr "Twentyパートナーを探している企業から"
+
 #. js-lingui-id: Iuxc00
 #: src/sections/product-feature/data/feature-tiles.ts
 msgid "From CSV to CRM in minutes."
@@ -4075,6 +4358,11 @@ msgstr "ドキュメントから*オープン API*へ"
 #: src/case-studies/case-study-stories.ts
 msgid "From documents to open APIs"
 msgstr "文書からオープンAPIへ"
+
+#. js-lingui-id: rGsM2c
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "From link *to payout*"
+msgstr "リンクから*支払いまで*"
 
 #. js-lingui-id: 2CtZ6T
 #: src/case-studies/case-study-stories.ts
@@ -4124,6 +4412,11 @@ msgstr "フルカスタマイズとカスタムアプリ"
 #: src/sections/compare/compare-data.ts
 msgid "Full customization included"
 msgstr "フルカスタマイズ込み"
+
+#. js-lingui-id: 0W0FHK
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Full name"
+msgstr "氏名"
 
 #. js-lingui-id: YZ7Q3Z
 #: src/case-studies/case-study-catalog.ts
@@ -4184,10 +4477,10 @@ msgstr "ドイツ語"
 msgid "Germany 🇩🇪"
 msgstr "Germany 🇩🇪"
 
-#. js-lingui-id: WoPlNk
-#: src/sections/partner-hero/PartnerHero.tsx
-msgid "Get certified as a Twenty partner: a vetted badge, a directory profile your clients can check, and matched client briefs for the best partners."
-msgstr "Twentyパートナーとして認定を受けましょう。審査済みバッジ、クライアントが確認できるディレクトリプロフィール、優れたパートナー向けの適合するクライアント概要を提供します。"
+#. js-lingui-id: KoRwQ3
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "Get help anytime"
+msgstr "いつでもサポートを受ける"
 
 #. js-lingui-id: zn+MlF
 #: src/platform/routing/static-website-routes.ts
@@ -4200,6 +4493,16 @@ msgstr "クラウドでTwentyを運用する場合でもセルフホストする
 #: src/client-brief/ClientBriefModal.tsx
 msgid "Get matched"
 msgstr "マッチングを受ける"
+
+#. js-lingui-id: k3465f
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "Get paid monthly"
+msgstr "毎月報酬を受け取る"
+
+#. js-lingui-id: WClQV1
+#: src/sections/menu/data/menu.ts
+msgid "Get paid to share Twenty"
+msgstr "Twenty を紹介して報酬を得る"
 
 #. js-lingui-id: ZDIydz
 #: src/sections/why-twenty-signoff/WhyTwentySignoff.tsx
@@ -4215,6 +4518,11 @@ msgstr "マッチングを受ける"
 #: src/sections/case-study-detail/CustomersCaseStudySignoff.tsx
 msgid "Get started"
 msgstr "はじめる"
+
+#. js-lingui-id: 4GorJz
+#: src/sections/partner-programs/integrator-steps.data.ts
+msgid "Get your partner code"
+msgstr "パートナーコードを取得する"
 
 #. js-lingui-id: 7hktsm
 #: src/sections/compare/compare-data.ts
@@ -4305,6 +4613,11 @@ msgstr "アカウント所有者や会社などの関連レコードで、テー
 msgid "Grow with a flexible foundation"
 msgstr "柔軟な基盤で成長する"
 
+#. js-lingui-id: fZUmXy
+#: src/sections/menu/data/menu.ts
+msgid "Grow your practice with Twenty"
+msgstr "Twenty とともにビジネスを成長させる"
+
 #. js-lingui-id: M/8CC1
 #: src/partner-application/data/partner-country-options.ts
 msgid "Guatemala 🇬🇹"
@@ -4355,6 +4668,11 @@ msgstr "ヘルプ"
 #: src/sections/pricing-plan-table/plan-table-data.ts
 msgid "Help center"
 msgstr "ヘルプセンター"
+
+#. js-lingui-id: Xh+YpE
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Help from our team and other partners"
+msgstr "私たちのチームと他のパートナーからのサポート"
 
 #. js-lingui-id: WorXzH
 #: src/sections/pricing-plans/plans-data.ts
@@ -4469,10 +4787,10 @@ msgstr "Alternative Partnersが、実装ループにエージェント型AIを�
 msgid "How are partners vetted?"
 msgstr "パートナーはどのように審査されますか？"
 
-#. js-lingui-id: rdK0XI
+#. js-lingui-id: oira4a
 #: src/sections/faq/become-partner-faq.data.ts
-msgid "How do client briefs reach me?"
-msgstr "クライアント概要はどのように届きますか？"
+msgid "How do client briefs reach Lead Integrators?"
+msgstr "クライアントブリーフはどのようにリードインテグレーターに届きますか？"
 
 #. js-lingui-id: YEWCmQ
 #: src/sections/faq/become-partner-faq.data.ts
@@ -4494,10 +4812,23 @@ msgstr "マッチングの仕組みは？"
 msgid "How Elevate Consulting moved off documents and spreadsheets to Twenty as the API-connected CRM at the center of their stack."
 msgstr "Elevate Consultingが文書とスプレッドシートから脱却し、スタックの中心となるAPI接続CRMとしてTwentyを採用した方法。"
 
+#. js-lingui-id: 8AULTO
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "How it works"
+msgstr "仕組み"
+
 #. js-lingui-id: OIwpKt
 #: src/sections/faq/faq.data.ts
 msgid "How long does it take to get started?"
 msgstr "使い始めるまでにどれくらい時間がかかりますか？"
+
+#. js-lingui-id: ckYNoy
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "How long does my link work?"
+msgstr "リンクの有効期間はどのくらいですか？"
 
 #. js-lingui-id: FopmmJ
 #: src/sections/compare/compare-data.ts
@@ -4533,6 +4864,16 @@ msgstr "Twenty がデータをどのように収集・利用・保護するか�
 msgid "How W3villa Technologies shipped W3Grads, an AI mock interview platform for institutions, on Twenty as the operational backbone."
 msgstr "W3villa Technologiesが、教育機関向けAI模擬面接プラットフォーム「W3Grads」を、運用のバックボーンとしてTwenty上に構築して出荷した方法。"
 
+#. js-lingui-id: 5DnZXR
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "How you plan to promote Twenty"
+msgstr "Twentyのプロモーション方法"
+
+#. js-lingui-id: lCvjWk
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "How you plan to promote Twenty must be 2,000 characters or fewer."
+msgstr "Twentyのプロモーション方法は2,000文字以内で入力してください。"
+
 #. js-lingui-id: slTOKD
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "HTML in workflow emails"
@@ -4558,6 +4899,17 @@ msgstr "HubSpot はカスタムオブジェクトを$150/席の Enterprise 階�
 msgid "Hungary 🇭🇺"
 msgstr "Hungary 🇭🇺"
 
+#. js-lingui-id: XtRvjI
+#: src/partner-application/wizard/steps/CommercialsStep.tsx
+#: src/affiliate-application/AffiliateApplicationForm.tsx
+msgid "I agree to the <0>Partner Program Terms</0>"
+msgstr "<0>パートナープログラム利用規約</0>に同意します"
+
+#. js-lingui-id: W336yc
+#: src/sections/faq/become-partner-faq.data.ts
+msgid "I create content but do not implement Twenty. Is this for me?"
+msgstr "コンテンツを作成していますが、Twenty は導入しません。自分に適していますか？"
+
 #. js-lingui-id: RYDa0v
 #: src/partner-application/data/partner-country-options.ts
 msgid "Iceland 🇮🇸"
@@ -4573,6 +4925,11 @@ msgstr "ICP"
 #: src/partner-application/partner-application-copy.ts
 msgid "Identity"
 msgstr "アイデンティティ"
+
+#. js-lingui-id: 9JU/6K
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "If it's their first Twenty workspace and no partner code is set on it yet, they can enter yours on the /settings/partner page of their workspace during their free trial. Within 30 days of the first payment, they can also ask us to add it. Once a code is saved on a workspace, it can't be changed."
+msgstr "それが相手にとって初めてのTwentyワークスペースで、まだパートナーコードが設定されていない場合は、無料トライアル期間中にワークスペースの/settings/partnerページであなたのコードを入力できます。初回の支払いから30日以内であれば、コードの追加を当社に依頼することもできます。ワークスペースにコードが保存されると、変更できません。"
 
 #. js-lingui-id: 6M+L8e
 #: src/sections/compare/compare-data.ts
@@ -4598,6 +4955,16 @@ msgstr "IMAP"
 #: src/sections/pricing-plan-table/plan-table-data.ts
 msgid "Impersonate users"
 msgstr "ユーザーのなりすまし"
+
+#. js-lingui-id: eq1tyZ
+#: src/sections/menu/data/menu.ts
+msgid "Implement Twenty for clients"
+msgstr "クライアント向けに Twenty を導入する"
+
+#. js-lingui-id: NUAkZc
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "Implement Twenty for your clients. Earn 20% on every client you bring, every month for a year."
+msgstr "クライアント向けにTwentyを導入しましょう。紹介したすべてのクライアントから、一年間毎月20%を獲得できます。"
 
 #. js-lingui-id: N4OVNn
 #: src/sections/compare/compare-data.ts
@@ -4744,6 +5111,7 @@ msgstr "含まれています！"
 
 #. js-lingui-id: 11h9eK
 #: src/sections/pricing-plans/plans-data.ts
+#: src/sections/partner-programs/partner-levels.data.ts
 msgid "Includes"
 msgstr "含まれるもの"
 
@@ -4818,6 +5186,11 @@ msgstr "共有tarballアプリをインストール"
 #: src/case-studies/case-study-stories.ts
 msgid "Integration"
 msgstr "インテグレーション"
+
+#. js-lingui-id: lAJNrz
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Integrator"
+msgstr "インテグレーター"
 
 #. js-lingui-id: mQhHfc
 #: src/platform/releases/ReleaseNotes.tsx
@@ -4983,11 +5356,6 @@ msgstr "成長中のパートナーエコシステムに参加しましょう"
 msgid "Join the teams that chose to own their CRM. Start building with Twenty today."
 msgstr "CRM を自分たちで所有する道を選んだチームに加わりましょう。今日から Twenty で構築を始めてください。"
 
-#. js-lingui-id: DqW4G2
-#: src/platform/routing/static-website-routes.ts
-msgid "Join the Twenty partner ecosystem: implement, migrate, and support the #1 open source CRM, and grow your practice with the teams building it."
-msgstr "Twentyパートナーエコシステムに参加しましょう。No.1のオープンソースCRMの導入、移行、サポートを行い、それを構築するチームとともにビジネスを成長させましょう。"
-
 #. js-lingui-id: QbxNys
 #: src/partner-application/data/partner-country-options.ts
 msgid "Jordan 🇯🇴"
@@ -5136,6 +5504,11 @@ msgstr "Latvia 🇱🇻"
 msgid "Layout"
 msgstr "レイアウト"
 
+#. js-lingui-id: N95Wp2
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Lead Integrator"
+msgstr "リードインテグレーター"
+
 #. js-lingui-id: +Ss/og
 #: src/sections/menu/data/menu.ts
 msgid "Learn how to use Twenty"
@@ -5152,10 +5525,10 @@ msgstr "詳細を表示"
 msgid "Learn more about {0}"
 msgstr "{0} の詳細を表示"
 
-#. js-lingui-id: s7B7gx
+#. js-lingui-id: uiVldn
 #: src/sections/partner-lead/PartnerBecomeStrip.tsx
-msgid "Learn more about the partner program"
-msgstr "パートナープログラムの詳細を見る"
+msgid "Learn more about the integrator program"
+msgstr "インテグレータープログラムの詳細を見る"
 
 #. js-lingui-id: wB0DGn
 #: src/partner-application/data/partner-country-options.ts
@@ -5176,6 +5549,16 @@ msgstr "Lesotho 🇱🇸"
 #: src/partners-marketplace/MarketplaceMatchCard.tsx
 msgid "Let us *match* you"
 msgstr "私たちに*マッチング*をお任せください"
+
+#. js-lingui-id: aAvjMq
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Level 01"
+msgstr "レベル01"
+
+#. js-lingui-id: /70BjY
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Level 02"
+msgstr "レベル02"
 
 #. js-lingui-id: rJargy
 #: src/partner-application/data/partner-country-options.ts
@@ -5269,6 +5652,11 @@ msgstr "Salesforce 公開料金ページのリスト価格（年間払い）。2
 msgid "List view"
 msgstr "リストビュー"
 
+#. js-lingui-id: 2ypJDK
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Listed in the Twenty partner directory"
+msgstr "Twentyパートナーディレクトリに掲載"
+
 #. js-lingui-id: 2WIZYd
 #: src/partner-application/data/partner-country-options.ts
 msgid "Lithuania 🇱🇹"
@@ -5339,11 +5727,6 @@ msgstr "ログイン"
 msgid "Log retention"
 msgstr "ログ保持期間"
 
-#. js-lingui-id: LE5a4y
-#: src/sections/partner-hero/PartnerHero.tsx
-msgid "Looking to hire a partner?"
-msgstr "パートナーをお探しですか？"
-
 #. js-lingui-id: 8xX9yd
 #: src/sections/product-feature/TasksVisual/data/tasks.ts
 msgid "Loop in legal before sending."
@@ -5369,6 +5752,11 @@ msgstr "Luxembourg 🇱🇺"
 #: src/partner-application/data/partner-country-options.ts
 msgid "Madagascar 🇲🇬"
 msgstr "Madagascar 🇲🇬"
+
+#. js-lingui-id: +bVhvT
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Main channel (URL)"
+msgstr "主なチャンネル（URL）"
 
 #. js-lingui-id: /hmUGb
 #: src/platform/releases/ReleaseNotes.tsx
@@ -5560,6 +5948,11 @@ msgstr "最小化"
 msgid "Minimum 10 users"
 msgstr "最低10ユーザー"
 
+#. js-lingui-id: 8jQGWT
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "Minimum payout"
+msgstr "最低支払額"
+
 #. js-lingui-id: 5IvRfo
 #: src/partner-application/partner-application-copy.ts
 msgid "Minimum project budget *"
@@ -5609,6 +6002,11 @@ msgstr "ワークフロー、AIエージェント、アプリでワークスペ�
 #: src/sections/compare/compare-data.ts
 msgid "Monthly or yearly, cancel anytime"
 msgstr "月次または年次、いつでも解約可能"
+
+#. js-lingui-id: Gie65U
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "Monthly, once your balance reaches $50. Each commission is released 30 days after the customer pays, to cover refunds. Once paid, it's yours."
+msgstr "残高が$50に達すると、毎月お支払いします。返金に対応するため、各コミッションは顧客の支払いから30日後に確定します。支払い後はあなたのものです。"
 
 #. js-lingui-id: W87SCX
 #: src/sections/pricing-plans/plans-data.ts
@@ -5905,6 +6303,7 @@ msgstr "現在利用可能なアプリはありません。しばらくしてか
 
 #. js-lingui-id: 6tRXQ4
 #: src/partner-application/partner-application-copy.ts
+#: src/affiliate-application/affiliate-application-copy.ts
 msgid "No matching country."
 msgstr "一致する国がありません。"
 
@@ -5938,15 +6337,20 @@ msgstr "セッション ID が指定されていません。まずチェック�
 msgid "No-code"
 msgstr "ノーコード"
 
-#. js-lingui-id: rNCZhO
+#. js-lingui-id: 03nBqG
 #: src/sections/faq/become-partner-faq.data.ts
-msgid "No. Applying and being listed are free. You set your own rates and keep what you bill."
-msgstr "いいえ。申請と掲載は無料です。料金はご自身で設定し、請求額をすべて受け取れます。"
+msgid "No. Applying and joining are free. You set your own rates and keep what you bill."
+msgstr "いいえ。申請と参加は無料です。料金は自由に設定でき、請求した金額はすべて受け取れます。"
 
 #. js-lingui-id: SiZ/7E
 #: src/sections/faq/faq.data.ts
 msgid "No. Build custom objects, fields, views, and no-code workflows straight from Settings. Unlimited, no extra charge."
 msgstr "いいえ。設定からカスタムオブジェクト、フィールド、ビュー、ノーコードワークフローを作成できます。無制限で、追加料金もかかりません。"
+
+#. js-lingui-id: xLHsWO
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "No. Self-referrals, your own workspace, and existing Twenty customers don't earn commission."
+msgstr "いいえ。自己紹介、自身のワークスペース、既存のTwenty顧客はコミッションの対象になりません。"
 
 #. js-lingui-id: 4yg7QV
 #: src/sections/compare/compare-data.ts
@@ -6026,6 +6430,27 @@ msgstr "ダッシュボード数"
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Objects, folders, links and pages now have colored icons in the sidebar, headers and pickers."
 msgstr "オブジェクト、フォルダー、リンク、ページに、サイドバー、ヘッダー、ピッカーでカラーアイコンが表示されるようになりました。"
+
+#. js-lingui-id: 7+RZba
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "Of credit per click"
+msgstr "クリックあたりのクレジット"
+
+#. js-lingui-id: EucUI+
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "of seat revenue"
+msgstr "シート収益の"
+
+#. js-lingui-id: snThJv
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "Of seat revenue"
+msgstr "シート収益の"
+
+#. js-lingui-id: T4tAHU
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "Of seat revenue on Cloud Organization and Enterprise plans, per customer, counted from their first payment."
+msgstr "Cloud OrganizationプランおよびEnterpriseプランのシート収益のうち、各顧客の初回支払いから計算。"
 
 #. js-lingui-id: pkrZnO
 #: src/case-studies/case-study-stories.ts
@@ -6108,11 +6533,6 @@ msgstr "オンボーディング"
 msgid "Onboarding · Documentation · Change management · L1/L2 support · Managed services"
 msgstr "オンボーディング · ドキュメント作成 · チェンジマネジメント · L1/L2サポート · マネージドサービス"
 
-#. js-lingui-id: pbmZ7R
-#: src/sections/pricing-plan-table/plan-table-data.ts
-msgid "Onboarding Packs"
-msgstr "オンボーディングパック"
-
 #. js-lingui-id: 37OSdM
 #: src/case-studies/case-study-stories.ts
 msgid "One *API* to rule them all"
@@ -6159,6 +6579,11 @@ msgstr "導入事例を開く: {0}"
 msgid "Open menu"
 msgstr "メニューを開く"
 
+#. js-lingui-id: BvalIr
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Open source, Engineering and GTM communities."
+msgstr "オープンソース、エンジニアリング、GTMのコミュニティ。"
+
 #. js-lingui-id: ChnLgw
 #: src/sections/enterprise-activate/EnterpriseActivateClient.tsx
 msgid "Open your Twenty self-hosted instance Settings → Admin Panel → Organization."
@@ -6204,6 +6629,11 @@ msgstr "組織の*アクティベーション*"
 #: src/platform/routing/static-website-routes.ts
 msgid "Organization Activation | Twenty"
 msgstr "組織のアクティベーション | Twenty"
+
+#. js-lingui-id: gedycB
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "Organization and Enterprise plans on Twenty Cloud. Pro plans and AI credits are not included."
+msgstr "Twenty CloudのOrganizationおよびEnterpriseプラン。ProプランとAIクレジットは含まれません。"
 
 #. js-lingui-id: 3Yz0mq
 #: src/sections/compare/compare-data.ts
@@ -6317,6 +6747,11 @@ msgstr "Paraguay 🇵🇾"
 msgid "Partner application"
 msgstr "パートナー申請"
 
+#. js-lingui-id: Jk02cO
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Partner Discord"
+msgstr "パートナーDiscord"
+
 #. js-lingui-id: mYGIvm
 #: src/partners-marketplace/PartnerProfile.tsx
 msgid "Partner facts and contact"
@@ -6332,10 +6767,30 @@ msgstr "パートナーマッチング"
 msgid "Partner not found — Twenty Partners"
 msgstr "パートナーが見つかりません — Twenty Partners"
 
+#. js-lingui-id: eaBcp2
+#: src/app/[locale]/(site)/partners/terms/page.tsx
+msgid "Partner Program Terms"
+msgstr "パートナープログラム利用規約"
+
+#. js-lingui-id: jrUo5h
+#: src/platform/routing/static-website-routes.ts
+msgid "Partner Program Terms | Twenty"
+msgstr "パートナープログラム利用規約 | Twenty"
+
 #. js-lingui-id: dRIK0d
 #: src/sections/testimonials/PartnerTestimonialsCarousel.tsx
 msgid "Partner testimonials"
 msgstr "パートナー推薦文"
+
+#. js-lingui-id: c8VLsy
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Partner training"
+msgstr "パートナートレーニング"
+
+#. js-lingui-id: 7nUw36
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Partner type"
+msgstr "パートナータイプ"
 
 #. js-lingui-id: mPkInZ
 #: src/sections/menu/data/menu.ts
@@ -6364,6 +6819,21 @@ msgstr "録音ボットを一時停止"
 #: src/sections/product-stepper/DataModelVisual/data/data-model-data.ts
 msgid "People"
 msgstr "人"
+
+#. js-lingui-id: EvCCGa
+#: src/sections/affiliate-program/AffiliateAudiences.tsx
+msgid "People that teams trust *to pick their tools*"
+msgstr "チームがツール選定を*任せる*人々"
+
+#. js-lingui-id: 4GZOjx
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+msgid "Per client you bring"
+msgstr "紹介したクライアントごと"
+
+#. js-lingui-id: 58ybKx
+#: src/sections/partner-hero/creator-hero-stats.data.ts
+msgid "Per customer"
+msgstr "顧客ごと"
 
 #. js-lingui-id: nU1kSZ
 #: src/sections/pricing-plan-table/plan-table-data.ts
@@ -6480,11 +6950,41 @@ msgstr "プランの基本機能"
 msgid "Play audio-only recordings"
 msgstr "音声のみの録音を再生"
 
+#. js-lingui-id: 6A7hvF
+#: src/partner-application/partner-application-copy.ts
+msgid "Please agree to the Partner Program Terms."
+msgstr "パートナープログラム利用規約に同意してください。"
+
+#. js-lingui-id: 9FY7bP
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Please agree to the program terms."
+msgstr "プログラム規約に同意してください。"
+
 #. js-lingui-id: z7gnI9
 #: src/partner-application/partner-application-copy.ts
 #: src/client-brief/client-brief-copy.ts
 msgid "Please complete all required fields before continuing."
 msgstr "続行する前に、必須項目をすべて入力してください。"
+
+#. js-lingui-id: Wq6Wcm
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Please enter a valid email address."
+msgstr "有効なメールアドレスを入力してください。"
+
+#. js-lingui-id: 8srGrM
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Please enter the link to your main channel, for example youtube.com/@yourname."
+msgstr "メインチャンネルへのリンクを入力してください。例: youtube.com/@yourname。"
+
+#. js-lingui-id: O3Iqcx
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Please enter your full name."
+msgstr "氏名を入力してください。"
+
+#. js-lingui-id: 7oO0Fx
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Please select a partner type."
+msgstr "パートナータイプを選択してください。"
 
 #. js-lingui-id: LjJ5i7
 #: src/partner-application/partner-application-copy.ts
@@ -6717,6 +7217,7 @@ msgstr "Qatar 🇶🇦"
 #. js-lingui-id: enzGAL
 #: src/sections/faq/PartnerFaq.tsx
 #: src/sections/faq/BecomePartnerFaq.tsx
+#: src/sections/faq/AffiliateProgramFaq.tsx
 msgid "Questions"
 msgstr "よくある質問"
 
@@ -6776,13 +7277,19 @@ msgstr "閲覧・編集・削除権限"
 msgid "Ready for your security review"
 msgstr "セキュリティレビューに対応"
 
+#. js-lingui-id: a9GTrA
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "Ready to *apply?*"
+msgstr ""
+"申請の準備は\n"
+"*できていますか？*"
+
 #. js-lingui-id: LNWY6D
 #: src/sections/customers-catalog-signoff/CustomersCatalogSignoff.tsx
 msgid "Ready to build *your own story?*"
 msgstr "*自分だけのストーリー*を作る準備はできましたか"
 
 #. js-lingui-id: UF2KDj
-#: src/sections/partner-signoff/PartnerSignoff.tsx
 #: src/sections/case-study-detail/CustomersCaseStudySignoff.tsx
 msgid "Ready to grow *with Twenty?*"
 msgstr "Twenty と一緒に*成長する準備はできましたか？*"
@@ -6822,6 +7329,11 @@ msgstr "リアルタイムデータ"
 #: src/sections/pricing-salesfarce/salesfarce-data.ts
 msgid "Real-time is a state of mind, not a feature."
 msgstr "リアルタイムとは機能ではなく、マインドセットです。"
+
+#. js-lingui-id: /ajiMH
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Recommend Twenty to your clients, even on projects you don't implement."
+msgstr "導入を担当しないプロジェクトでも、クライアントにTwentyをおすすめください。"
 
 #. js-lingui-id: v5nqef
 #: src/sections/pricing-plan-table/plan-table-data.ts
@@ -7057,6 +7569,11 @@ msgstr "売上（年初来）"
 #: src/sections/menu/data/menu.ts
 msgid "Reviewed apps for your workspace"
 msgstr "ワークスペース向けの審査済みアプリ"
+
+#. js-lingui-id: s25Dl8
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Reviews, tutorials, migration guides, client recommendations…"
+msgstr "レビュー、チュートリアル、移行ガイド、クライアントへの推薦…"
 
 #. js-lingui-id: frqduN
 #: src/sections/product-feature/data/feature-tiles.ts
@@ -7338,6 +7855,7 @@ msgstr "スクリーニング"
 
 #. js-lingui-id: vk6sVR
 #: src/partner-application/partner-application-copy.ts
+#: src/affiliate-application/affiliate-application-copy.ts
 msgid "Search a country…"
 msgstr "国を検索…"
 
@@ -7350,6 +7868,11 @@ msgstr "フィールドピッカーや列追加メニューで検索できるよ
 #: src/sections/product-stepper/WorkflowVisual/data/workflow-data.ts
 msgid "Search Records"
 msgstr "レコードを検索"
+
+#. js-lingui-id: yUHbxC
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "Seat revenue on Organization or Enterprise, for 12 months"
+msgstr "OrganizationまたはEnterpriseのシート収益を12か月間"
 
 #. js-lingui-id: HVOGoW
 #: src/sections/pricing-plan-table/plan-table-data.ts
@@ -7405,6 +7928,11 @@ msgstr "リレーションをまたいで関連レコードを表示"
 msgid "See the devices on your account"
 msgstr "アカウント上のデバイスを確認"
 
+#. js-lingui-id: 8F9rVy
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "See the integrator program"
+msgstr "インテグレータープログラムを見る"
+
 #. js-lingui-id: 8Zhz04
 #: src/sections/compare/ComparePage.tsx
 msgid "See Twenty pricing"
@@ -7437,6 +7965,11 @@ msgstr "フィールドを追加したアプリを確認"
 msgid "Select {0}"
 msgstr "{0} を選択"
 
+#. js-lingui-id: OEFzA8
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Select a partner type"
+msgstr "パートナータイプを選択"
+
 #. js-lingui-id: wgNoIs
 #: src/sections/pricing-salesfarce/SalesfarceWindow.tsx
 msgid "Select all"
@@ -7454,6 +7987,7 @@ msgstr "Cmd と Shift でレコードを選択"
 
 #. js-lingui-id: 6p/m5q
 #: src/partner-application/partner-application-copy.ts
+#: src/affiliate-application/affiliate-application-copy.ts
 msgid "Select your country"
 msgstr "国を選択してください"
 
@@ -7621,6 +8155,16 @@ msgstr "通話インサイトを共有"
 msgid "Share your CRM project brief and our team will match you with a certified Twenty partner."
 msgstr "CRM プロジェクトの概要を共有していただければ、弊社チームが認定 Twenty パートナーの中から最適な相手をマッチングします。"
 
+#. js-lingui-id: 36Zpp9
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "Share your link"
+msgstr "リンクを共有する"
+
+#. js-lingui-id: WzpFll
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "Share your link, we credit the signups it brings, and you get paid every month the customer stays, for up to 12 months."
+msgstr "リンクを共有すると、そのリンク経由の登録を計上し、顧客が継続する限り、最長12か月間、毎月報酬を受け取れます。"
+
 #. js-lingui-id: /beeoq
 #: src/partners-marketplace/MarketplaceMatchCard.tsx
 msgid "Share your project in a few minutes. We pair you with a certified partner who fits."
@@ -7671,10 +8215,15 @@ msgstr "サイドバー項目"
 msgid "Sierra Leone 🇸🇱"
 msgstr "Sierra Leone 🇸🇱"
 
-#. js-lingui-id: mA6cL1
+#. js-lingui-id: Ro/Zi4
 #: src/sections/faq/faq.data.ts
-msgid "Sign up for Cloud in under a minute and start your 30-day trial. For larger rollouts, our 4-hour Onboarding Packs or certified partners get you live in 1–2 weeks."
-msgstr "Cloudには1分以内で登録でき、30日間のトライアルを開始できます。大規模な導入の場合は、4時間のオンボーディングパックまたは認定パートナーの支援により、1〜2週間で本番稼働が可能です。"
+msgid "Sign up for Cloud in under a minute and start your 30-day trial. For larger rollouts, our team can support you along the way. Reach out to discuss what you need."
+msgstr "1分未満でCloudに登録し、30日間のトライアルを開始できます。大規模な導入の場合は、当社チームがその過程でサポートします。必要な内容についてご相談ください。"
+
+#. js-lingui-id: qZwLzB
+#: src/sections/partner-programs/creator-steps.data.ts
+msgid "Signups within 30 days of a click on your link are yours."
+msgstr "あなたのリンクがクリックされてから30日以内の登録は、あなたに帰属します。"
 
 #. js-lingui-id: qTFDyz
 #: src/sections/pricing-plans/PricingIntro.tsx
@@ -7776,6 +8325,11 @@ msgstr "ソフトデリート"
 msgid "Soft delete feature added: Deleted records are now hidden from view but recoverable from the \"Deleted record\" option in any object options menu. No more drama!"
 msgstr "ソフトデリート機能を追加しました。削除されたレコードはビューから非表示になりますが、任意のオブジェクトのオプションメニューにある「削除済みレコード」から復元できます。もう心配はいりません！"
 
+#. js-lingui-id: mOUTs1
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Software companies whose customers need a CRM."
+msgstr "顧客にCRMが必要なソフトウェア企業。"
+
 #. js-lingui-id: 6sKjjx
 #: src/partner-application/data/partner-team-type-options.ts
 msgid "Solo"
@@ -7806,6 +8360,11 @@ msgstr "Somalia 🇸🇴"
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Some teammate changes now appear right away, so collaboration feels faster and more up to date."
 msgstr "一部のチームメイトの変更が即座に反映されるようになり、コラボレーションがこれまでよりも素早く、常に最新に感じられるようになりました。"
+
+#. js-lingui-id: fWsBTs
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "Something went wrong. Please try again."
+msgstr "問題が発生しました。もう一度お試しください。"
 
 #. js-lingui-id: tzdMJX
 #: src/platform/releases/ReleaseNotes.tsx
@@ -7873,6 +8432,11 @@ msgstr "SSO と行レベル権限"
 #: src/sections/compare/compare-data.ts
 msgid "SSO & security rules: move to Ultimate"
 msgstr "SSO とセキュリティルールは Ultimate へアップグレード"
+
+#. js-lingui-id: bHl+Jk
+#: src/sections/partner-programs/PartnerLevels.tsx
+msgid "Start as an integrator, *grow into a lead*"
+msgstr "インテグレーターとして始め、*リードへと成長する*"
 
 #. js-lingui-id: wxW2Sv
 #: src/sections/pricing-salesfarce/salesfarce-data.ts
@@ -7988,6 +8552,7 @@ msgstr "プロジェクトブリーフを送信して、移行、カスタマイ
 
 #. js-lingui-id: H5/rZQ
 #: src/partner-application/partner-application-copy.ts
+#: src/affiliate-application/affiliate-application-copy.ts
 msgid "Submit application"
 msgstr "申請を送信"
 
@@ -7999,6 +8564,7 @@ msgstr "ブリーフを送信"
 #. js-lingui-id: MDqQmP
 #: src/partner-application/partner-application-copy.ts
 #: src/client-brief/client-brief-copy.ts
+#: src/affiliate-application/affiliate-application-copy.ts
 msgid "Submitting…"
 msgstr "送信中…"
 
@@ -8154,6 +8720,16 @@ msgstr "Twentyのエキスパートとチームを組む"
 msgid "Teams & permission sets"
 msgstr "チームとパーミッションセット"
 
+#. js-lingui-id: 7zxYuu
+#: src/affiliate-application/data/affiliate-partner-type-options.ts
+msgid "Tech partner"
+msgstr "テックパートナー"
+
+#. js-lingui-id: 8UHeD8
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "Tech partners"
+msgstr "テックパートナー"
+
 #. js-lingui-id: vsdUaL
 #: src/sections/releases-hero/ReleasesHero.tsx
 msgid "Technical notes"
@@ -8169,6 +8745,11 @@ msgstr "技術スキル"
 #: src/partner-application/partner-application-copy.ts
 msgid "Tell us about the implementation *"
 msgstr "実装について教えてください *"
+
+#. js-lingui-id: 5aDkVu
+#: src/sections/partner-programs/integrator-steps.data.ts
+msgid "Tell us about your company, the clients you work with and what you have built with Twenty. It takes a few minutes."
+msgstr "貴社、取引先クライアント、そしてTwentyで構築したものについてお聞かせください。数分で完了します。"
 
 #. js-lingui-id: 5N30dV
 #: src/client-brief/client-brief-copy.ts
@@ -8309,6 +8890,11 @@ msgstr "チャットコンポーザーに、使用済みのコンテキストウ
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "The chat composer’s + menu attaches files and adds records or skills, the same way typing <0>@</0> or <1>/</1> does."
 msgstr "チャットコンポーザーの + メニューでは、<0>@</0> または <1>/</1> を入力する場合と同様に、ファイルを添付し、レコードまたはスキルを追加できます。"
+
+#. js-lingui-id: v/rykv
+#: src/sections/faq/become-partner-faq.data.ts
+msgid "The creator program fits you better: creators, communities and tech partners earn 20% on every team they bring."
+msgstr "クリエイタープログラムの方が適しています。クリエイター、コミュニティ、テクノロジーパートナーは、紹介したすべてのチームから20%を獲得できます。"
 
 #. js-lingui-id: 93BQde
 #: src/sections/compare/compare-data.ts
@@ -8526,6 +9112,11 @@ msgstr "Twenty のストーリー"
 msgid "The terms governing your use of Twenty and its open source CRM services."
 msgstr "Twenty およびそのオープンソース CRM サービスの利用を規定する条項です。"
 
+#. js-lingui-id: ITDYrA
+#: src/platform/routing/static-website-routes.ts
+msgid "The terms of the Twenty Partner Program for creators and integrators: qualified referrals, commissions, payouts and how you may promote Twenty."
+msgstr "クリエイターおよびインテグレーター向け Twenty パートナープログラムの規約：有効な紹介、コミッション、支払い、Twenty の宣伝方法について。"
+
 #. js-lingui-id: xCAT8U
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "The timeline on every record page has been significantly improved. It now provides detailed updates for: Record creations Field updates Received emails Created calendar events"
@@ -8571,6 +9162,11 @@ msgstr "思考中"
 msgid "This feature gives you the ability to merge two records into one. This combines their information and keeps linked data, helping you remove duplicates and keep records accurate."
 msgstr "この機能により、複数のレコードを1つにマージできます。これによって情報が統合され、リンクされたデータも維持されるため、重複を排除し、レコードの正確性を保つことができます。"
 
+#. js-lingui-id: 8Zj6he
+#: src/app/[locale]/(site)/partners/integrators/page.tsx
+msgid "Three steps, and no fee to join. You set your own rates and keep what you bill."
+msgstr "3つのステップで、参加費はかかりません。料金は自由に設定でき、請求した金額はすべて受け取れます。"
+
 #. js-lingui-id: cklVjM
 #: src/client-brief/client-brief-copy.ts
 msgid "Timeline"
@@ -8585,6 +9181,16 @@ msgstr "Timor-Leste 🇹🇱"
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "To enhance privacy, you can now add specific email addresses to a blocklist within the \"Accounts\" settings. This feature prevents sensitive content from being synced to the CRM when corresponding with certain individuals. This can be particularly useful when managing sensitive deals."
 msgstr "プライバシーを強化するため、「アカウント」設定内で特定のメールアドレスをブロックリストに追加できるようになりました。この機能により、特定の相手とのやり取りに含まれるセンシティブな内容が CRM と同期されるのを防げます。特に重要な案件を扱う際に有用です。"
+
+#. js-lingui-id: nbbO2k
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+msgid "To get started"
+msgstr "はじめるには"
+
+#. js-lingui-id: N4bU08
+#: src/sections/partner-hero/integrator-hero-stats.data.ts
+msgid "To join"
+msgstr "参加するには"
 
 #. js-lingui-id: ijf9QM
 #: src/platform/releases/ReleaseNotes.tsx
@@ -8770,6 +9376,11 @@ msgstr "ゴートゥーマーケットスタックのAPIバックボーンとし
 #: src/case-studies/case-study-stories.ts
 msgid "Twenty as the API backbone of a go-to-market stack | Elevate Consulting"
 msgstr "ゴートゥーマーケットスタックのAPIバックボーンとしてのTwenty | Elevate Consulting"
+
+#. js-lingui-id: X1MsVg
+#: src/platform/routing/static-website-routes.ts
+msgid "Twenty Creator Program — Earn 20% on Every Referral"
+msgstr "Twenty クリエイタープログラム — 紹介ごとに20%を獲得"
 
 #. js-lingui-id: neM1Ol
 #: src/platform/routing/static-website-routes.ts
@@ -9239,11 +9850,6 @@ msgstr "録音を文字起こしと並べて視聴できます。文字起こし
 msgid "We are pleased to reopen the cloud subscription to everyone. No more waiting!"
 msgstr "クラウドサブスクリプションをすべての方に再開できることを嬉しく思います。もう待つ必要はありません！"
 
-#. js-lingui-id: CtEyix
-#: src/sections/partner-signoff/PartnerSignoff.tsx
-msgid "We certify real builders only. Every application is reviewed against a shipped Twenty project — send yours with proof."
-msgstr "認定するのは実際に構築したチームのみです。すべての申請は提供済みのTwentyプロジェクトを基準に審査されます。証明とともにプロジェクトをお送りください。"
-
 #. js-lingui-id: 8CHatv
 #: src/partner-application/partner-application-copy.ts
 msgid "We could not submit your application. Please try again in a moment."
@@ -9270,10 +9876,17 @@ msgstr "アプリのパフォーマンスを改善し、各ページで 500ms �
 msgid "We have significantly enhanced our search performance, making it feel instantaneous when searching for records such as people, companies, or tasks."
 msgstr "検索パフォーマンスを大幅に強化し、人・企業・タスクなどのレコード検索がほぼ瞬時に感じられるようになりました。"
 
-#. js-lingui-id: d4cXeX
-#: src/sections/faq/become-partner-faq.data.ts
-msgid "We review your delivered projects, technical depth, and customer feedback before you join the directory. Certified partners carry the badge on their profile."
-msgstr "ディレクトリに参加する前に、提供済みプロジェクト、技術的な深さ、顧客フィードバックを審査します。認定パートナーには、プロフィールにバッジが表示されます。"
+#. js-lingui-id: VAOWAS
+#: src/sections/partner-programs/integrator-steps.data.ts
+msgid "We review every application by hand, then send you your partner code."
+msgstr "すべての申請を担当者が確認し、その後パートナーコードをお送りします。"
+
+#. js-lingui-id: 7YB68b
+#: src/sections/partner-programs/creator-steps.data.ts
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "We review every application within 5 business days and send your link once you're approved."
+msgstr "すべての申し込みを5営業日以内に審査し、承認後にリンクをお送りします。"
 
 #. js-lingui-id: l7iJRt
 #: src/platform/releases/ReleaseNotes.tsx
@@ -9342,11 +9955,6 @@ msgstr "Twentyパートナーのサービス"
 msgid "What an admin can do without writing code."
 msgstr "管理者がコードを書かずにできること。"
 
-#. js-lingui-id: va07TZ
-#: src/sections/faq/become-partner-faq.data.ts
-msgid "What are the requirements?"
-msgstr "要件は何ですか？"
-
 #. js-lingui-id: Z34FQq
 #: src/case-studies/case-study-stories.ts
 msgid "What convinced Olivier was the flexibility of the platform and where it was headed. Even when initial needs were basic record-keeping, he still needed a custom data model with granular permissions to manage the wide range of NetZero activities. He also needed a system that could adapt quickly to a fast-iteration company."
@@ -9357,10 +9965,10 @@ msgstr "Olivierを納得させたのは、プラットフォームの柔軟性�
 msgid "What costs extra over there"
 msgstr "どこに上限やゲートがあるか"
 
-#. js-lingui-id: iGY4LD
+#. js-lingui-id: xv+Qm4
 #: src/sections/faq/become-partner-faq.data.ts
-msgid "What do I get as a partner?"
-msgstr "パートナーになると何が得られますか？"
+msgid "What do I get as an integrator?"
+msgstr "インテグレーターとして何を得られますか？"
 
 #. js-lingui-id: VkIKlY
 #: src/sections/faq/partner-faq.data.ts
@@ -9417,15 +10025,20 @@ msgstr ""
 "*SAP Sales Cloud* の\n"
 "本当のコストは？"
 
-#. js-lingui-id: MIVJ8U
-#: src/sections/faq/become-partner-faq.data.ts
-msgid "What does certification involve?"
-msgstr "認定には何が含まれますか？"
-
 #. js-lingui-id: phiBjc
 #: src/sections/faq/faq.data.ts
 msgid "What does Twenty cost?"
 msgstr "Twentyの費用はいくらですか？"
+
+#. js-lingui-id: XqkgE8
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "What if a customer signs up without my link?"
+msgstr "顧客が私のリンクを使わずに登録した場合はどうなりますか？"
+
+#. js-lingui-id: HJheXv
+#: src/sections/faq/become-partner-faq.data.ts
+msgid "What is a Lead Integrator?"
+msgstr "リードインテグレーターとは何ですか？"
 
 #. js-lingui-id: WVQaGB
 #: src/case-studies/case-study-stories.ts
@@ -9483,6 +10096,11 @@ msgstr "学生がキャンパスイベントでQRから登録すると、シス�
 msgid "When customers talk to your AI"
 msgstr "顧客があなたの AI と会話するとき"
 
+#. js-lingui-id: ZU1OEV
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "When do I get paid?"
+msgstr "いつ支払いを受けられますか？"
+
 #. js-lingui-id: chISDP
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "When importing records, you can now import relations between records. For example, you can import a CSV file that includes a column for related records, such as linking contacts to companies or tasks to projects."
@@ -9532,6 +10150,11 @@ msgstr "CRMそのものがプロダクトであるとき：W3Grads on Twenty | W
 msgid "Where the caps and gates are"
 msgstr "どこに上限やゲートがあるのか"
 
+#. js-lingui-id: hFwtrZ
+#: src/sections/faq/affiliate-program-faq.data.ts
+msgid "Which plans count?"
+msgstr "対象となるプランはどれですか？"
+
 #. js-lingui-id: bGN8u+
 #: src/case-studies/case-study-stories.ts
 msgid "While NetZero still runs a second CRM in parallel for WhatsApp-heavy operations with farmers in Brazil, they expect to migrate all of it to Twenty as features and the ecosystem grow. Already, their structured, multinational pipeline is powered by Twenty."
@@ -9541,6 +10164,11 @@ msgstr "NetZeroは依然として、ブラジルの農家向けにWhatsAppを多
 #: src/partner-application/partner-application-copy.ts
 msgid "Who it was for, what you built, which of the four areas you used…"
 msgstr "誰のためのものか、何を構築したか、4 つの領域のうちどれを使ったか…"
+
+#. js-lingui-id: G3PhW3
+#: src/sections/affiliate-program/AffiliateAudiences.tsx
+msgid "Who it's for"
+msgstr "対象者"
 
 #. js-lingui-id: DJlSwA
 #: src/sections/menu/data/menu.ts
@@ -9761,9 +10389,6 @@ msgstr "Yemen 🇾🇪"
 #: src/sections/pricing-plan-table/plan-table-data.ts
 #: src/sections/pricing-plan-table/plan-table-data.ts
 #: src/sections/pricing-plan-table/plan-table-data.ts
-#: src/sections/pricing-plan-table/plan-table-data.ts
-#: src/sections/pricing-plan-table/plan-table-data.ts
-#: src/sections/pricing-plan-table/plan-table-data.ts
 #: src/sections/pricing-plan-table/PlanTableContent.tsx
 msgid "Yes"
 msgstr "はい"
@@ -9908,6 +10533,16 @@ msgstr "レコードを月次カレンダー表示で可視化できるように
 msgid "You don't buy your deployment pipeline off the shelf. You don't rent your data warehouse from a vendor who decides the schema. You build it, you own it, you iterate on it every week. CRM is going the same way. The teams that treat it as infrastructure they own will compound an advantage every quarter."
 msgstr "標準品としてデプロイメントパイプラインを購入することはありませんし、スキーマをベンダーに決められたデータウェアハウスをレンタルすることもありません。自分たちで構築し、所有し、毎週のように改善を重ねていきます。CRMも同じ方向に向かっています。CRMを自分たちのインフラとして扱うチームは、四半期ごとに複利的な優位性を積み上げていくことになるのです。"
 
+#. js-lingui-id: ioTagD
+#: src/app/[locale]/(site)/partners/creators/page.tsx
+msgid "You implement Twenty *for your clients?*"
+msgstr "クライアントのためにTwentyを*導入していますか？*"
+
+#. js-lingui-id: lcwHh9
+#: src/sections/partner-programs/partner-levels.data.ts
+msgid "You implement Twenty for clients you bring yourself."
+msgstr "自ら紹介したクライアント向けに Twenty を導入します。"
+
 #. js-lingui-id: AUzqeZ
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "You now have the ability to duplicate nodes, change node types, and use a streamlined filter design in your workflows."
@@ -9952,6 +10587,16 @@ msgstr "組織ライセンスが正常にアクティベートされました。
 #: src/platform/releases/ReleaseNotes.tsx
 msgid "Your workspace is backed by a git repo, so you can branch, review in pull requests, and roll back changes the same way you ship code."
 msgstr "ワークスペースは Git リポジトリによって裏付けられているため、ブランチ作成、プルリクエストでのレビュー、ロールバックなどを、コード出荷と同じ方法で行えます。"
+
+#. js-lingui-id: MWF4pS
+#: src/sections/affiliate-program/affiliate-audiences.data.ts
+msgid "YouTube, newsletters, LinkedIn, TikTok: anyone covering GTM tools."
+msgstr "YouTube、ニュースレター、LinkedIn、TikTok：GTMツールを扱うすべての方。"
+
+#. js-lingui-id: Lkub4e
+#: src/affiliate-application/affiliate-application-copy.ts
+msgid "youtube.com/@yourname"
+msgstr "youtube.com/@yourname"
 
 #. js-lingui-id: CgGN5T
 #: src/partner-application/data/partner-country-options.ts

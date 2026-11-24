@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ChannelVisibilityModule } from 'src/engine/permissions/channel-visibility/channel-visibility.module';
 import { ApiKeyModule } from 'src/engine/core-modules/api-key/api-key.module';
 import { AppTokenEntity } from 'src/engine/core-modules/app-token/app-token.entity';
+import { OAuthClientRegistrationModule } from 'src/engine/core-modules/application/application-oauth/oauth-client-registration/oauth-client-registration.module';
 import { ApplicationRegistrationModule } from 'src/engine/core-modules/application/application-registration/application-registration.module';
 import { ApplicationModule } from 'src/engine/core-modules/application/application.module';
 import { ConnectionProviderCustomController } from 'src/engine/core-modules/application/connection-provider/connection-provider-custom.controller';
@@ -64,7 +66,7 @@ import { CalendarChannelEntity } from 'src/engine/metadata-modules/calendar-chan
 import { ConnectedAccountEntity } from 'src/engine/metadata-modules/connected-account/entities/connected-account.entity';
 import { ConnectedAccountTokenEncryptionModule } from 'src/engine/metadata-modules/connected-account/services/connected-account-token-encryption.module';
 import { MessageChannelEntity } from 'src/engine/metadata-modules/message-channel/entities/message-channel.entity';
-import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
+import { PermissionsModule } from 'src/engine/permissions/permissions.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 import { CalendarCommonModule } from 'src/modules/calendar/common/calendar-common.module';
 import { ConnectedAccountModule } from 'src/modules/connected-account/connected-account.module';
@@ -81,6 +83,7 @@ import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/m
 @Module({
   imports: [
     MpassProxyAuthModule,
+    ChannelVisibilityModule,
     JwtModule,
     WorkspaceDomainsModule,
     TokenModule,
@@ -117,6 +120,7 @@ import { MpassProxyAuthModule } from 'src/engine/core-modules/mpass-proxy-auth/m
     SubdomainManagerModule,
     DomainServerConfigModule,
     ApplicationRegistrationModule,
+    OAuthClientRegistrationModule,
     ApplicationModule,
     ConnectionProviderModule,
     ApplicationConnectionsModule,

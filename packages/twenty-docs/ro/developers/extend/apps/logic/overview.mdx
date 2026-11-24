@@ -33,7 +33,7 @@ import { CardTitle } from "/snippets/card-title.mdx"
     <CardTitle>Logic Funcții</CardTitle>
     Piesa de bază a construcției - declanșează tipuri, încărcături și clientul API tastat.
   </Card>
-  <Card href="/ro/developers/extend/apps/logic/skills-and-agents" img="/images/user-guide/halftone/card-page-skills-agents.svg">
+  <Card href="/ro/developers/extend/apps/logic/skills-and-agents" img="/images/documentation/topic-icons-v1/agents.svg">
     <CardTitle>Abilități & Agenți</CardTitle>
     Instrucțiuni de utilizare AI pentru agenți și asistenți cu instrucțiuni de sistem personalizat.
   </Card>
@@ -71,20 +71,20 @@ import { CardTitle } from "/snippets/card-title.mdx"
 
 O funcție de logică alege unul sau mai multe declanșatoare — fiecare intrare de mai jos este un câmp separat pe `defineLogicFunction()`:
 
-| Declanșator                   | Când rulează                                                      | Setare                          |
-| ----------------------------- | ----------------------------------------------------------------- | ------------------------------- |
-| **Rută HTTP**                 | O cerere ajunge la endpointul tău `/s/\<path>`   | `httpRouteTriggerSettings`      |
-| **Cron**                      | O expresie CRON se potrivește                                     | `cronTriggerSettings`           |
-| **Eveniment de bază de date** | O înregistrare din workspace este creată, actualizată sau ștearsă | `databaseEventTriggerSettings`  |
-| **Instrument IA**             | O funcționalitate IA din Twenty decide să apeleze funcția ta      | `toolTriggerSettings`           |
-| **Acțiune Workflow**          | Un pas din workflow îți invocă funcția                            | `workflowActionTriggerSettings` |
+| Declanșator                   | Când rulează                                                      | Setare                                        |
+| ----------------------------- | ----------------------------------------------------------------- | --------------------------------------------- |
+| **Rută HTTP**                 | O cerere ajunge la endpointul tău `/s/\<path>`   | `httpRouteTriggerSettings`                    |
+| **Cron**                      | O expresie CRON se potrivește                                     | `cronTriggerSettings`                         |
+| **Eveniment de bază de date** | O înregistrare din workspace este creată, actualizată sau ștearsă | `eventTriggerSettings` cu `on: 'recordEvent'` |
+| **Instrument IA**             | O funcționalitate IA din Twenty decide să apeleze funcția ta      | `toolTriggerSettings`                         |
+| **Acțiune Workflow**          | Un pas din workflow îți invocă funcția                            | `workflowActionTriggerSettings`               |
 
 Funcțiile rulează în sandbox, în procese Node.js izolate și accesează workspace-ul printr-un client API cu tipuri, limitat la rolul declarat în [`defineApplication()`](/ro/developers/extend/apps/config/application).
 
 <Note>
 **Hook-uri de instalare** — cod care rulează înainte sau după instalare — folosesc același runtime, dar au propriile lor funcții define și se află sub [Config → Install Hooks](/ro/developers/extend/apps/config/install-hooks).
 
-[**verificarea stării de funcționare**](/ro/developers/extend/apps/logic/logic-functions#health-check) o partajează și ea. Nu declară niciun declanșator: Twenty o apelează la cerere atunci când se deschide pagina de setări a aplicației.
+[**verificarea stării de funcționare**](/ro/developers/extend/apps/logic/logic-functions#health-check) o partajează și ea. O aplicație declară o verificare fără declanșator. În mod implicit, Twenty apelează gestionarul său fără argumente atunci când se deschid setările aplicației spațiului de lucru. Setați `runOnUserPreferences: true` pentru a o rula în schimb pe pagina de preferințe Aplicații a unui membru, cu `userWorkspaceId` obligatoriu al acestuia.
 </Note>
 
 <PageBanner illustration="section-apps-logic" />

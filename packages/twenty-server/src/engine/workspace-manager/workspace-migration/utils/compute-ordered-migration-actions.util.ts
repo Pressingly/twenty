@@ -10,12 +10,15 @@ export const computeOrderedMigrationActions = (
     ...aggregatedOrchestratorActionsReport.searchFieldMetadata.update,
 
     ...aggregatedOrchestratorActionsReport.index.delete,
+    ...aggregatedOrchestratorActionsReport.fieldMetadataOption.delete,
     ...aggregatedOrchestratorActionsReport.fieldMetadata.delete,
     ...aggregatedOrchestratorActionsReport.objectMetadata.delete,
     ...aggregatedOrchestratorActionsReport.objectMetadata.create,
     ...aggregatedOrchestratorActionsReport.objectMetadata.update,
     ...aggregatedOrchestratorActionsReport.fieldMetadata.create,
     ...aggregatedOrchestratorActionsReport.fieldMetadata.update,
+    ...aggregatedOrchestratorActionsReport.fieldMetadataOption.create,
+    ...aggregatedOrchestratorActionsReport.fieldMetadataOption.update,
     ...aggregatedOrchestratorActionsReport.index.create,
     ...aggregatedOrchestratorActionsReport.index.update.flat(),
 
@@ -59,12 +62,16 @@ export const computeOrderedMigrationActions = (
     ...aggregatedOrchestratorActionsReport.role.create,
     ...aggregatedOrchestratorActionsReport.role.update,
 
-    // Role targets delete before agents (roleTarget may FK to agent)
+    // Role targets delete before agents and webhooks (roleTarget may FK to either)
     ...aggregatedOrchestratorActionsReport.roleTarget.delete,
 
     ...aggregatedOrchestratorActionsReport.agent.delete,
     ...aggregatedOrchestratorActionsReport.agent.create,
     ...aggregatedOrchestratorActionsReport.agent.update,
+
+    ...aggregatedOrchestratorActionsReport.webhook.delete,
+    ...aggregatedOrchestratorActionsReport.webhook.create,
+    ...aggregatedOrchestratorActionsReport.webhook.update,
 
     ...aggregatedOrchestratorActionsReport.roleTarget.create,
     ...aggregatedOrchestratorActionsReport.roleTarget.update,
@@ -73,9 +80,9 @@ export const computeOrderedMigrationActions = (
     ...aggregatedOrchestratorActionsReport.objectPermission.create,
     ...aggregatedOrchestratorActionsReport.objectPermission.update,
 
-    ...aggregatedOrchestratorActionsReport.fieldPermission.delete,
-    ...aggregatedOrchestratorActionsReport.fieldPermission.create,
-    ...aggregatedOrchestratorActionsReport.fieldPermission.update,
+    // Field permissions and predicate groups point to rules, so rules exist before either is written
+    ...aggregatedOrchestratorActionsReport.rowLevelPermissionRule.create,
+    ...aggregatedOrchestratorActionsReport.rowLevelPermissionRule.update,
 
     ...aggregatedOrchestratorActionsReport.rolePermissionFlag.delete,
     ...aggregatedOrchestratorActionsReport.permissionFlag.delete,
@@ -136,6 +143,10 @@ export const computeOrderedMigrationActions = (
     ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicateGroup
       .update,
 
+    ...aggregatedOrchestratorActionsReport.fieldPermission.delete,
+    ...aggregatedOrchestratorActionsReport.fieldPermission.create,
+    ...aggregatedOrchestratorActionsReport.fieldPermission.update,
+
     ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicate.delete,
     ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicate.create,
     ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicate.update,
@@ -143,10 +154,7 @@ export const computeOrderedMigrationActions = (
     // Predicates and child groups CASCADE on their group, so one moved out of a dropped group must be repointed before that group goes
     ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicateGroup
       .delete,
-
-    ...aggregatedOrchestratorActionsReport.webhook.delete,
-    ...aggregatedOrchestratorActionsReport.webhook.create,
-    ...aggregatedOrchestratorActionsReport.webhook.update,
+    ...aggregatedOrchestratorActionsReport.rowLevelPermissionRule.delete,
 
     ...aggregatedOrchestratorActionsReport.mcpServer.delete,
 

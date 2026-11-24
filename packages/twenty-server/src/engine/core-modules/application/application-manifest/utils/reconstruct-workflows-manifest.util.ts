@@ -2,7 +2,6 @@ import {
   getWorkflowVersionUniversalIdentifier,
   type WorkflowManifest,
 } from 'twenty-shared/application';
-import { WorkflowVisibility } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
 import { WORKFLOW_CHANGED_IN_BUILDER_REASON } from 'src/engine/core-modules/application/application-manifest/constants/workflow-changed-in-builder-reason.constant';
@@ -88,6 +87,7 @@ export const reconstructWorkflowsManifest = ({
   allFlatEntityMaps,
   exportedObjectUniversalIdentifiers,
   resolvableFieldUniversalIdentifiers,
+  exportedAgentUniversalIdentifiers,
   isWorkspaceCustomApplication,
   connectedAccounts,
 }: {
@@ -95,6 +95,7 @@ export const reconstructWorkflowsManifest = ({
   allFlatEntityMaps: AllFlatEntityMaps;
   exportedObjectUniversalIdentifiers: ReadonlySet<string>;
   resolvableFieldUniversalIdentifiers: ReadonlySet<string>;
+  exportedAgentUniversalIdentifiers: ReadonlySet<string>;
   isWorkspaceCustomApplication: boolean;
   connectedAccounts: readonly ConnectedAccountForWorkflowStepResolution[];
 }): {
@@ -109,6 +110,7 @@ export const reconstructWorkflowsManifest = ({
       allFlatEntityMaps,
       exportedObjectUniversalIdentifiers,
       resolvableFieldUniversalIdentifiers,
+      exportedAgentUniversalIdentifiers,
       canReferenceOtherApplicationsWorkflowActions:
         isWorkspaceCustomApplication,
     }),
@@ -120,9 +122,7 @@ export const reconstructWorkflowsManifest = ({
       return 'system workflow';
     }
 
-    return flatWorkflow.visibility === WorkflowVisibility.PRIVATE
-      ? 'private workflow'
-      : undefined;
+    return flatWorkflow.isPrivate ? 'private workflow' : undefined;
   };
 
   const convertFlatWorkflow = (

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CoreEntityCacheModule } from 'src/engine/core-entity-cache/core-entity-cache.module';
+import { ApplicationGrantRoleLookupModule } from 'src/engine/core-modules/application/application-grant-role-lookup/application-grant-role-lookup.module';
 import { CoreCommonApiModule } from 'src/engine/api/common/core-common-api.module';
 import { FileEntity } from 'src/engine/core-modules/file/entities/file.entity';
 import { JwtModule } from 'src/engine/core-modules/jwt/jwt.module';
@@ -12,7 +13,7 @@ import { RecordExportWorkspaceService } from 'src/engine/core-modules/record-exp
 import { UserSessionModule } from 'src/engine/core-modules/user-session/user-session.module';
 import { UserWorkspaceModule } from 'src/engine/core-modules/user-workspace/user-workspace.module';
 import { ApplicationTranslationCatalogModule } from 'src/engine/metadata-modules/application-translation-catalog/application-translation-catalog.module';
-import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
+import { PermissionsModule } from 'src/engine/permissions/permissions.module';
 import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/provide-workspace-scoped-repository';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 
@@ -22,6 +23,7 @@ import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache
     UserSessionModule,
     CoreCommonApiModule,
     CoreEntityCacheModule,
+    ApplicationGrantRoleLookupModule,
     JwtModule,
     UserWorkspaceModule,
     PermissionsModule,

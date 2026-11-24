@@ -1,13 +1,22 @@
 import { lazy } from 'react';
 import { AppPath } from 'twenty-shared/types';
+import { getAppPath } from 'twenty-shared/utils';
 
 import { LazyRoute } from '@/app/components/LazyRoute';
+import { NavigatePreservingSearchAndHash } from '@/app/routing/components/NavigatePreservingSearchAndHash';
 import {
   createSettingsRouteObjects,
   SettingsRouteOutlet,
 } from '@/app/components/SettingsRoutes';
 import { type WorkspaceRouteObject } from '@/app/routing/types/WorkspaceRouteObject';
+import { StandardObjectNamePlural } from '@/object-metadata/types/StandardObjectNamePlural';
 import { RecordIndexSkeletonLoader } from '@/object-record/record-index/components/RecordIndexSkeletonLoader';
+
+const GettingStartedPage = lazy(() =>
+  import('~/pages/getting-started/GettingStartedPage').then((module) => ({
+    default: module.GettingStartedPage,
+  })),
+);
 
 const AgentCoreIndexPage = lazy(() =>
   import('~/pages/object-core/AgentCoreIndexPage').then((module) => ({
@@ -18,6 +27,12 @@ const AgentCoreIndexPage = lazy(() =>
 const AgentCoreShowPage = lazy(() =>
   import('~/pages/object-core/AgentCoreShowPage').then((module) => ({
     default: module.AgentCoreShowPage,
+  })),
+);
+
+const WorkflowCoreIndexPage = lazy(() =>
+  import('~/pages/object-core/WorkflowCoreIndexPage').then((module) => ({
+    default: module.WorkflowCoreIndexPage,
   })),
 );
 
@@ -45,15 +60,15 @@ const StandalonePageLayoutPage = lazy(() =>
   })),
 );
 
-const AiChatPage = lazy(() =>
-  import('~/pages/ai-chat/AiChatPage').then((module) => ({
-    default: module.AiChatPage,
+const LegacyAiChatPage = lazy(() =>
+  import('~/pages/legacy-ai-chat/LegacyAiChatPage').then((module) => ({
+    default: module.LegacyAiChatPage,
   })),
 );
 
-const AiChatInboxPage = lazy(() =>
-  import('~/pages/ai-chat/AiChatInboxPage').then((module) => ({
-    default: module.AiChatInboxPage,
+const InboxPage = lazy(() =>
+  import('~/pages/inbox/InboxPage').then((module) => ({
+    default: module.InboxPage,
   })),
 );
 
@@ -84,6 +99,37 @@ export const createWorkspaceRouteObjects = ({
   });
 
   return [
+    {
+      path: AppPath.GettingStarted,
+      element: (
+        <LazyRoute>
+          <GettingStartedPage />
+        </LazyRoute>
+      ),
+    },
+    {
+      path: AppPath.WorkflowIndexPage,
+      element: (
+        <LazyRoute fallback={<RecordIndexSkeletonLoader />}>
+          <WorkflowCoreIndexPage />
+        </LazyRoute>
+      ),
+      handle: {
+        workspaceSurfaces: MAIN_AND_SIDE_PANEL,
+        isLocationExpandableFromSidePanel: true,
+      },
+    },
+    {
+      path: getAppPath(AppPath.RecordIndexPage, {
+        objectNamePlural: StandardObjectNamePlural.Workflow,
+      }),
+      element: (
+        <NavigatePreservingSearchAndHash
+          to={getAppPath(AppPath.WorkflowIndexPage)}
+        />
+      ),
+      handle: { workspaceSurfaces: MAIN_AND_SIDE_PANEL },
+    },
     {
       path: AppPath.WorkflowCoreShowPage,
       element: (
@@ -149,7 +195,7 @@ export const createWorkspaceRouteObjects = ({
       path: AppPath.AiChat,
       element: (
         <LazyRoute>
-          <AiChatPage />
+          <LegacyAiChatPage />
         </LazyRoute>
       ),
     },
@@ -157,7 +203,7 @@ export const createWorkspaceRouteObjects = ({
       path: AppPath.AiChatInbox,
       element: (
         <LazyRoute>
-          <AiChatInboxPage />
+          <InboxPage />
         </LazyRoute>
       ),
     },

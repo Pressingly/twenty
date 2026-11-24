@@ -18,8 +18,16 @@ import { type ApolloClient } from '@apollo/client';
 import { isNonEmptyArray } from '@sniptt/guards';
 import { useStore } from 'jotai';
 import { useCallback } from 'react';
-import { capitalize, isDefined } from 'twenty-shared/utils';
-import { type SearchRecord, type SearchResultEdge } from '~/generated/graphql';
+import {
+  canAccessThroughAllRecordsOrRlsPermission,
+  capitalize,
+  isDefined,
+} from 'twenty-shared/utils';
+import {
+  type ObjectRecordFilterInput,
+  type SearchRecord,
+  type SearchResultEdge,
+} from '~/generated/graphql';
 
 const MULTIPLE_RECORD_PICKER_PAGE_SIZE = 30;
 
@@ -99,10 +107,13 @@ export const useMultipleRecordPickerPerformSearch = () => {
       );
 
       const isReadable = (objectMetadataItem: EnrichedObjectMetadataItem) =>
-        getObjectPermissionsForObject(
-          objectPermissionsByObjectMetadataId,
-          objectMetadataItem.id,
-        ).canReadObjectRecords;
+        canAccessThroughAllRecordsOrRlsPermission({
+          objectRecordsPermissions: getObjectPermissionsForObject(
+            objectPermissionsByObjectMetadataId,
+            objectMetadataItem.id,
+          ),
+          operationType: 'read',
+        });
 
       const filteredSearchableObjectMetadataItems =
         searchableObjectMetadataItems.filter(isReadable);
@@ -411,7 +422,7 @@ const performSearchQueries = async ({
     filter,
     includedObjectMetadataItems,
   }: {
-    filter: any;
+    filter?: ObjectRecordFilterInput;
     includedObjectMetadataItems: EnrichedObjectMetadataItem[];
   }) => {
     if (includedObjectMetadataItems.length === 0) {

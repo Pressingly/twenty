@@ -9,9 +9,8 @@ import { WithLock } from 'src/engine/core-modules/cache-lock/with-lock.decorator
 import { MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
 import { MetricsKeys } from 'src/engine/core-modules/metrics/types/metrics-keys.type';
 import { RecordPositionService } from 'src/engine/core-modules/record-position/services/record-position.service';
-import { WorkflowRunRecordShareService } from 'src/engine/core-modules/workflow/services/workflow-run-record-share.service';
 import { AgentRunSuspensionService } from 'src/engine/metadata-modules/ai/ai-agent-execution/services/agent-run-suspension.service';
-import { PermissionsException } from 'src/engine/metadata-modules/permissions/permissions.exception';
+import { PermissionsException } from 'src/engine/permissions/permissions.exception';
 import { WorkspaceOrmManager } from 'src/engine/twenty-orm/workspace-orm.manager';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
 import {
@@ -20,7 +19,7 @@ import {
   type WorkflowRunWorkspaceEntity,
 } from 'src/modules/workflow/common/standard-objects/workflow-run.workspace-entity';
 import { setAllIteratorsStepInfosAsStopped } from 'src/modules/workflow/common/utils/set-all-iterators-step-infos-as-stopped.util';
-import { type WorkflowVersionWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow-version.workspace-entity';
+import { type WorkflowVersionEntity } from 'src/engine/core-modules/workflow/entities/workflow-version.entity';
 import { getStepRetryAttempt } from 'src/modules/workflow/workflow-executor/utils/get-step-retry-attempt.util';
 import { type WorkflowAction } from 'src/modules/workflow/workflow-executor/workflow-actions/types/workflow-action.type';
 import { type WorkflowTrigger } from 'src/modules/workflow/workflow-trigger/types/workflow-trigger.type';
@@ -38,7 +37,6 @@ export class WorkflowRunWorkspaceService {
     private readonly workspaceOrmManager: WorkspaceOrmManager,
     private readonly recordPositionService: RecordPositionService,
     private readonly metricsService: MetricsService,
-    private readonly workflowRunRecordShareService: WorkflowRunRecordShareService,
     private readonly workflowStepWaitWorkspaceService: WorkflowStepWaitWorkspaceService,
     private readonly agentRunSuspensionService: AgentRunSuspensionService,
   ) {}
@@ -46,8 +44,6 @@ export class WorkflowRunWorkspaceService {
   async createCoreWorkflowRun({
     coreWorkflowId,
     coreWorkflowVersionId,
-    workspaceWorkflowId,
-    workspaceWorkflowVersionId,
     workflowName,
     trigger,
     steps,
@@ -57,31 +53,28 @@ export class WorkflowRunWorkspaceService {
     triggerPayload,
     error,
     workspaceId,
+    shouldSkipEventEmission = false,
   }: {
     coreWorkflowId: string;
     coreWorkflowVersionId: string;
-    workspaceWorkflowId: string | null;
-    workspaceWorkflowVersionId: string | null;
     workflowName: string | null;
     trigger: WorkflowTrigger;
     steps: WorkflowAction[];
     createdBy: ActorMetadata;
-    status:
-      | WorkflowRunStatus.NOT_STARTED
-      | WorkflowRunStatus.ENQUEUED
-      | WorkflowRunStatus.FAILED;
+    status: WorkflowRunStatus.ENQUEUED | WorkflowRunStatus.FAILED;
     triggerPayload: object;
     workflowRunId?: string;
     error?: string;
     workspaceId: string;
+    shouldSkipEventEmission?: boolean;
   }) {
     const authContext = buildSystemAuthContext(workspaceId);
 
     return this.workspaceOrmManager.executeInWorkspaceContext(async () => {
       const workflowRunRepository =
-        this.workspaceOrmManager.getRepository<WorkflowRunWorkspaceEntity>(
+        this.workspaceOrmManager.getRepositoryWithoutPermissionChecks<WorkflowRunWorkspaceEntity>(
           'workflowRun',
-          { shouldBypassPermissionChecks: true },
+          { shouldSkipEventEmission },
         );
       const position = await this.recordPositionService.buildRecordPosition({
         value: 'first',
@@ -101,8 +94,6 @@ export class WorkflowRunWorkspaceService {
       await workflowRunRepository.insert({
         id,
         name: `#${workflowRunCount + 1} - ${workflowName ?? 'Workflow'}`,
-        workflowVersionId: workspaceWorkflowVersionId,
-        workflowId: workspaceWorkflowId,
         coreWorkflowId,
         coreWorkflowVersionId,
         createdBy,
@@ -110,12 +101,6 @@ export class WorkflowRunWorkspaceService {
         position,
         state: this.getInitState({ trigger, steps }, triggerPayload, error),
         enqueuedAt: status === WorkflowRunStatus.ENQUEUED ? new Date() : null,
-      });
-
-      // A run is a private system-written record, so nobody reads it until it carries its workflow's grants
-      await this.workflowRunRecordShareService.syncRuns({
-        workspaceId,
-        workflowRunIds: [id],
       });
 
       return id;
@@ -135,12 +120,9 @@ export class WorkflowRunWorkspaceService {
       workspaceId,
     });
 
-    if (
-      workflowRunToUpdate.status !== WorkflowRunStatus.ENQUEUED &&
-      workflowRunToUpdate.status !== WorkflowRunStatus.NOT_STARTED
-    ) {
+    if (workflowRunToUpdate.status !== WorkflowRunStatus.ENQUEUED) {
       throw new WorkflowRunException(
-        'Workflow run is not enqueued or not started',
+        'Workflow run is not enqueued',
         WorkflowRunExceptionCode.INVALID_OPERATION,
       );
     }
@@ -511,9 +493,8 @@ export class WorkflowRunWorkspaceService {
 
     return this.workspaceOrmManager.executeInWorkspaceContext(async () => {
       const workflowRunRepository =
-        this.workspaceOrmManager.getRepository<WorkflowRunWorkspaceEntity>(
+        this.workspaceOrmManager.getRepositoryWithoutPermissionChecks<WorkflowRunWorkspaceEntity>(
           'workflowRun',
-          { shouldBypassPermissionChecks: true },
         );
 
       return await workflowRunRepository.findOne({
@@ -535,9 +516,9 @@ export class WorkflowRunWorkspaceService {
       await this.workspaceOrmManager.executeInWorkspaceContext(
         async () =>
           this.workspaceOrmManager
-            .getRepository<WorkflowRunWorkspaceEntity>('workflowRun', {
-              shouldBypassPermissionChecks: true,
-            })
+            .getRepositoryWithoutPermissionChecks<WorkflowRunWorkspaceEntity>(
+              'workflowRun',
+            )
             .findOne({
               where: { id: workflowRunId },
               select: ['id', 'coreWorkflowId'],
@@ -556,9 +537,7 @@ export class WorkflowRunWorkspaceService {
       const workflowRun =
         await this.workspaceOrmManager.executeInWorkspaceContext(() =>
           this.workspaceOrmManager
-            .getRepositoryWithContextPermissions<WorkflowRunWorkspaceEntity>(
-              'workflowRun',
-            )
+            .getRepository<WorkflowRunWorkspaceEntity>('workflowRun')
             .findOne({ where: { id: workflowRunId }, select: { id: true } }),
         );
 
@@ -607,9 +586,8 @@ export class WorkflowRunWorkspaceService {
 
     await this.workspaceOrmManager.executeInWorkspaceContext(async () => {
       const workflowRunRepository =
-        this.workspaceOrmManager.getRepository<WorkflowRunWorkspaceEntity>(
+        this.workspaceOrmManager.getRepositoryWithoutPermissionChecks<WorkflowRunWorkspaceEntity>(
           'workflowRun',
-          { shouldBypassPermissionChecks: true },
         );
 
       const workflowRunToUpdate = await workflowRunRepository.findOneBy({
@@ -628,7 +606,9 @@ export class WorkflowRunWorkspaceService {
   }
 
   private getInitState(
-    workflowVersion: Pick<WorkflowVersionWorkspaceEntity, 'trigger' | 'steps'>,
+    workflowVersion: Pick<WorkflowVersionEntity, 'steps'> & {
+      trigger: WorkflowTrigger | null;
+    },
     triggerPayload: object,
     error?: string,
   ): WorkflowRunState | undefined {

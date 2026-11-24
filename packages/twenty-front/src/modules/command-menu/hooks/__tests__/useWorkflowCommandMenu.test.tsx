@@ -13,7 +13,8 @@ import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/use
 import { t } from '@lingui/core/macro';
 import { act } from 'react';
 import { SidePanelPages } from 'twenty-shared/types';
-import { IconBolt, IconSettingsAutomation, useIcons } from 'twenty-ui/icon';
+import { IconBolt, IconSettingsAutomation } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 import { getJestMetadataAndApolloMocksAndCommandMenuWrapper } from '~/testing/jest/getJestMetadataAndApolloMocksAndCommandMenuWrapper';
 import { getTestEnrichedObjectMetadataItemsMock } from '~/testing/utils/getTestEnrichedObjectMetadataItemsMock';
 
@@ -29,14 +30,14 @@ jest.mock('@/side-panel/hooks/useNavigateSidePanel', () => ({
   }),
 }));
 
-const workflowMockObjectMetadataItem =
+const workflowRunMockObjectMetadataItem =
   getTestEnrichedObjectMetadataItemsMock().find(
-    (item) => item.nameSingular === 'workflow',
+    (item) => item.nameSingular === 'workflowRun',
   )!;
 
 jest.mock('@/object-metadata/hooks/useObjectMetadataItem', () => ({
   useObjectMetadataItem: jest.fn(() => ({
-    objectMetadataItem: workflowMockObjectMetadataItem,
+    objectMetadataItem: workflowRunMockObjectMetadataItem,
   })),
 }));
 
@@ -44,7 +45,7 @@ const wrapper = getJestMetadataAndApolloMocksAndCommandMenuWrapper({
   apolloMocks: [],
   componentInstanceId: SIDE_PANEL_COMPONENT_INSTANCE_ID,
   contextStoreCurrentObjectMetadataNameSingular:
-    workflowMockObjectMetadataItem.nameSingular,
+    workflowRunMockObjectMetadataItem.nameSingular,
   contextStoreCurrentViewId: 'my-view-id',
   contextStoreTargetedRecordsRule: {
     mode: 'selection',

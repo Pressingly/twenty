@@ -1,3 +1,6 @@
+import { ApplicationLogicFunctionExportService } from 'src/engine/core-modules/application/application-manifest/services/application-logic-function-export.service';
+import { APPLICATION_EXPORT_FILE_BUDGET_BYTES } from 'src/engine/core-modules/application/application-manifest/constants/application-export-file-budget-bytes.constant';
+import { ApplicationPublicAssetExportService } from 'src/engine/core-modules/application/application-manifest/services/application-public-asset-export.service';
 import { Injectable } from '@nestjs/common';
 
 import { type Manifest } from 'twenty-shared/application';
@@ -5,6 +8,7 @@ import { ALL_METADATA_NAME } from 'twenty-shared/metadata';
 import { isDefined } from 'twenty-shared/utils';
 
 import { fromFlatApplicationToApplicationManifest } from 'src/engine/core-modules/application/application-manifest/converters/from-flat-application-to-application-manifest.util';
+import { ApplicationFrontComponentExportService } from 'src/engine/core-modules/application/application-manifest/services/application-front-component-export.service';
 import { type ApplicationExport } from 'src/engine/core-modules/application/application-manifest/types/application-export.type';
 import { assertFlatApplicationIsExportable } from 'src/engine/core-modules/application/application-manifest/utils/assert-flat-application-is-exportable.util';
 import { classifyApplicationFlatEntities } from 'src/engine/core-modules/application/application-manifest/utils/classify-application-flat-entities.util';
@@ -15,7 +19,9 @@ import { getResolvableReferenceUniversalIdentifiers } from 'src/engine/core-modu
 import { reconstructNavigationMenuItemsManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-navigation-menu-items-manifest.util';
 import { reconstructPageLayoutsManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-page-layouts-manifest.util';
 import { reconstructRolesManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-roles-manifest.util';
+import { reconstructRelatedRecordPathsManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-related-record-paths-manifest.util';
 import { reconstructSkillsManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-skills-manifest.util';
+import { reconstructValidationRulesManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-validation-rules-manifest.util';
 import { reconstructViewsManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-views-manifest.util';
 import { reconstructWorkflowsManifest } from 'src/engine/core-modules/application/application-manifest/utils/reconstruct-workflows-manifest.util';
 import { ApplicationDependencyFilesService } from 'src/engine/core-modules/application/application-package/application-dependency-files.service';
@@ -48,6 +54,9 @@ const findUniversalIdentifierById = ({
 export class ApplicationManifestExportService {
   constructor(
     private readonly workspaceCacheService: WorkspaceCacheService,
+    private readonly applicationPublicAssetExportService: ApplicationPublicAssetExportService,
+    private readonly applicationLogicFunctionExportService: ApplicationLogicFunctionExportService,
+    private readonly applicationFrontComponentExportService: ApplicationFrontComponentExportService,
     private readonly applicationDependencyFilesService: ApplicationDependencyFilesService,
     private readonly applicationTranslationCacheService: ApplicationTranslationCacheService,
     private readonly applicationRegistrationLookupService: ApplicationRegistrationLookupService,
@@ -59,10 +68,18 @@ export class ApplicationManifestExportService {
     workspaceId,
     applicationUniversalIdentifier,
     shouldIncludeDependencies = false,
+    shouldIncludeSourceFiles = false,
+    shouldIncludeSourceDependencies = false,
+    shouldIncludeLogicFunctionSources = false,
+    shouldIncludePublicAssets = false,
   }: {
     workspaceId: string;
     applicationUniversalIdentifier: string;
     shouldIncludeDependencies?: boolean;
+    shouldIncludeSourceFiles?: boolean;
+    shouldIncludeSourceDependencies?: boolean;
+    shouldIncludeLogicFunctionSources?: boolean;
+    shouldIncludePublicAssets?: boolean;
   }): Promise<ApplicationExport> {
     const { flatApplicationMaps, ...allFlatEntityMaps } =
       await this.workspaceCacheService.getOrRecompute(workspaceId, [
@@ -129,12 +146,41 @@ export class ApplicationManifestExportService {
       allFlatEntityMaps,
       exportedObjectUniversalIdentifiers,
     });
+    const dependencyFiles = shouldIncludeDependencies
+      ? await this.applicationDependencyFilesService.getExportedDependencyFiles(
+          { workspaceId, applicationUniversalIdentifier },
+        )
+      : [];
+    const fileBudget = {
+      remainingBytes: Math.max(
+        0,
+        APPLICATION_EXPORT_FILE_BUDGET_BYTES -
+          Buffer.byteLength(JSON.stringify(dependencyFiles)),
+      ),
+    };
+    const {
+      frontComponents,
+      files: sourceFiles,
+      coverage: frontComponentsCoverage,
+    } = await this.applicationFrontComponentExportService.exportFrontComponents(
+      {
+        workspaceId,
+        applicationUniversalIdentifier,
+        applicationAllFlatEntityMaps,
+        shouldIncludeSourceFiles,
+        shouldIncludeSourceDependencies,
+        fileBudget,
+      },
+    );
     const {
       pageLayouts,
       pageLayoutTabs,
       pageLayoutWidgets,
       coverage: pageLayoutsCoverage,
     } = reconstructPageLayoutsManifest({
+      exportedFrontComponentUniversalIdentifiers: new Set(
+        frontComponents.map(({ universalIdentifier }) => universalIdentifier),
+      ),
       applicationAllFlatEntityMaps,
       allFlatEntityMaps,
       exportedObjectUniversalIdentifiers,
@@ -155,6 +201,20 @@ export class ApplicationManifestExportService {
             metadataName: 'pageLayout',
           }),
       });
+    const {
+      logicFunctions,
+      files: logicFunctionFiles,
+      coverage: logicFunctionsCoverage,
+    } = await this.applicationLogicFunctionExportService.exportLogicFunctions({
+      workspaceId,
+      applicationUniversalIdentifier,
+      applicationAllFlatEntityMaps,
+      shouldIncludeLogicFunctionSources,
+      fileBudget,
+      exportedFiles: sourceFiles,
+    });
+    sourceFiles.push(...logicFunctionFiles);
+
     const { workspaceCustomFlatApplication } =
       await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
         { workspaceId },
@@ -163,16 +223,6 @@ export class ApplicationManifestExportService {
       await this.connectedAccountMetadataService.findAllForWorkflowStepResolution(
         { workspaceId },
       );
-    const { workflows, coverage: workflowsCoverage } =
-      reconstructWorkflowsManifest({
-        applicationAllFlatEntityMaps,
-        allFlatEntityMaps,
-        exportedObjectUniversalIdentifiers,
-        resolvableFieldUniversalIdentifiers,
-        isWorkspaceCustomApplication:
-          flatApplication.id === workspaceCustomFlatApplication.id,
-        connectedAccounts,
-      });
     const { agents, coverage: agentsCoverage } = reconstructAgentsManifest({
       applicationAllFlatEntityMaps,
       allFlatEntityMaps,
@@ -182,14 +232,49 @@ export class ApplicationManifestExportService {
           metadataName: 'role',
         }),
     });
+    const { workflows, coverage: workflowsCoverage } =
+      reconstructWorkflowsManifest({
+        applicationAllFlatEntityMaps,
+        allFlatEntityMaps,
+        exportedObjectUniversalIdentifiers,
+        resolvableFieldUniversalIdentifiers,
+        exportedAgentUniversalIdentifiers: new Set(
+          agents.map(({ universalIdentifier }) => universalIdentifier),
+        ),
+        isWorkspaceCustomApplication:
+          flatApplication.id === workspaceCustomFlatApplication.id,
+        connectedAccounts,
+      });
     const { skills, coverage: skillsCoverage } = reconstructSkillsManifest({
       applicationAllFlatEntityMaps,
     });
+    const { validationRules, coverage: validationRulesCoverage } =
+      reconstructValidationRulesManifest({
+        applicationAllFlatEntityMaps,
+        allFlatEntityMaps,
+        exportedObjectUniversalIdentifiers,
+        resolvableFieldUniversalIdentifiers,
+      });
+    const { relatedRecordPaths, coverage: relatedRecordPathsCoverage } =
+      reconstructRelatedRecordPathsManifest({ applicationAllFlatEntityMaps });
     const translations = isDefined(flatApplication.applicationRegistrationId)
       ? await this.applicationTranslationCacheService.getCatalogsByLocale(
           flatApplication.applicationRegistrationId,
         )
       : undefined;
+
+    const {
+      publicAssets,
+      files: publicAssetFiles,
+      coverage: publicAssetCoverage,
+    } = shouldIncludePublicAssets
+      ? await this.applicationPublicAssetExportService.exportPublicAssets({
+          workspaceId,
+          applicationId: flatApplication.id,
+          applicationUniversalIdentifier,
+          fileBudget,
+        })
+      : { publicAssets: [], files: [], coverage: [] };
 
     const manifest: Manifest = {
       application: fromFlatApplicationToApplicationManifest({
@@ -197,19 +282,19 @@ export class ApplicationManifestExportService {
         defaultRoleUniversalIdentifier:
           findUniversalIdentifierById({
             flatEntityMaps: allFlatEntityMaps.flatRoleMaps,
-            id: flatApplication.defaultRoleId,
+            id: flatApplication.requestedRoleId,
           }) ?? PLACEHOLDER_DEFAULT_ROLE_UNIVERSAL_IDENTIFIER,
       }),
       objects,
       fields,
       indexes,
-      logicFunctions: [],
-      frontComponents: [],
+      logicFunctions,
+      frontComponents,
       permissionFlags,
       roles,
       skills,
       agents,
-      publicAssets: [],
+      publicAssets,
       views,
       viewFields,
       navigationMenuItems,
@@ -219,7 +304,9 @@ export class ApplicationManifestExportService {
       commandMenuItems: [],
       timelineActivityTypes: [],
       settingsMenuItems: [],
+      relatedRecordPaths,
       workflows,
+      validationRules,
       ...(isDefined(translations) ? { translations } : {}),
     };
 
@@ -230,29 +317,35 @@ export class ApplicationManifestExportService {
         sourceType: flatApplication.sourceType,
       },
       manifest,
-      coverage: classifyApplicationFlatEntities({
-        flatApplication,
-        applicationAllFlatEntityMaps,
-        allFlatEntityMaps,
-        reconstructedCoverage: [
-          ...dataModelCoverage,
-          ...rolesCoverage,
-          ...viewsCoverage,
-          ...pageLayoutsCoverage,
-          ...navigationMenuItemsCoverage,
-          ...workflowsCoverage,
-          ...agentsCoverage,
-          ...skillsCoverage,
-        ],
-      }),
-      files: shouldIncludeDependencies
-        ? await this.applicationDependencyFilesService.getExportedDependencyFiles(
-            {
-              workspaceId,
-              applicationUniversalIdentifier,
-            },
-          )
-        : [],
+      coverage: [
+        ...classifyApplicationFlatEntities({
+          flatApplication,
+          applicationAllFlatEntityMaps,
+          allFlatEntityMaps,
+          reconstructedCoverage: [
+            ...dataModelCoverage,
+            ...frontComponentsCoverage,
+            ...logicFunctionsCoverage,
+            ...rolesCoverage,
+            ...viewsCoverage,
+            ...pageLayoutsCoverage,
+            ...navigationMenuItemsCoverage,
+            ...workflowsCoverage,
+            ...agentsCoverage,
+            ...skillsCoverage,
+            ...validationRulesCoverage,
+            ...relatedRecordPathsCoverage,
+          ],
+        }),
+        ...publicAssetCoverage,
+      ],
+      files: [
+        ...(shouldIncludeDependencies ? dependencyFiles : []),
+        ...sourceFiles.filter(
+          (file) => !publicAssetFiles.some((asset) => asset.path === file.path),
+        ),
+        ...publicAssetFiles,
+      ],
     };
   }
 }

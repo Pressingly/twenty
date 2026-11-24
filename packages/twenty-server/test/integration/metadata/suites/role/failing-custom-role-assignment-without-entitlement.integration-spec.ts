@@ -17,7 +17,7 @@ import { type WorkspaceBillingEntitlementsCacheService } from 'src/engine/core-m
 import { type UserEntity } from 'src/engine/core-modules/user/user.entity';
 import { type UserWorkspaceService } from 'src/engine/core-modules/user-workspace/user-workspace.service';
 import { type WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
-import { PermissionsExceptionCode } from 'src/engine/metadata-modules/permissions/permissions.exception';
+import { PermissionsExceptionCode } from 'src/engine/permissions/permissions.exception';
 import { type WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { SEED_APPLE_WORKSPACE_ID } from 'src/engine/workspace-manager/dev-seeder/core/constants/seeder-workspaces.constant';
 import { USER_WORKSPACE_DATA_SEED_IDS } from 'src/engine/workspace-manager/dev-seeder/core/utils/seed-user-workspaces.util';
@@ -96,40 +96,18 @@ describe('Custom role assignment without the custom roles entitlement', () => {
     expectOneNotInternalServerErrorSnapshot({ errors });
   });
 
-  it('should refuse creating a role that members or API keys can be assigned', async () => {
-    const { errors } = await createOneRole({
-      expectToFail: true,
+  it('should still create a role that members or API keys can be assigned', async () => {
+    const { data, errors } = await createOneRole({
+      expectToFail: false,
       input: { label: 'Unentitled custom role' },
     });
 
-    expectOneNotInternalServerErrorSnapshot({ errors });
-  });
-
-  it('should refuse making an agent-only role assignable to members', async () => {
-    const { data } = await createOneRole({
-      expectToFail: false,
-      input: {
-        label: 'Agent role made assignable',
-        canBeAssignedToUsers: false,
-        canBeAssignedToAgents: true,
-        canBeAssignedToApiKeys: false,
-      },
-    });
-
-    const { errors } = await updateOneRole({
-      expectToFail: true,
-      input: {
-        idToUpdate: data.createOneRole.id,
-        updatePayload: { canBeAssignedToUsers: true },
-      },
-    });
+    expect(errors).toBeUndefined();
 
     await deleteOneRole({
       expectToFail: false,
       input: { idToDelete: data.createOneRole.id },
     });
-
-    expectOneNotInternalServerErrorSnapshot({ errors });
   });
 
   it('should still update a custom role that members can already be assigned', async () => {

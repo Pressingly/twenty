@@ -6,6 +6,7 @@ import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
 import { returnToPathState } from '@/auth/states/returnToPathState';
 import { billingState } from '@/client-config/states/billingState';
 import { useIsCurrentLocationOnAWorkspace } from '@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace';
+import { useShouldOpenGettingStarted } from '@/getting-started/hooks/useShouldOpenGettingStarted';
 import { isMinimalMetadataReadyState } from '@/metadata-store/states/isMinimalMetadataReadyState';
 import { useDefaultHomePagePath } from '@/navigation/hooks/useDefaultHomePagePath';
 import { objectMetadataItemsSelector } from '@/object-metadata/states/objectMetadataItemsSelector';
@@ -16,7 +17,7 @@ import { useIsWorkspaceActivationStatusEqualsTo } from '@/workspace/hooks/useIsW
 import { isValidReturnToPath } from '@/auth/utils/isValidReturnToPath';
 import { useQuery } from '@apollo/client/react';
 import { isNonEmptyString } from '@sniptt/guards';
-import { matchPath, useLocation } from 'react-router-dom';
+import { matchPath, useLocation, useMatches } from 'react-router-dom';
 import { AppPath, SettingsPath } from 'twenty-shared/types';
 import { getSettingsPath, isDefined } from 'twenty-shared/utils';
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
@@ -43,15 +44,21 @@ export const usePageChangeEffectNavigateLocation = () => {
   );
   const { defaultHomePagePath } = useDefaultHomePagePath();
   const location = useLocation();
+  const { shouldOpenGettingStarted, isLoading: isGettingStartedLoading } =
+    useShouldOpenGettingStarted({
+      isEnabled:
+        isLogged &&
+        isOnAWorkspace &&
+        onboardingStatus === OnboardingStatus.COMPLETED &&
+        !isWorkspaceSuspended,
+    });
   const billing = useAtomStateValue(billingState);
   const isBillingEnabled = billing?.isBillingEnabled ?? false;
 
   const someMatchingLocationOf = (appPaths: AppPath[]): boolean =>
     appPaths.some((appPath) => isMatchingLocation(location, appPath));
 
-  const objectNamePlural =
-    matchPath(AppPath.RecordIndexPage, location.pathname)?.params
-      .objectNamePlural ?? '';
+  const objectNamePlural = useMatches().at(-1)?.params.objectNamePlural ?? '';
   const objectMetadataItems = useAtomStateValue(objectMetadataItemsSelector);
   const objectMetadataItem = objectMetadataItems?.find(
     (objectMetadataItem) => objectMetadataItem.namePlural === objectNamePlural,
@@ -80,6 +87,11 @@ export const usePageChangeEffectNavigateLocation = () => {
   const resolvedReturnToPath = isNonEmptyString(returnToPath)
     ? returnToPath
     : readReturnToPathFromUrlSearchParams();
+  const homePath = shouldOpenGettingStarted
+    ? AppPath.GettingStarted
+    : defaultHomePagePath;
+  const landingPath =
+    resolvedReturnToPath ?? (isGettingStartedLoading ? undefined : homePath);
 
   const isOnboardingCheckoutPending = useAtomStateValue(
     isOnboardingCheckoutPendingState,
@@ -195,11 +207,11 @@ export const usePageChangeEffectNavigateLocation = () => {
       return;
     }
 
-    return resolvedReturnToPath ?? defaultHomePagePath;
+    return landingPath;
   }
 
   if (isMatchingLocation(location, AppPath.Index) && isLogged) {
-    return resolvedReturnToPath ?? defaultHomePagePath;
+    return landingPath;
   }
 
   if (isMatchingLocation(location, AppPath.Dpa)) {
@@ -209,6 +221,7 @@ export const usePageChangeEffectNavigateLocation = () => {
   if (
     isMinimalMetadataReady &&
     isMatchingLocation(location, AppPath.RecordIndexPage) &&
+    isNonEmptyString(objectNamePlural) &&
     !isDefined(objectMetadataItem)
   ) {
     return AppPath.NotFound;

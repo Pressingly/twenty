@@ -1,8 +1,9 @@
 import { type ExecutionContext } from '@nestjs/common';
 import { type ModuleRef } from '@nestjs/core';
 
+import { SESSION_COOKIE_OPT_IN_HEADER_NAME } from 'twenty-shared/constants';
+
 import { type AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
-import { type MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
 import { InvalidMpassTokenError } from 'src/engine/core-modules/mpass-proxy-auth/errors/invalid-mpass-token.error';
 import { MpassProxyTrustService } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-proxy-trust.service';
 import { type MpassTokenVerifier } from 'src/engine/core-modules/mpass-proxy-auth/services/mpass-token-verifier';
@@ -56,7 +57,16 @@ const buildExecutionContext = (
   return {
     switchToHttp: jest.fn(() => ({
       getRequest: () => request,
-      getResponse: () => ({ ...response, req: request }),
+      getResponse: () => ({
+        ...response,
+        req: {
+          ...request,
+          headers: {
+            ...request.headers,
+            [SESSION_COOKIE_OPT_IN_HEADER_NAME]: 'true',
+          },
+        },
+      }),
     })),
   } as unknown as ExecutionContext;
 };
@@ -80,7 +90,6 @@ const buildServices = (
 
   const userSessionCookieService = new UserSessionCookieService(
     twentyConfigService,
-    { incrementCounterBy: jest.fn() } as unknown as MetricsService,
   );
 
   return {

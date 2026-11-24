@@ -7,12 +7,14 @@ import { type ValidationRuleFieldDescriptor } from 'twenty-shared/types';
 import {
   compileValidationRuleExpression,
   evaluateValidationRuleExpression,
+  getValidationRulePreviousValueFieldPath,
   isDefined,
   parseValidationRuleExpression,
 } from 'twenty-shared/utils';
 import { InlineBanner } from 'twenty-ui/components/feedback';
 import { LightIconButton } from 'twenty-ui/components/input';
-import { IconChevronDown, IconChevronUp, useIcons } from 'twenty-ui/icon';
+import { IconChevronDown, IconChevronUp } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 import { Status } from 'twenty-ui/primitives/data-display';
 import { Card, Tooltip } from 'twenty-ui/primitives/surfaces';
 import { themeCssVariables, useTheme } from 'twenty-ui/theme';
@@ -201,6 +203,7 @@ export const SettingsValidationRulePreview = ({
     ? evaluateValidationRuleExpression({
         expression,
         record,
+        previousRecord: record,
         fields,
         now: new Date().toISOString(),
       })
@@ -299,7 +302,10 @@ export const SettingsValidationRulePreview = ({
                   ? getIcon(editorField.iconName)
                   : undefined;
                 const formattedValue = formatValidationRulePreviewValue(
-                  getValidationRulePreviewValue(record, path),
+                  getValidationRulePreviewValue(
+                    record,
+                    getValidationRulePreviousValueFieldPath(path) ?? path,
+                  ),
                 );
 
                 return (

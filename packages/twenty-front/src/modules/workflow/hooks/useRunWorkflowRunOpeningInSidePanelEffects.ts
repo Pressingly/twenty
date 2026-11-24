@@ -15,7 +15,7 @@ import { generateWorkflowRunDiagram } from '@/workflow/workflow-diagram/utils/ge
 import { getWorkflowNodeIconKey } from '@/workflow/workflow-diagram/utils/getWorkflowNodeIconKey';
 import { useCallback } from 'react';
 import { isDefined } from 'twenty-shared/utils';
-import { useIcons } from 'twenty-ui/icon';
+import { useIcons } from 'twenty-ui/icon/provider';
 import { useStore } from 'jotai';
 
 export const useRunWorkflowRunOpeningInSidePanelEffects = () => {
@@ -50,8 +50,7 @@ export const useRunWorkflowRunOpeningInSidePanelEffects = () => {
         return;
       }
 
-      const workflowId =
-        workflowRunRecord.coreWorkflowId ?? workflowRunRecord.workflowId;
+      const workflowId = workflowRunRecord.coreWorkflowId;
       const workflowVersionId =
         workflowRunRecord.coreWorkflowVersionId ??
         workflowRunRecord.workflowVersionId;

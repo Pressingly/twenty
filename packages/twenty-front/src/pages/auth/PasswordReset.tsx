@@ -10,8 +10,7 @@ import { useIsSsoEnabled } from '@/auth/hooks/useIsSsoEnabled';
 import { currentUserState } from '@/auth/states/currentUserState';
 import { workspacePublicDataState } from '@/auth/states/workspacePublicDataState';
 import { PASSWORD_REGEX } from '@/auth/utils/passwordRegex';
-import { useReadCaptchaToken } from '@/captcha/hooks/useReadCaptchaToken';
-import { useCaptcha } from '@/client-config/hooks/useCaptcha';
+import { useGetCaptchaToken } from '@/captcha/hooks/useGetCaptchaToken';
 import { useIsCurrentLocationOnAWorkspace } from '@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace';
 import { useRedirect } from '@/domain-manager/hooks/useRedirect';
 import { getToastOptionsFromError } from '@/error-handler/utils/getToastOptionsFromError';
@@ -145,8 +144,7 @@ export const PasswordReset = () => {
 
   const { signInWithCredentialsInWorkspace, signInWithCredentials } = useAuth();
   const { isOnAWorkspace } = useIsCurrentLocationOnAWorkspace();
-  const { readCaptchaToken } = useReadCaptchaToken();
-  const { isCaptchaReady } = useCaptcha();
+  const { getCaptchaToken } = useGetCaptchaToken();
 
   const onSubmit = async (formData: Form) => {
     try {
@@ -180,15 +178,7 @@ export const PasswordReset = () => {
         return;
       }
 
-      if (!isCaptchaReady) {
-        enqueueToast({
-          status: 'error',
-          children: t`Captcha (anti-bot check) is still loading, try again`,
-        });
-        return;
-      }
-
-      const token = readCaptchaToken();
+      const token = await getCaptchaToken();
 
       if (isOnAWorkspace) {
         await signInWithCredentialsInWorkspace(

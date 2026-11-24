@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validateAgentRolesWithinApplicationRole } from '@/app/manifest/utils/validate-agent-roles-within-application-role';
 import {
   type AgentManifest,
-  type RoleManifest,
+  type LegacyCompliantRoleManifest,
 } from 'twenty-shared/application';
 import { SystemPermissionFlag } from 'twenty-shared/constants';
 import { STANDARD_OBJECTS } from 'twenty-shared/metadata';
@@ -13,7 +13,9 @@ const AGENT_ROLE_UNIVERSAL_IDENTIFIER = 'agent-role';
 const CUSTOM_OBJECT_UNIVERSAL_IDENTIFIER = 'custom-object';
 const PERSON_UNIVERSAL_IDENTIFIER = STANDARD_OBJECTS.person.universalIdentifier;
 
-const buildRole = (overrides: Partial<RoleManifest> = {}): RoleManifest => ({
+const buildRole = (
+  overrides: Partial<LegacyCompliantRoleManifest> = {},
+): LegacyCompliantRoleManifest => ({
   universalIdentifier: AGENT_ROLE_UNIVERSAL_IDENTIFIER,
   label: 'Agent role',
   ...overrides,
@@ -221,7 +223,24 @@ describe('validateAgentRolesWithinApplicationRole', () => {
     ]);
   });
 
-  it('reports a missing application role and still checks agent role references', () => {
+  it('accepts an external application role without a local definition', () => {
+    const errors = validateAgentRolesWithinApplicationRole({
+      agents: [
+        buildAgent({ roleUniversalIdentifier: undefined }),
+        buildAgent({
+          roleUniversalIdentifier: APPLICATION_ROLE_UNIVERSAL_IDENTIFIER,
+        }),
+      ],
+      roles: [],
+      objects: [],
+      permissionFlags: [],
+      defaultRoleUniversalIdentifier: APPLICATION_ROLE_UNIVERSAL_IDENTIFIER,
+    });
+
+    expect(errors).toEqual([]);
+  });
+
+  it('still checks agent role references with an external application role', () => {
     const errors = validateAgentRolesWithinApplicationRole({
       agents: [
         buildAgent(),
@@ -237,7 +256,6 @@ describe('validateAgentRolesWithinApplicationRole', () => {
     });
 
     expect(errors).toEqual([
-      'Application default role "application-role" is not defined by this application.',
       'Agent "lost-assistant" references role "missing-role", which is not defined by this application.',
     ]);
   });

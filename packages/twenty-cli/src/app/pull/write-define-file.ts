@@ -7,7 +7,6 @@ import {
   DateDisplayFormat,
   FieldMetadataType,
   IndexType,
-  MetadataWritability,
   NavigationMenuItemType,
   NumberDataType,
   ObjectOpenRecordIn,
@@ -45,11 +44,6 @@ const buildFieldEnumBindings = (prefix: string[]): EnumBinding[] => [
     members: FieldMetadataType,
   },
   {
-    path: [...prefix, 'writability'],
-    symbol: 'MetadataWritability',
-    members: MetadataWritability,
-  },
-  {
     path: [...prefix, 'universalSettings', 'relationType'],
     symbol: 'RelationType',
     members: RelationType,
@@ -75,11 +69,6 @@ export const FIELD_ENUM_BINDINGS: EnumBinding[] = buildFieldEnumBindings([]);
 
 export const OBJECT_ENUM_BINDINGS: EnumBinding[] = [
   {
-    path: ['writability'],
-    symbol: 'MetadataWritability',
-    members: MetadataWritability,
-  },
-  {
     path: ['openRecordIn'],
     symbol: 'ObjectOpenRecordIn',
     members: ObjectOpenRecordIn,
@@ -91,9 +80,51 @@ export const INDEX_ENUM_BINDINGS: EnumBinding[] = [
   { path: ['indexType'], symbol: 'IndexType', members: IndexType },
 ];
 
+const ROW_LEVEL_RECORDS_PERMISSIONS_PREDICATE_GROUP_BOUND_DEPTH = 5;
+
+const buildRowLevelRecordsPermissionsPath = (predicateGroupDepth: number) => [
+  'recordsPermissions',
+  'objects',
+  '[]',
+  'rowLevelRecordsPermissions',
+  '[]',
+  ...Array.from({ length: predicateGroupDepth }, () => [
+    'predicateGroups',
+    '[]',
+  ]).flat(),
+];
+
+const buildRowLevelRecordsPermissionsEnumBindings = (): EnumBinding[] => [
+  ...Array.from(
+    { length: ROW_LEVEL_RECORDS_PERMISSIONS_PREDICATE_GROUP_BOUND_DEPTH + 1 },
+    (_, predicateGroupDepth) => ({
+      path: [
+        ...buildRowLevelRecordsPermissionsPath(predicateGroupDepth),
+        'predicates',
+        '[]',
+        'operand',
+      ],
+      symbol: 'RowLevelPermissionPredicateOperand',
+      members: RowLevelPermissionPredicateOperand,
+    }),
+  ),
+  ...Array.from(
+    { length: ROW_LEVEL_RECORDS_PERMISSIONS_PREDICATE_GROUP_BOUND_DEPTH },
+    (_, index) => ({
+      path: [
+        ...buildRowLevelRecordsPermissionsPath(index + 1),
+        'logicalOperator',
+      ],
+      symbol: 'RowLevelPermissionPredicateGroupLogicalOperator',
+      members: RowLevelPermissionPredicateGroupLogicalOperator,
+    }),
+  ),
+];
+
 export const buildRoleEnumBindings = (
   systemPermissionFlag: Record<string, string>,
 ): EnumBinding[] => [
+  ...buildRowLevelRecordsPermissionsEnumBindings(),
   {
     path: ['rowLevelPermissionPredicateGroups', '[]', 'logicalOperator'],
     symbol: 'RowLevelPermissionPredicateGroupLogicalOperator',
@@ -255,10 +286,12 @@ export const writeDefineFile = ({
   definer,
   config,
   enumBindings = [],
+  importStatements = [],
 }: {
   definer: string;
   config: unknown;
   enumBindings?: EnumBinding[];
+  importStatements?: string[];
 }): { content: string; requiredSdkExports: string[] } => {
   const usedSymbols = new Set<string>();
 
@@ -293,7 +326,7 @@ export const writeDefineFile = ({
       : `import {\n${imported.map((name) => `  ${name},`).join('\n')}\n} from 'twenty-sdk/define';`;
 
   return {
-    content: `${importStatement}
+    content: `${[...importStatements, importStatement].join('\n')}
 
 export default ${definer}(${body});
 `,

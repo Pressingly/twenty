@@ -1,9 +1,7 @@
 name: CI Docs
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
 
   pull_request:
 
@@ -11,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-docs-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -25,6 +23,7 @@ jobs:
         packages/twenty-shared/**
         .github/workflows/ci-docs.yaml
         packages/twenty-docs/**
+        packages/twenty-server/src/engine/metadata-modules/ai/ai-front-component/constants/generated/ui-documentation.json
 
   docs-lint:
     needs: changed-files-check

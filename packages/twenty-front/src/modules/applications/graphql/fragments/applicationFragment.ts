@@ -24,7 +24,7 @@ export const APPLICATION_FRAGMENT = gql`
     canBeUninstalled
     autoUpgrade
     createdAt
-    defaultRoleId
+    requestedRoleId
     settingsCustomTabFrontComponentId
     healthCheckLogicFunctionId
     availablePackages
@@ -81,6 +81,7 @@ export const APPLICATION_FRAGMENT = gql`
       icon
       position
       scope
+      slug
     }
     objects {
       ...ObjectMetadataFields
