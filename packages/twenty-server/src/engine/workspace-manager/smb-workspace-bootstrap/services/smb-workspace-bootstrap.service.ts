@@ -12,7 +12,7 @@ import {
 } from 'typeorm';
 import { v4 } from 'uuid';
 
-import { POSTGRESQL_ERROR_CODES } from 'src/engine/api/graphql/workspace-query-runner/constants/postgres-error-codes.constants';
+import { POSTGRESQL_ERROR_CODES } from 'src/engine/workspace-query-executor/constants/postgres-error-codes.constants';
 import { type QueryFailedErrorWithCode } from 'src/engine/api/graphql/workspace-query-runner/utils/workspace-query-runner-graphql-api-exception-handler.util';
 import { CoreEntityCacheService } from 'src/engine/core-entity-cache/services/core-entity-cache.service';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
